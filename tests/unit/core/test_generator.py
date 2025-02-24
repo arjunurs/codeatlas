@@ -279,11 +279,12 @@ def test_generate_navigation(generator):
         {'title': 'Dependencies'}
     ]
     
-    nav_html = generator._generate_navigation('Overview', sections)
+    nav_html = generator._generate_navigation('Overview', sections, './')
     assert isinstance(nav_html, str)
     assert generator.template_manager.templates['navigation'].render.called
     assert generator.template_manager.templates['navigation'].render.call_args[1]['active'] == 'Overview'
     assert generator.template_manager.templates['navigation'].render.call_args[1]['sections'] == ['Overview', 'Dependencies']
+    assert generator.template_manager.templates['navigation'].render.call_args[1]['base_url'] == './'
 
 def test_documentation_content_structure(generator, tmp_path):
     """Test the structure of generated documentation content."""

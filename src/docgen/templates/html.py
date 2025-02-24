@@ -157,12 +157,25 @@ _BASE_TEMPLATE = """
             padding: 0.5rem;
             cursor: pointer;
             border-radius: 4px;
+            display: block;
+            width: 100%;
+            margin-bottom: 0.25rem;
+            white-space: normal;
+            word-wrap: break-word;
         }
         .nav-item:hover {
             background: #f3f4f6;
         }
         .nav-item.active {
             background: #e5e7eb;
+        }
+        .nav-section {
+            margin-bottom: 1rem;
+        }
+        .nav-section h3 {
+            margin-bottom: 0.5rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e5e7eb;
         }
     </style>
     <script>
@@ -243,7 +256,7 @@ _INDEX_TEMPLATE = """
         <ul class="space-y-2">
             {% for section in documentation.sections %}
             <li>
-                <a href="sections/{{ section.title | lower | replace(' ', '_') }}.html" 
+                <a href="{{ base_url }}/sections/{{ section.title | lower | replace(' ', '_') }}.html" 
                    class="text-blue-600 hover:text-blue-800">
                     {{ section.title }}
                 </a>
@@ -255,11 +268,11 @@ _INDEX_TEMPLATE = """
     <div class="bg-white p-6 rounded-lg shadow-lg">
         <h2 class="text-2xl font-semibold mb-4">Diagrams</h2>
         <ul class="space-y-2">
-            <li><a href="diagrams/architecture.html" class="text-blue-600 hover:text-blue-800">System Architecture</a></li>
-            <li><a href="diagrams/dependencies.html" class="text-blue-600 hover:text-blue-800">Package Dependencies</a></li>
-            <li><a href="diagrams/classes.html" class="text-blue-600 hover:text-blue-800">Class Diagram</a></li>
-            <li><a href="diagrams/sequence.html" class="text-blue-600 hover:text-blue-800">Sequence Diagram</a></li>
-            <li><a href="diagrams/call_graph.html" class="text-blue-600 hover:text-blue-800">Call Graph</a></li>
+            <li><a href="{{ base_url }}/diagrams/architecture.html" class="text-blue-600 hover:text-blue-800">System Architecture</a></li>
+            <li><a href="{{ base_url }}/diagrams/dependencies.html" class="text-blue-600 hover:text-blue-800">Package Dependencies</a></li>
+            <li><a href="{{ base_url }}/diagrams/classes.html" class="text-blue-600 hover:text-blue-800">Class Diagram</a></li>
+            <li><a href="{{ base_url }}/diagrams/sequence.html" class="text-blue-600 hover:text-blue-800">Sequence Diagram</a></li>
+            <li><a href="{{ base_url }}/diagrams/call_graph.html" class="text-blue-600 hover:text-blue-800">Call Graph</a></li>
         </ul>
     </div>
 </div>
@@ -329,36 +342,38 @@ _SEARCH_TEMPLATE = """
 
 # Navigation partial template
 _NAVIGATION_TEMPLATE = """
-<nav class="space-y-2">
-    <a href="index.html" class="nav-item {% if active == 'index' %}active{% endif %}">
-        <i class="fas fa-home mr-2"></i> Home
-    </a>
+<nav>
+    <div class="nav-section">
+        <a href="{{ base_url }}index.html" class="nav-item {% if active == 'index' %}active{% endif %}">
+            <i class="fas fa-home mr-2"></i> Home
+        </a>
+    </div>
     
-    <div class="mt-4">
-        <h3 class="font-semibold mb-2">Documentation</h3>
+    <div class="nav-section">
+        <h3 class="font-semibold">Documentation</h3>
         {% for section in sections %}
-        <a href="sections/{{ section | lower | replace(' ', '_') }}.html" 
+        <a href="{{ base_url }}sections/{{ section | lower | replace(' ', '_') }}.html" 
            class="nav-item {% if active == section %}active{% endif %}">
             {{ section }}
         </a>
         {% endfor %}
     </div>
     
-    <div class="mt-4">
-        <h3 class="font-semibold mb-2">Diagrams</h3>
-        <a href="diagrams/architecture.html" class="nav-item {% if active == 'architecture' %}active{% endif %}">
+    <div class="nav-section">
+        <h3 class="font-semibold">Diagrams</h3>
+        <a href="{{ base_url }}diagrams/architecture.html" class="nav-item {% if active == 'architecture' %}active{% endif %}">
             <i class="fas fa-project-diagram mr-2"></i> System Architecture
         </a>
-        <a href="diagrams/dependencies.html" class="nav-item {% if active == 'dependencies' %}active{% endif %}">
+        <a href="{{ base_url }}diagrams/dependencies.html" class="nav-item {% if active == 'dependencies' %}active{% endif %}">
             <i class="fas fa-cubes mr-2"></i> Package Dependencies
         </a>
-        <a href="diagrams/classes.html" class="nav-item {% if active == 'classes' %}active{% endif %}">
+        <a href="{{ base_url }}diagrams/classes.html" class="nav-item {% if active == 'classes' %}active{% endif %}">
             <i class="fas fa-sitemap mr-2"></i> Class Diagram
         </a>
-        <a href="diagrams/sequence.html" class="nav-item {% if active == 'sequence' %}active{% endif %}">
+        <a href="{{ base_url }}diagrams/sequence.html" class="nav-item {% if active == 'sequence' %}active{% endif %}">
             <i class="fas fa-exchange-alt mr-2"></i> Sequence Diagram
         </a>
-        <a href="diagrams/call_graph.html" class="nav-item {% if active == 'call_graph' %}active{% endif %}">
+        <a href="{{ base_url }}diagrams/call_graph.html" class="nav-item {% if active == 'call_graph' %}active{% endif %}">
             <i class="fas fa-code-branch mr-2"></i> Call Graph
         </a>
     </div>

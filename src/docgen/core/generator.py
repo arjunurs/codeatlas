@@ -298,30 +298,24 @@ class CodeDocumentationGenerator:
         """
         try:
             # Generate index page
-            self.template_manager.render_template(
-                'index',
-                {
-                    'title': documentation['title'],
-                    'documentation': documentation,
-                    'navigation': self._generate_navigation('index', documentation['sections'])
-                },
-                output_dir,
-                'index.html'
-            )
+            index_context = {
+                'title': documentation['title'],
+                'documentation': documentation,
+                'base_url': './',  # Current directory for index page
+                'navigation': self._generate_navigation('index', documentation['sections'], './')
+            }
+            self.template_manager.render_template('index', index_context, output_dir, 'index.html')
             
             # Generate section pages
             for section in documentation['sections']:
                 filename = f"sections/{section['title'].lower().replace(' ', '_')}.html"
-                self.template_manager.render_template(
-                    'section',
-                    {
-                        'title': section['title'],
-                        'section': section,
-                        'navigation': self._generate_navigation(section['title'], documentation['sections'])
-                    },
-                    output_dir,
-                    filename
-                )
+                section_context = {
+                    'title': section['title'],
+                    'section': section,
+                    'base_url': '../',  # Parent directory for section pages
+                    'navigation': self._generate_navigation(section['title'], documentation['sections'], '../')
+                }
+                self.template_manager.render_template('section', section_context, output_dir, filename)
             
             # Generate diagram pages
             diagram_files = {
@@ -335,43 +329,39 @@ class CodeDocumentationGenerator:
             for name, diagram in diagram_files.items():
                 if diagram:
                     filename = f"diagrams/{name}.html"
-                    self.template_manager.render_template(
-                        'diagrams',
-                        {
-                            'title': f"{name.replace('_', ' ').title()} Diagram",
-                            'diagram_code': diagram,
-                            'navigation': self._generate_navigation('diagrams', documentation['sections'])
-                        },
-                        output_dir,
-                        filename
-                    )
+                    diagram_context = {
+                        'title': f"{name.replace('_', ' ').title()} Diagram",
+                        'diagram_code': diagram,
+                        'base_url': '../',  # Parent directory for diagram pages
+                        'navigation': self._generate_navigation('diagrams', documentation['sections'], '../')
+                    }
+                    self.template_manager.render_template('diagrams', diagram_context, output_dir, filename)
             
             # Generate search page
-            self.template_manager.render_template(
-                'search',
-                {
-                    'title': 'Search Documentation',
-                    'navigation': self._generate_navigation('search', documentation['sections'])
-                },
-                output_dir,
-                'search.html'
-            )
+            search_context = {
+                'title': 'Search Documentation',
+                'base_url': './',  # Current directory for search page
+                'navigation': self._generate_navigation('search', documentation['sections'], './')
+            }
+            self.template_manager.render_template('search', search_context, output_dir, 'search.html')
             
         except Exception as e:
             logger.error(f"Error generating HTML documentation: {str(e)}")
             raise DocumentationError(f"Failed to generate HTML documentation: {str(e)}")
     
-    def _generate_navigation(self, active_page: str, sections: List[Dict[str, str]]) -> str:
+    def _generate_navigation(self, active_page: str, sections: List[Dict[str, str]], base_url: str) -> str:
         """Generate navigation HTML for the current page.
         
         Args:
             active_page: Currently active page
             sections: List of documentation sections
+            base_url: Base URL for relative paths
             
         Returns:
             Navigation HTML content
         """
         return self.template_manager.templates['navigation'].render(
             active=active_page,
-            sections=[s['title'] for s in sections]
+            sections=[s['title'] for s in sections],
+            base_url=base_url
         ) 
