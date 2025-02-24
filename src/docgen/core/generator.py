@@ -8,6 +8,7 @@ import os
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Sequence
 import logging
+import shutil
 
 from langchain_anthropic import ChatAnthropic
 from langchain_openai import OpenAIEmbeddings
@@ -20,7 +21,7 @@ from langchain.chains import RetrievalQA
 from .analyzer import CodeAnalyzer
 from .diagrams import DiagramGenerator
 from ..models.file_analysis import FileAnalysis
-from ..templates.html import get_documentation_template
+from ..templates.html import get_template_manager
 from ..exceptions.errors import DocumentationError, ApiKeyError
 
 logger = logging.getLogger(__name__)
@@ -99,6 +100,7 @@ class CodeDocumentationGenerator:
         # Initialize analysis components
         self.analyzer = CodeAnalyzer()
         self.diagram_generator = DiagramGenerator()
+        self.template_manager = get_template_manager()
     
     def generate_documentation(self, directory_path: str, output_dir: str) -> None:
         """Generate comprehensive documentation for a Python codebase.
@@ -117,8 +119,12 @@ class CodeDocumentationGenerator:
         
         if not os.path.isdir(abs_directory_path):
             raise ValueError(f"Invalid source directory: {directory_path}")
-        if not os.path.isdir(abs_output_dir):
-            os.makedirs(abs_output_dir)
+            
+        # Create output directory structure
+        os.makedirs(abs_output_dir, exist_ok=True)
+        os.makedirs(os.path.join(abs_output_dir, 'sections'), exist_ok=True)
+        os.makedirs(os.path.join(abs_output_dir, 'diagrams'), exist_ok=True)
+        os.makedirs(os.path.join(abs_output_dir, 'assets'), exist_ok=True)
         
         try:
             # Analyze codebase
@@ -285,22 +291,96 @@ class CodeDocumentationGenerator:
         Args:
             documentation: Dictionary containing documentation content
             diagrams: Dictionary containing Mermaid diagram codes
-            output_dir: Directory where HTML file will be generated
+            output_dir: Directory where HTML files will be generated
             
         Raises:
             DocumentationError: If HTML generation fails
         """
         try:
-            template = get_documentation_template()
-            html_content = template.render(
-                documentation=documentation,
-                diagrams=diagrams
+            # Generate index page
+            self.template_manager.render_template(
+                'index',
+                {
+                    'title': documentation['title'],
+                    'documentation': documentation,
+                    'navigation': self._generate_navigation('index', documentation['sections'])
+                },
+                output_dir,
+                'index.html'
             )
             
-            output_path = os.path.join(output_dir, 'documentation.html')
-            with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(html_content)
+            # Generate section pages
+            for section in documentation['sections']:
+                section_file = f"sections/{section['title'].lower().replace(' ', '_')}.html"
+                self.template_manager.render_template(
+                    'section',
+                    {
+                        'title': section['title'],
+                        'section': section,
+                        'url': section_file,
+                        'navigation': self._generate_navigation(section['title'], documentation['sections'])
+                    },
+                    output_dir,
+                    section_file
+                )
+            
+            # Generate diagram pages
+            diagram_descriptions = {
+                'architecture': 'System architecture showing component relationships',
+                'dependencies': 'Package dependency graph showing external and internal dependencies',
+                'classes': 'Class diagram showing inheritance and composition relationships',
+                'sequence': 'Sequence diagram showing main workflow interactions',
+                'call_graph': 'Function call graph showing code execution flow'
+            }
+            
+            diagram_files = {
+                'architecture': diagrams.get('architecture', ''),
+                'dependencies': diagrams.get('package_dependencies', ''),
+                'classes': diagrams.get('class_diagram', ''),
+                'sequence': diagrams.get('sequence', ''),
+                'call_graph': diagrams.get('function_calls', '')
+            }
+            
+            for name, diagram in diagram_files.items():
+                if diagram:
+                    self.template_manager.render_template(
+                        'diagrams',
+                        {
+                            'title': name.replace('_', ' ').title(),
+                            'diagram': diagram,
+                            'description': diagram_descriptions.get(name, ''),
+                            'navigation': self._generate_navigation(name, documentation['sections'])
+                        },
+                        output_dir,
+                        f"diagrams/{name}.html"
+                    )
+            
+            # Generate search page
+            self.template_manager.render_template(
+                'search',
+                {
+                    'title': 'Search Documentation',
+                    'navigation': self._generate_navigation('search', documentation['sections'])
+                },
+                output_dir,
+                'search.html'
+            )
                 
         except Exception as e:
             logger.error(f"Error generating HTML documentation: {str(e)}")
-            raise DocumentationError(f"Failed to generate HTML documentation: {str(e)}") 
+            raise DocumentationError(f"Failed to generate HTML documentation: {str(e)}")
+    
+    def _generate_navigation(self, active_page: str, sections: List[Dict[str, str]]) -> str:
+        """Generate navigation HTML for the current page.
+        
+        Args:
+            active_page: Currently active page
+            sections: List of documentation sections
+            
+        Returns:
+            Navigation HTML content
+        """
+        return self.template_manager.templates['navigation'].render(
+            active=active_page,
+            sections=[s['title'] for s in sections]
+        ) 
