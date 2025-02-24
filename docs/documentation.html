@@ -1,0 +1,2361 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Code Documentation</title>
+            <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+            <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+            <style>
+                .mermaid {
+                    min-height: 400px;
+                    overflow: auto;
+                }
+                .diagram-container {
+                    width: 100%;
+                    overflow: auto;
+                    resize: both;
+                    min-height: 400px;
+                    border: 1px solid #e5e7eb;
+                    padding: 1rem;
+                }
+                .zoom-buttons {
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    z-index: 100;
+                }
+                .zoom-button {
+                    background: white;
+                    border: 1px solid #e5e7eb;
+                    padding: 5px 10px;
+                    margin: 0 2px;
+                    cursor: pointer;
+                    border-radius: 4px;
+                }
+                .zoom-button:hover {
+                    background: #f3f4f6;
+                }
+            </style>
+            <script>
+                mermaid.initialize({
+                    startOnLoad: true,
+                    theme: 'default',
+                    securityLevel: 'loose',
+                    maxTextSize: 100000,
+                    fontSize: 14,
+                    fontFamily: 'monospace'
+                });
+
+                function zoomDiagram(diagramId, factor) {
+                    const container = document.getElementById(diagramId);
+                    const svg = container.querySelector('svg');
+                    if (!svg) return;
+                    
+                    const currentScale = svg.style.transform ? 
+                        parseFloat(svg.style.transform.replace('scale(', '').replace(')', '')) : 1;
+                    const newScale = currentScale * factor;
+                    
+                    svg.style.transform = `scale(${newScale})`;
+                    svg.style.transformOrigin = 'top left';
+                }
+            </script>
+        </head>
+        <body class="bg-gray-100">
+            <div class="container mx-auto px-4 py-8">
+                <h1 class="text-4xl font-bold mb-8">Code Documentation</h1>
+
+                <!-- Architecture Diagrams -->
+                <div class="mb-12">
+                    <h2 class="text-2xl font-semibold mb-4">System Architecture</h2>
+                    <div class="bg-white rounded-lg shadow-lg relative">
+                        <div class="zoom-buttons">
+                            <button class="zoom-button" onclick="zoomDiagram('arch-diagram', 1.2)">+</button>
+                            <button class="zoom-button" onclick="zoomDiagram('arch-diagram', 0.8)">-</button>
+                        </div>
+                        <div id="arch-diagram" class="diagram-container">
+                            <div class="mermaid">
+                                graph TD
+    task[task]
+    __init__[__init__]
+    llm[llm]
+    crew[crew]
+    agent[agent]
+    process[process]
+    enums[enums]
+    models[models]
+    context[context]
+    unified_trace_controller[unified_trace_controller]
+    crew_output[crew_output]
+    guardrail_result[guardrail_result]
+    conditional_task[conditional_task]
+    output_format[output_format]
+    task_output[task_output]
+    base_tool[base_tool]
+    structured_tool[structured_tool]
+    tool_usage[tool_usage]
+    tool_calling[tool_calling]
+    ask_question_tool[ask_question_tool]
+    delegate_work_tool[delegate_work_tool]
+    base_agent_tools[base_agent_tools]
+    add_image_tool[add_image_tool]
+    agent_tools[agent_tools]
+    cache_tools[cache_tools]
+    crew_chat[crew_chat]
+    usage_metrics[usage_metrics]
+    memory[memory]
+    short_term_memory[short_term_memory]
+    short_term_memory_item[short_term_memory_item]
+    long_term_memory_item[long_term_memory_item]
+    long_term_memory[long_term_memory]
+    contextual_memory[contextual_memory]
+    entity_memory[entity_memory]
+    entity_memory_item[entity_memory_item]
+    user_memory_item[user_memory_item]
+    user_memory[user_memory]
+    mem0_storage[mem0_storage]
+    interface[interface]
+    base_rag_storage[base_rag_storage]
+    ltm_sqlite_storage[ltm_sqlite_storage]
+    kickoff_task_outputs_storage[kickoff_task_outputs_storage]
+    rag_storage[rag_storage]
+    crew_agent_executor[crew_agent_executor]
+    parser[parser]
+    tools_handler[tools_handler]
+    cache_handler[cache_handler]
+    base_agent[base_agent]
+    base_agent_executor_mixin[base_agent_executor_mixin]
+    base_output_converter[base_output_converter]
+    base_token_process[base_token_process]
+    git[git]
+    command[command]
+    config[config]
+    version[version]
+    provider[provider]
+    constants[constants]
+    run_crew[run_crew]
+    create_flow[create_flow]
+    update_crew[update_crew]
+    reset_memories_command[reset_memories_command]
+    evaluate_crew[evaluate_crew]
+    replay_from_task[replay_from_task]
+    cli[cli]
+    install_crew[install_crew]
+    kickoff_flow[kickoff_flow]
+    plot_flow[plot_flow]
+    train_crew[train_crew]
+    utils[utils]
+    add_crew_to_flow[add_crew_to_flow]
+    plus_api[plus_api]
+    create_crew[create_crew]
+    main[main]
+    custom_tool[custom_tool]
+    poem_crew[poem_crew]
+    token[token]
+    crew_base[crew_base]
+    annotations[annotations]
+    planning_handler[planning_handler]
+    formatter[formatter]
+    file_handler[file_handler]
+    rpm_controller[rpm_controller]
+    paths[paths]
+    protocols[protocols]
+    pydantic_schema_parser[pydantic_schema_parser]
+    converter[converter]
+    i18n[i18n]
+    internal_instructor[internal_instructor]
+    logger[logger]
+    printer[printer]
+    prompts[prompts]
+    embedding_configurator[embedding_configurator]
+    training_handler[training_handler]
+    crew_json_encoder[crew_json_encoder]
+    llm_utils[llm_utils]
+    token_counter_callback[token_counter_callback]
+    errors[errors]
+    crew_pydantic_output_parser[crew_pydantic_output_parser]
+    task_output_storage_handler[task_output_storage_handler]
+    context_window_exceeding_exception[context_window_exceeding_exception]
+    task_evaluator[task_evaluator]
+    crew_evaluator_handler[crew_evaluator_handler]
+    crew_events[crew_events]
+    agent_events[agent_events]
+    base_events[base_events]
+    task_events[task_events]
+    flow_events[flow_events]
+    crewai_event_bus[crewai_event_bus]
+    tool_usage_events[tool_usage_events]
+    base_event_listener[base_event_listener]
+    event_listener[event_listener]
+    event_types[event_types]
+    agentops_listener[agentops_listener]
+    knowledge[knowledge]
+    crew_docling_source[crew_docling_source]
+    csv_knowledge_source[csv_knowledge_source]
+    pdf_knowledge_source[pdf_knowledge_source]
+    base_file_knowledge_source[base_file_knowledge_source]
+    base_knowledge_source[base_knowledge_source]
+    text_file_knowledge_source[text_file_knowledge_source]
+    json_knowledge_source[json_knowledge_source]
+    excel_knowledge_source[excel_knowledge_source]
+    string_knowledge_source[string_knowledge_source]
+    base_embedder[base_embedder]
+    fastembed[fastembed]
+    knowledge_utils[knowledge_utils]
+    base_knowledge_storage[base_knowledge_storage]
+    knowledge_storage[knowledge_storage]
+    telemetry[telemetry]
+    visualization_utils[visualization_utils]
+    flow_visualizer[flow_visualizer]
+    flow[flow]
+    state_utils[state_utils]
+    html_template_handler[html_template_handler]
+    path_utils[path_utils]
+    legend_generator[legend_generator]
+    sqlite[sqlite]
+    base[base]
+    decorators[decorators]
+    __init__ --> crew_output
+    __init__ --> base_tool
+    __init__ --> parser
+    __init__ --> tools_handler
+    __init__ --> cache_handler
+    __init__ --> main
+    __init__ --> annotations
+    __init__ --> crew_base
+    __init__ --> converter
+    __init__ --> file_handler
+    __init__ --> i18n
+    __init__ --> internal_instructor
+    __init__ --> logger
+    __init__ --> printer
+    __init__ --> prompts
+    __init__ --> rpm_controller
+    __init__ --> embedding_configurator
+    __init__ --> crew_events
+    __init__ --> agent_events
+    __init__ --> task_events
+    __init__ --> flow_events
+    __init__ --> crewai_event_bus
+    __init__ --> tool_usage_events
+    __init__ --> event_listener
+    __init__ --> agentops_listener
+    __init__ --> telemetry
+    agent_tools --> ask_question_tool
+    agent_tools --> delegate_work_tool
+    cli --> evaluate_crew
+    cli --> install_crew
+    cli --> kickoff_flow
+    cli --> plot_flow
+    cli --> replay_from_task
+    cli --> reset_memories_command
+    cli --> run_crew
+    cli --> train_crew
+    cli --> update_crew
+    utils --> constants
+    main --> constants
+    main --> utils
+    token --> utils
+    agent_events --> base_events
+    flow_events --> base_events
+    tool_usage_events --> base_events
+    event_listener --> agent_events
+    event_listener --> crew_events
+    event_listener --> flow_events
+    event_listener --> task_events
+    event_listener --> tool_usage_events
+    event_types --> agent_events
+    event_types --> crew_events
+    event_types --> flow_events
+    event_types --> task_events
+    event_types --> tool_usage_events
+    fastembed --> base_embedder
+    fastembed --> fastembed
+    visualization_utils --> utils
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-12">
+                    <h2 class="text-2xl font-semibold mb-4">Package Dependencies</h2>
+                    <div class="bg-white rounded-lg shadow-lg relative">
+                        <div class="zoom-buttons">
+                            <button class="zoom-button" onclick="zoomDiagram('deps-diagram', 1.2)">+</button>
+                            <button class="zoom-button" onclick="zoomDiagram('deps-diagram', 0.8)">-</button>
+                        </div>
+                        <div id="deps-diagram" class="diagram-container">
+                            <div class="mermaid">
+                                graph TD
+    langchain_core[langchain-core]
+    pyyaml[pyyaml]
+    langchain_core --> pyyaml
+    packaging[packaging]
+    langchain_core --> packaging
+    langsmith[langsmith]
+    langchain_core --> langsmith
+    typing_extensions[typing-extensions]
+    langchain_core --> typing_extensions
+    tenacity[tenacity]
+    langchain_core --> tenacity
+    pydantic[pydantic]
+    langchain_core --> pydantic
+    jsonpatch[jsonpatch]
+    langchain_core --> jsonpatch
+    langchain_community[langchain-community]
+    langchain_community --> pyyaml
+    langchain_community --> langchain_core
+    requests[requests]
+    langchain_community --> requests
+    dataclasses_json[dataclasses-json]
+    langchain_community --> dataclasses_json
+    numpy[numpy]
+    langchain_community --> numpy
+    langchain_community --> langsmith
+    httpx_sse[httpx-sse]
+    langchain_community --> httpx_sse
+    langchain_community --> tenacity
+    langchain[langchain]
+    langchain_community --> langchain
+    sqlalchemy[sqlalchemy]
+    langchain_community --> sqlalchemy
+    pydantic_settings[pydantic-settings]
+    langchain_community --> pydantic_settings
+    aiohttp[aiohttp]
+    langchain_community --> aiohttp
+    langchain --> pyyaml
+    langchain --> langchain_core
+    langchain --> requests
+    langchain --> numpy
+    langchain --> langsmith
+    langchain_text_splitters[langchain-text-splitters]
+    langchain --> langchain_text_splitters
+    langchain --> tenacity
+    langchain --> pydantic
+    langchain --> sqlalchemy
+    langchain --> aiohttp
+    langchain_anthropic[langchain-anthropic]
+    anthropic[anthropic]
+    langchain_anthropic --> anthropic
+    langchain_anthropic --> langchain_core
+    langchain_anthropic --> pydantic
+    langchain_openai[langchain-openai]
+    openai[openai]
+    langchain_openai --> openai
+    langchain_openai --> langchain_core
+    tiktoken[tiktoken]
+    langchain_openai --> tiktoken
+    sniffio[sniffio]
+    anthropic --> sniffio
+    httpx[httpx]
+    anthropic --> httpx
+    jiter[jiter]
+    anthropic --> jiter
+    distro[distro]
+    anthropic --> distro
+    anthropic --> typing_extensions
+    anthropic --> pydantic
+    anyio[anyio]
+    anthropic --> anyio
+    openai --> sniffio
+    tqdm[tqdm]
+    openai --> tqdm
+    openai --> httpx
+    openai --> jiter
+    openai --> distro
+    openai --> typing_extensions
+    openai --> pydantic
+    openai --> anyio
+    chromadb[chromadb]
+    orjson[orjson]
+    chromadb --> orjson
+    pypika[pypika]
+    chromadb --> pypika
+    uvicorn[uvicorn]
+    chromadb --> uvicorn
+    chromadb --> numpy
+    rich[rich]
+    chromadb --> rich
+    overrides[overrides]
+    chromadb --> overrides
+    bcrypt[bcrypt]
+    chromadb --> bcrypt
+    chroma_hnswlib[chroma-hnswlib]
+    chromadb --> chroma_hnswlib
+    kubernetes[kubernetes]
+    chromadb --> kubernetes
+    opentelemetry_instrumentation_fastapi[opentelemetry-instrumentation-fastapi]
+    chromadb --> opentelemetry_instrumentation_fastapi
+    grpcio[grpcio]
+    chromadb --> grpcio
+    tokenizers[tokenizers]
+    chromadb --> tokenizers
+    chromadb --> pydantic
+    opentelemetry_api[opentelemetry-api]
+    chromadb --> opentelemetry_api
+    onnxruntime[onnxruntime]
+    chromadb --> onnxruntime
+    mmh3[mmh3]
+    chromadb --> mmh3
+    build[build]
+    chromadb --> build
+    chromadb --> pyyaml
+    fastapi[fastapi]
+    chromadb --> fastapi
+    opentelemetry_sdk[opentelemetry-sdk]
+    chromadb --> opentelemetry_sdk
+    chromadb --> tenacity
+    posthog[posthog]
+    chromadb --> posthog
+    chromadb --> tqdm
+    chromadb --> httpx
+    chromadb --> typing_extensions
+    opentelemetry_exporter_otlp_proto_grpc[opentelemetry-exporter-otlp-proto-grpc]
+    chromadb --> opentelemetry_exporter_otlp_proto_grpc
+    importlib_resources[importlib-resources]
+    chromadb --> importlib_resources
+    typer[typer]
+    chromadb --> typer
+    networkx[networkx]
+    jinja2[jinja2]
+    markupsafe[markupsafe]
+    jinja2 --> markupsafe
+    annotated_types[annotated-types]
+    pydantic --> annotated_types
+    pydantic --> typing_extensions
+    pydantic_core[pydantic-core]
+    pydantic --> pydantic_core
+    python_dotenv[python-dotenv]
+    regex[regex]
+    tiktoken --> regex
+    tiktoken --> requests
+    pandas[pandas]
+    pandas --> numpy
+    tzdata[tzdata]
+    pandas --> tzdata
+    python_dateutil[python-dateutil]
+    pandas --> python_dateutil
+    pytz[pytz]
+    pandas --> pytz
+    matplotlib[matplotlib]
+    contourpy[contourpy]
+    matplotlib --> contourpy
+    matplotlib --> packaging
+    cycler[cycler]
+    matplotlib --> cycler
+    pillow[pillow]
+    matplotlib --> pillow
+    matplotlib --> python_dateutil
+    pyparsing[pyparsing]
+    matplotlib --> pyparsing
+    matplotlib --> numpy
+    fonttools[fonttools]
+    matplotlib --> fonttools
+    kiwisolver[kiwisolver]
+    matplotlib --> kiwisolver
+    pytest[pytest]
+    pluggy[pluggy]
+    pytest --> pluggy
+    pytest --> packaging
+    iniconfig[iniconfig]
+    pytest --> iniconfig
+    black[black]
+    black --> packaging
+    pathspec[pathspec]
+    black --> pathspec
+    mypy_extensions[mypy-extensions]
+    black --> mypy_extensions
+    click[click]
+    black --> click
+    platformdirs[platformdirs]
+    black --> platformdirs
+    mypy[mypy]
+    mypy --> typing_extensions
+    mypy --> mypy_extensions
+    ruff[ruff]
+    requirements_parser[requirements-parser]
+    types_setuptools[types-setuptools]
+    requirements_parser --> types_setuptools
+    requirements_parser --> packaging
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-12">
+                    <h2 class="text-2xl font-semibold mb-4">Function Call Graph</h2>
+                    <div class="bg-white rounded-lg shadow-lg relative">
+                        <div class="zoom-buttons">
+                            <button class="zoom-button" onclick="zoomDiagram('calls-diagram', 1.2)">+</button>
+                            <button class="zoom-button" onclick="zoomDiagram('calls-diagram', 0.8)">-</button>
+                        </div>
+                        <div id="calls-diagram" class="diagram-container">
+                            <div class="mermaid">
+                                graph TD
+    _execute_core[_execute_core]
+    isinstance[isinstance]
+    _execute_core --> isinstance
+    Exception[Exception]
+    _execute_core --> Exception
+    str[str]
+    _execute_core --> str
+    interpolate_only[interpolate_only]
+    type[type]
+    interpolate_only --> type
+    ValueError[ValueError]
+    interpolate_only --> ValueError
+    interpolate_only --> isinstance
+    interpolate_only --> str
+    call[call]
+    print[print]
+    call --> print
+    cast[cast]
+    call --> cast
+    len[len]
+    call --> len
+    call --> isinstance
+    hasattr[hasattr]
+    call --> hasattr
+    call --> str
+    getattr[getattr]
+    call --> getattr
+    create_crew_memory[create_crew_memory]
+    create_crew_memory --> isinstance
+    model_validator[model_validator]
+    create_crew_memory --> model_validator
+    from_langchain[from_langchain]
+    from_langchain --> ValueError
+    from_langchain --> hasattr
+    from_langchain --> getattr
+    callable[callable]
+    from_langchain --> callable
+    run_chat[run_chat]
+    load_crew_and_name[load_crew_and_name]
+    run_chat --> load_crew_and_name
+    load_crew_and_name --> str
+    load_crew_and_name --> getattr
+    migrate_pyproject[migrate_pyproject]
+    migrate_pyproject --> print
+    migrate_pyproject --> len
+    migrate_pyproject --> isinstance
+    open[open]
+    migrate_pyproject --> open
+    next[next]
+    migrate_pyproject --> next
+    version[version]
+    get_crew[get_crew]
+    get_crew --> print
+    get_crew --> callable
+    get_crew --> str
+    get_crew --> hasattr
+    get_crew --> getattr
+    publish[publish]
+    publish --> isinstance
+    publish --> next
+    publish --> open
+    crew[crew]
+    crew --> getattr
+    wraps[wraps]
+    crew --> wraps
+    set[set]
+    crew --> set
+    func[func]
+    crew --> func
+    CrewBase[CrewBase]
+    any[any]
+    CrewBase --> any
+    CrewBase --> print
+    CrewBase --> cast
+    CrewBase --> callable
+    CrewBase --> isinstance
+    Path[Path]
+    CrewBase --> Path
+    CrewBase --> open
+    CrewBase --> hasattr
+    CrewBase --> getattr
+    generate_model_description[generate_model_description]
+    issubclass[issubclass]
+    generate_model_description --> issubclass
+    generate_model_description --> len
+    describe_field[describe_field]
+    generate_model_description --> describe_field
+    generate_model_description --> isinstance
+    generate_model_description --> generate_model_description
+    generate_model_description --> type
+    generate_model_description --> hasattr
+    generate_model_description --> str
+    describe_field --> issubclass
+    describe_field --> len
+    describe_field --> describe_field
+    describe_field --> isinstance
+    describe_field --> generate_model_description
+    describe_field --> type
+    describe_field --> hasattr
+    describe_field --> str
+    print --> print
+    print_crew_evaluation_result[print_crew_evaluation_result]
+    list[list]
+    print_crew_evaluation_result --> list
+    enumerate[enumerate]
+    print_crew_evaluation_result --> enumerate
+    print_crew_evaluation_result --> len
+    decorator[decorator]
+    decorator --> cast
+    decorator --> callable
+    setattr[setattr]
+    decorator --> setattr
+    decorator --> isinstance
+    decorator --> hasattr
+    decorator --> getattr
+    add_edges[add_edges]
+    add_edges --> any
+    add_edges --> print
+    add_edges --> len
+    _generate_final_html[_generate_final_html]
+    _generate_final_html --> ValueError
+    _generate_final_html --> str
+    _create_initial_state[_create_initial_state]
+    _create_initial_state --> issubclass
+    _create_initial_state --> cast
+    _create_initial_state --> setattr
+    _create_initial_state --> ValueError
+    _create_initial_state --> isinstance
+    _create_initial_state --> type
+    _create_initial_state --> hasattr
+    _create_initial_state --> str
+    _create_initial_state --> getattr
+    _initialize_state[_initialize_state]
+    _initialize_state --> cast
+    _initialize_state --> ValueError
+    _initialize_state --> isinstance
+    _initialize_state --> type
+    _initialize_state --> hasattr
+    _initialize_state --> str
+    to_serializable[to_serializable]
+    to_serializable --> type
+    to_serializable --> isinstance
+    to_serializable --> to_serializable
+    get_possible_return_constants[get_possible_return_constants]
+    get_possible_return_constants --> print
+    get_possible_return_constants --> list
+    get_possible_return_constants --> set
+    get_possible_return_constants --> len
+    get_possible_return_constants --> isinstance
+    persist[persist]
+    persist --> cast
+    persist --> callable
+    persist --> setattr
+    persist --> isinstance
+    persist --> hasattr
+    persist --> getattr
+    note[Note: Showing top 50 most connected functions]
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-12">
+                    <h2 class="text-2xl font-semibold mb-4">Class Diagram</h2>
+                    <div class="bg-white rounded-lg shadow-lg relative">
+                        <div class="zoom-buttons">
+                            <button class="zoom-button" onclick="zoomDiagram('class-diagram', 1.2)">+</button>
+                            <button class="zoom-button" onclick="zoomDiagram('class-diagram', 0.8)">-</button>
+                        </div>
+                        <div id="class-diagram" class="diagram-container">
+                            <div class="mermaid">
+                                classDiagram
+    class Task {
+        %% Class that represents a task to be executed.
+        %% Each task must have a description, an expected output and an agent responsible for execution.
+        +validate_guardrail_function()
+        +process_model_config()
+        +validate_required_fields()
+        +_deny_user_set_id()
+        +output_file_validation()
+        +set_attributes_based_on_config()
+        +check_tools()
+        +check_output()
+        +execute_sync()
+        +key()
+        +execution_duration()
+        +execute_async()
+        +_execute_task_async()
+        +_execute_core()
+        +prompt()
+        +interpolate_inputs_and_add_conversation_history()
+        +interpolate_only()
+        +increment_tools_errors()
+        +increment_delegations()
+        +copy()
+        +_export_output()
+        +_get_output_format()
+        +_save_file()
+    }
+    class BaseModel
+    BaseModel <|-- Task
+    class FilteredStream {
+        +write()
+        +flush()
+    }
+    class LLM {
+        +_call_llm()
+        +_is_anthropic_model()
+        +call()
+        +_format_messages_for_provider()
+        +_get_custom_llm_provider()
+        +_validate_call_params()
+        +supports_function_calling()
+        +supports_stop_words()
+        +get_context_window_size()
+        +set_callbacks()
+        +set_env_callbacks()
+        +_get_execution_context()
+        +_get_new_messages()
+        +_get_new_tool_results()
+    }
+    class Crew {
+        %% Represents a group of agents, defining how they should collaborate and the tasks they should perform.
+        %% Attributes:
+        +_deny_user_set_id()
+        +check_config_type()
+        +set_private_attrs()
+        +create_crew_memory()
+        +create_crew_knowledge()
+        +check_manager_llm()
+        +check_config()
+        +validate_tasks()
+        +validate_end_with_at_most_one_async_task()
+        +validate_must_have_non_conditional_task()
+        +validate_first_task()
+        +validate_async_tasks_not_async()
+        +validate_async_task_cannot_include_sequential_async_tasks_in_context()
+        +validate_context_no_future_tasks()
+        +key()
+        +_setup_from_config()
+        +_create_task()
+        +_setup_for_training()
+        +train()
+        +kickoff()
+        +kickoff_for_each()
+        +_handle_crew_planning()
+        +_store_execution_log()
+        +_run_sequential_process()
+        +_run_hierarchical_process()
+        +_create_manager_agent()
+        +_execute_tasks()
+        +_handle_conditional_task()
+        +_prepare_tools()
+        +_get_agent_to_use()
+        +_merge_tools()
+        +_inject_delegation_tools()
+        +_add_multimodal_tools()
+        +_add_code_execution_tools()
+        +_add_delegation_tools()
+        +_log_task_start()
+        +_update_manager_tools()
+        +_get_context()
+        +_process_task_result()
+        +_create_crew_output()
+        +_process_async_tasks()
+        +_find_task_index()
+        +replay()
+        +query_knowledge()
+        +fetch_inputs()
+        +copy()
+        +_set_tasks_callbacks()
+        +_interpolate_inputs()
+        +_finish_execution()
+        +calculate_usage_metrics()
+        +test()
+        +reset_memories()
+        +_reset_all_memories()
+        +_reset_specific_memory()
+    }
+    BaseModel <|-- Crew
+    class Agent {
+        %% Represents an agent in a system.
+        %% Each agent has a role, a goal, a backstory, and an optional language model (llm).
+        +post_init_setup()
+        +_setup_agent_executor()
+        +_set_knowledge()
+        +execute_task()
+        +create_agent_executor()
+        +get_delegation_tools()
+        +get_multimodal_tools()
+        +get_code_execution_tools()
+        +get_output_converter()
+        +_parse_tools()
+        +_training_handler()
+        +_use_trained_data()
+        +_render_text_description()
+        +_render_text_description_and_args()
+        +_validate_docker_installation()
+    }
+    class BaseAgent
+    BaseAgent <|-- Agent
+    class Process {
+        %% Class representing the different processes that can be used to tackle tasks
+    }
+    class str
+    str <|-- Process
+    class TraceType {
+    }
+    class Enum
+    Enum <|-- TraceType
+    class RunType {
+    }
+    Enum <|-- RunType
+    class CrewType {
+    }
+    Enum <|-- CrewType
+    class ToolCall {
+        %% Model representing a tool call during execution
+    }
+    BaseModel <|-- ToolCall
+    class LLMRequest {
+        %% Model representing the LLM request details
+    }
+    BaseModel <|-- LLMRequest
+    class LLMResponse {
+        %% Model representing the LLM response details
+    }
+    BaseModel <|-- LLMResponse
+    class FlowStepIO {
+        %% Model representing flow step input/output details
+    }
+    BaseModel <|-- FlowStepIO
+    class CrewTrace {
+        %% Model for tracking detailed information about LLM interactions and Flow steps
+    }
+    BaseModel <|-- CrewTrace
+    class TraceContext {
+        %% Maintains the current trace context throughout the execution stack.
+        %% This class provides a context manager for tracking trace execution across
+        +get_current()
+        +set_current()
+    }
+    class UnifiedTraceController {
+        %% Controls and manages trace execution and recording.
+        %% This class handles the lifecycle of traces including creation, execution tracking,
+        +_add_to_task_traces()
+        +get_task_traces()
+        +clear_task_traces()
+        +_get_current_trace()
+        +start_trace()
+        +end_trace()
+        +add_child_trace()
+        +to_crew_trace()
+        +_record_trace()
+    }
+    class CrewOutput {
+        %% Class that represents the result of a crew.
+        +json()
+        +to_dict()
+    }
+    BaseModel <|-- CrewOutput
+    class GuardrailResult {
+        %% Result from a task guardrail execution.
+        %% This class standardizes the return format of task guardrails,
+        +validate_result_error_exclusivity()
+        +from_tuple()
+    }
+    BaseModel <|-- GuardrailResult
+    class ConditionalTask {
+        %% A task that can be conditionally executed based on the output of another task.
+        %% Note: This cannot be the only task you have in your crew and cannot be the first since its needs context from the previous task.
+        +should_execute()
+        +get_skipped_task_output()
+    }
+    Task <|-- ConditionalTask
+    class OutputFormat {
+        %% Enum that represents the output format of a task.
+    }
+    str <|-- OutputFormat
+    class TaskOutput {
+        %% Class that represents the result of a task.
+        +set_summary()
+        +json()
+        +to_dict()
+    }
+    BaseModel <|-- TaskOutput
+    class BaseTool {
+        +_default_args_schema()
+        +model_post_init()
+        +run()
+        +_run()
+        +to_structured_tool()
+        +from_langchain()
+        +_set_args_schema()
+        +_generate_description()
+        +_get_arg_annotations()
+    }
+    BaseModel <|-- BaseTool
+    class Tool {
+        %% The function that will be executed when the tool is called.
+        +_run()
+        +from_langchain()
+    }
+    BaseTool <|-- Tool
+    class _ArgsSchemaPlaceholder {
+    }
+    class PydanticBaseModel
+    PydanticBaseModel <|-- _ArgsSchemaPlaceholder
+    class CrewStructuredTool {
+        %% A structured tool that can operate on any number of inputs.
+        %% This tool intends to replace StructuredTool with a custom implementation
+        +from_function()
+        +_create_schema_from_function()
+        +_validate_function_signature()
+        +_parse_args()
+        +_run()
+        +invoke()
+        +args()
+    }
+    class ToolUsageErrorException {
+        %% Exception raised for errors in the tool usage.
+    }
+    class Exception
+    Exception <|-- ToolUsageErrorException
+    class ToolUsage {
+        %% Class that represents the usage of a tool by an agent.
+        %% Attributes:
+        +parse_tool_calling()
+        +use()
+        +_use()
+        +_format_result()
+        +_should_remember_format()
+        +_remember_format()
+        +_check_tool_repeated_usage()
+        +_select_tool()
+        +_render()
+        +_function_calling()
+        +_original_tool_calling()
+        +_tool_calling()
+        +_validate_tool_input()
+        +_emit_validate_input_error()
+        +on_tool_error()
+        +on_tool_use_finished()
+        +_prepare_event_data()
+    }
+    class ToolCalling {
+    }
+    BaseModel <|-- ToolCalling
+    class InstructorToolCalling {
+    }
+    PydanticBaseModel <|-- InstructorToolCalling
+    class AskQuestionToolSchema {
+    }
+    BaseModel <|-- AskQuestionToolSchema
+    class AskQuestionTool {
+        %% Tool for asking questions to coworkers
+        +_run()
+    }
+    class BaseAgentTool
+    BaseAgentTool <|-- AskQuestionTool
+    class DelegateWorkToolSchema {
+    }
+    BaseModel <|-- DelegateWorkToolSchema
+    class DelegateWorkTool {
+        %% Tool for delegating work to coworkers
+        +_run()
+    }
+    BaseAgentTool <|-- DelegateWorkTool
+    class AddImageToolSchema {
+    }
+    BaseModel <|-- AddImageToolSchema
+    class AddImageTool {
+        %% Tool for adding images to the content
+        +_run()
+    }
+    BaseTool <|-- AddImageTool
+    class AgentTools {
+        %% Manager class for agent-related tools
+        +tools()
+    }
+    class CacheTools {
+        %% Default tools to hit the cache.
+        +tool()
+        +hit_cache()
+    }
+    BaseModel <|-- CacheTools
+    class ChatInputField {
+        %% Represents a single required input for the crew, with a name and short description.
+        %% Example:
+        %% {
+    }
+    BaseModel <|-- ChatInputField
+    class ChatInputs {
+        %% Holds a high-level crew_description plus a list of ChatInputFields.
+        %% Example:
+        %% {
+    }
+    BaseModel <|-- ChatInputs
+    class UsageMetrics {
+        %% Model to track usage metrics for the crew's execution.
+        %% Attributes:
+        +add_usage_metrics()
+    }
+    BaseModel <|-- UsageMetrics
+    class Memory {
+        %% Base class for memory, now supporting agent tags and generic metadata.
+        +save()
+        +search()
+    }
+    BaseModel <|-- Memory
+    class ShortTermMemory {
+        %% ShortTermMemory class for managing transient data related to immediate tasks
+        %% and interactions.
+        %% Inherits from the Memory class and utilizes an instance of a class that
+        +save()
+        +search()
+        +reset()
+    }
+    Memory <|-- ShortTermMemory
+    class ShortTermMemoryItem {
+    }
+    class LongTermMemoryItem {
+    }
+    class LongTermMemory {
+        %% LongTermMemory class for managing cross runs data related to overall crew's
+        %% execution and performance.
+        %% Inherits from the Memory class and utilizes an instance of a class that
+        +save()
+        +search()
+        +reset()
+    }
+    Memory <|-- LongTermMemory
+    class ContextualMemory {
+        +build_context_for_task()
+        +_fetch_stm_context()
+        +_fetch_ltm_context()
+        +_fetch_entity_context()
+        +_fetch_user_context()
+    }
+    class EntityMemory {
+        %% EntityMemory class for managing structured information about entities
+        %% and their relationships using SQLite storage.
+        %% Inherits from the Memory class.
+        +save()
+        +reset()
+    }
+    Memory <|-- EntityMemory
+    class EntityMemoryItem {
+    }
+    class UserMemoryItem {
+    }
+    class UserMemory {
+        %% UserMemory class for handling user memory storage and retrieval.
+        %% Inherits from the Memory class and utilizes an instance of a class that
+        %% adheres to the Storage for data storage, specifically working with
+        +save()
+        +search()
+    }
+    Memory <|-- UserMemory
+    class Mem0Storage {
+        %% Extends Storage to handle embedding and searching across entities using Mem0.
+        +_sanitize_role()
+        +save()
+        +search()
+        +_get_user_id()
+        +_get_agent_name()
+    }
+    class Storage
+    Storage <|-- Mem0Storage
+    class BaseRAGStorage {
+        %% Base class for RAG-based Storage implementations.
+        +_initialize_agents()
+        +_sanitize_role()
+        +save()
+        +search()
+        +reset()
+        +_generate_embedding()
+        +_initialize_app()
+        +setup_config()
+        +initialize_client()
+    }
+    class ABC
+    ABC <|-- BaseRAGStorage
+    class LTMSQLiteStorage {
+        %% An updated SQLite storage class for LTM data storage.
+        +_initialize_db()
+        +save()
+        +load()
+        +reset()
+    }
+    class KickoffTaskOutputsSQLiteStorage {
+        %% An updated SQLite storage class for kickoff task outputs storage.
+        +_initialize_db()
+        +add()
+        +update()
+        +load()
+        +delete_all()
+    }
+    class RAGStorage {
+        %% Extends Storage to handle embeddings for memory entries, improving
+        %% search efficiency.
+        +_set_embedder_config()
+        +_initialize_app()
+        +_sanitize_role()
+        +_build_storage_file_name()
+        +save()
+        +search()
+        +_generate_embedding()
+        +reset()
+        +_create_default_embedding_function()
+    }
+    BaseRAGStorage <|-- RAGStorage
+    class ToolResult {
+    }
+    class CrewAgentExecutor {
+        +invoke()
+        +_invoke_loop()
+        +_handle_unknown_error()
+        +_has_reached_max_iterations()
+        +_enforce_rpm_limit()
+        +_get_llm_response()
+        +_process_llm_response()
+        +_handle_agent_action()
+        +_invoke_step_callback()
+        +_append_message()
+        +_handle_output_parser_exception()
+        +_is_context_length_exceeded()
+        +_show_start_logs()
+        +_show_logs()
+        +_execute_tool_and_check_finality()
+        +_summarize_messages()
+        +_handle_context_length()
+        +_handle_crew_training_output()
+        +_format_prompt()
+        +_format_answer()
+        +_format_msg()
+        +_handle_human_feedback()
+        +_is_training_mode()
+        +_handle_training_feedback()
+        +_handle_regular_feedback()
+        +_process_feedback_iteration()
+        +_log_feedback_error()
+        +_log_max_retries_exceeded()
+        +_handle_max_iterations_exceeded()
+    }
+    class CrewAgentExecutorMixin
+    CrewAgentExecutorMixin <|-- CrewAgentExecutor
+    class AgentAction {
+    }
+    class AgentFinish {
+    }
+    class OutputParserException {
+    }
+    Exception <|-- OutputParserException
+    class CrewAgentParser {
+        %% Parses ReAct-style LLM calls that have a single tool input.
+        %% Expects output to be in one of two formats.
+        +parse()
+        +_extract_thought()
+        +_clean_action()
+        +_safe_repair_json()
+    }
+    class ToolsHandler {
+        %% Callback handler for tool usage.
+        +on_tool_use()
+    }
+    class CacheHandler {
+        %% Callback handler for tool usage.
+        +add()
+        +read()
+    }
+    BaseModel <|-- CacheHandler
+    class OutputConverter {
+        %% Abstract base class for converting task results into structured formats.
+        %% This class provides a framework for converting unstructured text into
+        +to_pydantic()
+        +to_json()
+    }
+    BaseModel <|-- OutputConverter
+    class TokenProcess {
+        +sum_prompt_tokens()
+        +sum_completion_tokens()
+        +sum_cached_prompt_tokens()
+        +sum_successful_requests()
+        +get_summary()
+    }
+    class Repository {
+        +is_git_installed()
+        +fetch()
+        +status()
+        +is_git_repo()
+        +has_uncommitted_changes()
+        +is_ahead_or_behind()
+        +is_synced()
+        +origin_url()
+    }
+    class BaseCommand {
+    }
+    class PlusAPIMixin {
+        +_validate_response()
+    }
+    class Settings {
+        +dump()
+    }
+    BaseModel <|-- Settings
+    class PlusAPI {
+        %% This class exposes methods for working with the CrewAI+ API.
+        +_make_request()
+        +login_to_tool_repository()
+        +get_tool()
+        +publish_tool()
+        +deploy_by_name()
+        +deploy_by_uuid()
+        +crew_status_by_name()
+        +crew_status_by_uuid()
+        +crew_by_name()
+        +crew_by_uuid()
+        +delete_crew_by_name()
+        +delete_crew_by_uuid()
+        +list_crews()
+        +create_crew()
+    }
+    class ToolCommand {
+        %% A class to handle tool repository related operations for CrewAI projects.
+        +create()
+        +publish()
+        +install()
+        +login()
+        +_add_package()
+        +_ensure_not_in_project()
+        +_build_env_with_credentials()
+    }
+    BaseCommand <|-- ToolCommand
+    class DeployCommand {
+        %% A class to handle deployment-related operations for CrewAI projects.
+        +_standard_no_param_error_message()
+        +_display_deployment_info()
+        +_display_logs()
+        +deploy()
+        +create_crew()
+        +_confirm_input()
+        +_create_payload()
+        +_display_creation_success()
+        +list_crews()
+        +_display_crews()
+        +_display_no_crews_message()
+        +get_crew_status()
+        +_display_crew_status()
+        +get_crew_logs()
+        +remove_crew()
+    }
+    BaseCommand <|-- DeployCommand
+    class MyCustomToolInput {
+        %% Input schema for MyCustomTool.
+    }
+    BaseModel <|-- MyCustomToolInput
+    class MyCustomTool {
+        +_run()
+    }
+    BaseTool <|-- MyCustomTool
+    class PoemCrew {
+        %% Poem Crew
+        +poem_writer()
+        +write_poem()
+        +crew()
+    }
+    class TokenManager {
+        +_get_or_create_key()
+        +save_tokens()
+        +get_token()
+        +get_secure_storage_path()
+        +save_secure_file()
+        +read_secure_file()
+    }
+    class AuthenticationCommand {
+        +signup()
+        +_get_device_code()
+        +_display_auth_instructions()
+        +_poll_for_token()
+    }
+    class WrappedClass {
+        +load_configurations()
+        +load_yaml()
+        +_get_all_functions()
+        +_filter_functions()
+        +map_all_agent_variables()
+        +_map_agent_variables()
+        +map_all_task_variables()
+        +_map_task_variables()
+    }
+    class cls
+    cls <|-- WrappedClass
+    class PlanPerTask {
+        %% Represents a plan for a specific task.
+    }
+    BaseModel <|-- PlanPerTask
+    class PlannerTaskPydanticOutput {
+        %% Output format for task planning results.
+    }
+    BaseModel <|-- PlannerTaskPydanticOutput
+    class CrewPlanner {
+        %% Plans and coordinates the execution of crew tasks.
+        +_handle_crew_planning()
+        +_create_planning_agent()
+        +_create_planner_task()
+        +_get_agent_knowledge()
+        +_create_tasks_summary()
+    }
+    class FileHandler {
+        %% Handler for file operations supporting both JSON and text-based logging.
+        %% Args:
+        +_initialize_path()
+        +log()
+    }
+    class PickleHandler {
+        +initialize_file()
+        +save()
+        +load()
+    }
+    class RPMController {
+        %% Manages requests per minute limiting.
+        +reset_counter()
+        +check_or_wait()
+        +stop_rpm_counter()
+        +_wait_for_next_minute()
+        +_reset_request_count()
+    }
+    BaseModel <|-- RPMController
+    class AgentExecutorProtocol {
+        %% Protocol defining the expected interface for an agent executor.
+        +agent()
+        +task()
+    }
+    class Protocol
+    Protocol <|-- AgentExecutorProtocol
+    class PydanticSchemaParser {
+        +get_schema()
+        +_get_model_schema()
+        +_get_field_type()
+        +_format_list_type()
+        +_format_union_type()
+        +_get_field_type_for_annotation()
+    }
+    BaseModel <|-- PydanticSchemaParser
+    class ConverterError {
+        %% Error raised when Converter fails to parse the input.
+    }
+    Exception <|-- ConverterError
+    class Converter {
+        %% Class that converts text into either pydantic or json.
+        +to_pydantic()
+        +to_json()
+        +_create_instructor()
+        +_convert_with_instructions()
+    }
+    OutputConverter <|-- Converter
+    class InternalInstructor {
+        %% Class that wraps an agent llm with instructor.
+        +set_instructor()
+        +to_json()
+        +to_pydantic()
+    }
+    class Logger {
+        +log()
+    }
+    BaseModel <|-- Logger
+    class CrewTrainingHandler {
+        +save_trained_data()
+        +append()
+        +clear()
+    }
+    PickleHandler <|-- CrewTrainingHandler
+    class Prompts {
+        %% Manages and generates prompts for a generic agent.
+        +task_execution()
+        +_build_prompt()
+    }
+    BaseModel <|-- Prompts
+    class YamlParser {
+        +parse()
+    }
+    class CrewJSONEncoder {
+        %% Custom JSON encoder for CrewAI objects and special types.
+        +default()
+        +_handle_pydantic_model()
+    }
+    class EmbeddingConfigurator {
+        +configure_embedder()
+        +_create_default_embedding_function()
+        +_configure_openai()
+        +_configure_azure()
+        +_configure_ollama()
+        +_configure_vertexai()
+        +_configure_google()
+        +_configure_cohere()
+        +_configure_voyageai()
+        +_configure_bedrock()
+        +_configure_huggingface()
+        +_configure_watson()
+        +_configure_custom()
+    }
+    class WatsonEmbeddingFunction {
+    }
+    class EmbeddingFunction
+    EmbeddingFunction <|-- WatsonEmbeddingFunction
+    class TokenCalcHandler {
+        +log_success_event()
+    }
+    class CustomLogger
+    CustomLogger <|-- TokenCalcHandler
+    class I18N {
+        %% Handles loading and retrieving internationalized prompts.
+        +load_prompts()
+        +slice()
+        +errors()
+        +tools()
+        +retrieve()
+    }
+    BaseModel <|-- I18N
+    class DatabaseOperationError {
+        %% Base exception class for database operation errors.
+    }
+    Exception <|-- DatabaseOperationError
+    class DatabaseError {
+        %% Standardized error message templates for database operations.
+        +format_error()
+    }
+    class CrewPydanticOutputParser {
+        %% Parses text outputs into specified Pydantic models.
+        +parse_result()
+        +_transform_in_valid_json()
+    }
+    class ExecutionLog {
+        %% Represents a log entry for task execution.
+    }
+    BaseModel <|-- ExecutionLog
+    class TaskOutputStorageHandler {
+        +update()
+        +add()
+        +reset()
+        +load()
+    }
+    class Printer {
+        %% Handles colored console output formatting.
+        +print()
+        +_print_bold_purple()
+        +_print_bold_green()
+        +_print_purple()
+        +_print_red()
+        +_print_bold_blue()
+        +_print_yellow()
+        +_print_bold_yellow()
+        +_print_cyan()
+        +_print_bold_cyan()
+        +_print_magenta()
+        +_print_bold_magenta()
+        +_print_green()
+    }
+    class LLMContextLengthExceededException {
+        +_is_context_limit_error()
+        +_get_error_message()
+    }
+    Exception <|-- LLMContextLengthExceededException
+    class Entity {
+    }
+    BaseModel <|-- Entity
+    class TaskEvaluation {
+    }
+    BaseModel <|-- TaskEvaluation
+    class TrainingTaskEvaluation {
+    }
+    BaseModel <|-- TrainingTaskEvaluation
+    class TaskEvaluator {
+        +evaluate()
+        +evaluate_training_data()
+    }
+    class TaskEvaluationPydanticOutput {
+    }
+    BaseModel <|-- TaskEvaluationPydanticOutput
+    class CrewEvaluator {
+        %% A class to evaluate the performance of the agents in the crew based on the tasks they have performed.
+        %% Attributes:
+        +_setup_for_evaluating()
+        +_evaluator_agent()
+        +_evaluation_task()
+        +set_iteration()
+        +print_crew_evaluation_result()
+        +evaluate()
+    }
+    class CrewKickoffStartedEvent {
+        %% Event emitted when a crew starts execution
+    }
+    class CrewEvent
+    CrewEvent <|-- CrewKickoffStartedEvent
+    class CrewKickoffCompletedEvent {
+        %% Event emitted when a crew completes execution
+    }
+    CrewEvent <|-- CrewKickoffCompletedEvent
+    class CrewKickoffFailedEvent {
+        %% Event emitted when a crew fails to complete execution
+    }
+    CrewEvent <|-- CrewKickoffFailedEvent
+    class CrewTrainStartedEvent {
+        %% Event emitted when a crew starts training
+    }
+    CrewEvent <|-- CrewTrainStartedEvent
+    class CrewTrainCompletedEvent {
+        %% Event emitted when a crew completes training
+    }
+    CrewEvent <|-- CrewTrainCompletedEvent
+    class CrewTrainFailedEvent {
+        %% Event emitted when a crew fails to complete training
+    }
+    CrewEvent <|-- CrewTrainFailedEvent
+    class CrewTestStartedEvent {
+        %% Event emitted when a crew starts testing
+    }
+    CrewEvent <|-- CrewTestStartedEvent
+    class CrewTestCompletedEvent {
+        %% Event emitted when a crew completes testing
+    }
+    CrewEvent <|-- CrewTestCompletedEvent
+    class CrewTestFailedEvent {
+        %% Event emitted when a crew fails to complete testing
+    }
+    CrewEvent <|-- CrewTestFailedEvent
+    class AgentExecutionStartedEvent {
+        %% Event emitted when an agent starts executing a task
+    }
+    CrewEvent <|-- AgentExecutionStartedEvent
+    class AgentExecutionCompletedEvent {
+        %% Event emitted when an agent completes executing a task
+    }
+    CrewEvent <|-- AgentExecutionCompletedEvent
+    class AgentExecutionErrorEvent {
+        %% Event emitted when an agent encounters an error during execution
+    }
+    CrewEvent <|-- AgentExecutionErrorEvent
+    class TaskStartedEvent {
+        %% Event emitted when a task starts
+    }
+    CrewEvent <|-- TaskStartedEvent
+    class TaskCompletedEvent {
+        %% Event emitted when a task completes
+    }
+    CrewEvent <|-- TaskCompletedEvent
+    class TaskFailedEvent {
+        %% Event emitted when a task fails
+    }
+    CrewEvent <|-- TaskFailedEvent
+    class TaskEvaluationEvent {
+        %% Event emitted when a task evaluation is completed
+    }
+    CrewEvent <|-- TaskEvaluationEvent
+    class FlowEvent {
+        %% Base class for all flow events
+    }
+    CrewEvent <|-- FlowEvent
+    class FlowStartedEvent {
+        %% Event emitted when a flow starts execution
+    }
+    FlowEvent <|-- FlowStartedEvent
+    class FlowCreatedEvent {
+        %% Event emitted when a flow is created
+    }
+    FlowEvent <|-- FlowCreatedEvent
+    class MethodExecutionStartedEvent {
+        %% Event emitted when a flow method starts execution
+    }
+    FlowEvent <|-- MethodExecutionStartedEvent
+    class MethodExecutionFinishedEvent {
+        %% Event emitted when a flow method completes execution
+    }
+    FlowEvent <|-- MethodExecutionFinishedEvent
+    class MethodExecutionFailedEvent {
+        %% Event emitted when a flow method fails execution
+    }
+    FlowEvent <|-- MethodExecutionFailedEvent
+    class FlowFinishedEvent {
+        %% Event emitted when a flow completes execution
+    }
+    FlowEvent <|-- FlowFinishedEvent
+    class FlowPlotEvent {
+        %% Event emitted when a flow plot is created
+    }
+    FlowEvent <|-- FlowPlotEvent
+    class CrewAIEventsBus {
+        %% A singleton event bus that uses blinker signals for event handling.
+        %% Allows both internal (Flow/Crew) and external event handling.
+        +_initialize()
+        +on()
+        +emit()
+        +clear_handlers()
+        +register_handler()
+        +scoped_handlers()
+    }
+    class ToolUsageEvent {
+        %% Base event for tool usage tracking
+    }
+    CrewEvent <|-- ToolUsageEvent
+    class ToolUsageStartedEvent {
+        %% Event emitted when a tool execution is started
+    }
+    ToolUsageEvent <|-- ToolUsageStartedEvent
+    class ToolUsageFinishedEvent {
+        %% Event emitted when a tool execution is completed
+    }
+    ToolUsageEvent <|-- ToolUsageFinishedEvent
+    class ToolUsageErrorEvent {
+        %% Event emitted when a tool execution encounters an error
+    }
+    ToolUsageEvent <|-- ToolUsageErrorEvent
+    class ToolValidateInputErrorEvent {
+        %% Event emitted when a tool input validation encounters an error
+    }
+    ToolUsageEvent <|-- ToolValidateInputErrorEvent
+    class ToolSelectionErrorEvent {
+        %% Event emitted when a tool selection encounters an error
+    }
+    ToolUsageEvent <|-- ToolSelectionErrorEvent
+    class ToolExecutionErrorEvent {
+        %% Event emitted when a tool execution encounters an error
+    }
+    CrewEvent <|-- ToolExecutionErrorEvent
+    class BaseEventListener {
+        +setup_listeners()
+    }
+    ABC <|-- BaseEventListener
+    class EventListener {
+        +setup_listeners()
+    }
+    BaseEventListener <|-- EventListener
+    class AgentOpsListener {
+        +setup_listeners()
+    }
+    BaseEventListener <|-- AgentOpsListener
+    class Knowledge {
+        %% Knowledge is a collection of sources and setup for the vector store to save and query relevant context.
+        %% Args:
+        %% sources: List[BaseKnowledgeSource] = Field(default_factory=list)
+        +query()
+        +_add_sources()
+        +reset()
+    }
+    BaseModel <|-- Knowledge
+    class CrewDoclingSource {
+        %% Default Source class for converting documents to markdown or json
+        %% This will auto support PDF, DOCX, and TXT, XLSX, Images, and HTML files without any additional dependencies and follows the docling package as the source of truth.
+        +model_post_init()
+        +_load_content()
+        +add()
+        +_convert_source_to_docling_documents()
+        +_chunk_doc()
+        +validate_content()
+        +_validate_url()
+    }
+    class BaseKnowledgeSource
+    BaseKnowledgeSource <|-- CrewDoclingSource
+    class CSVKnowledgeSource {
+        %% A knowledge source that stores and queries CSV file content using embeddings.
+        +load_content()
+        +add()
+        +_chunk_text()
+    }
+    class BaseFileKnowledgeSource
+    BaseFileKnowledgeSource <|-- CSVKnowledgeSource
+    class PDFKnowledgeSource {
+        %% A knowledge source that stores and queries PDF file content using embeddings.
+        +load_content()
+        +_import_pdfplumber()
+        +add()
+        +_chunk_text()
+    }
+    BaseFileKnowledgeSource <|-- PDFKnowledgeSource
+    class TextFileKnowledgeSource {
+        %% A knowledge source that stores and queries text file content using embeddings.
+        +load_content()
+        +add()
+        +_chunk_text()
+    }
+    BaseFileKnowledgeSource <|-- TextFileKnowledgeSource
+    class JSONKnowledgeSource {
+        %% A knowledge source that stores and queries JSON file content using embeddings.
+        +load_content()
+        +_json_to_text()
+        +add()
+        +_chunk_text()
+    }
+    BaseFileKnowledgeSource <|-- JSONKnowledgeSource
+    class ExcelKnowledgeSource {
+        %% A knowledge source that stores and queries Excel file content using embeddings.
+        +validate_file_path()
+        +_process_file_paths()
+        +validate_content()
+        +model_post_init()
+        +_load_content()
+        +convert_to_path()
+        +_import_dependencies()
+        +add()
+        +_chunk_text()
+    }
+    BaseKnowledgeSource <|-- ExcelKnowledgeSource
+    class StringKnowledgeSource {
+        %% A knowledge source that stores and queries plain text content using embeddings.
+        +model_post_init()
+        +validate_content()
+        +add()
+        +_chunk_text()
+    }
+    BaseKnowledgeSource <|-- StringKnowledgeSource
+    class BaseEmbedder {
+        %% Abstract base class for text embedding models
+        +embed_chunks()
+        +embed_texts()
+        +embed_text()
+        +dimension()
+    }
+    ABC <|-- BaseEmbedder
+    class FastEmbed {
+        %% A wrapper class for text embedding models using FastEmbed
+        +embed_chunks()
+        +embed_texts()
+        +embed_text()
+        +dimension()
+    }
+    BaseEmbedder <|-- FastEmbed
+    class BaseKnowledgeStorage {
+        %% Abstract base class for knowledge storage implementations.
+        +search()
+        +save()
+        +reset()
+    }
+    ABC <|-- BaseKnowledgeStorage
+    class KnowledgeStorage {
+        %% Extends Storage to handle embeddings for memory entries, improving
+        %% search efficiency.
+        +search()
+        +initialize_knowledge_storage()
+        +reset()
+        +save()
+        +_create_default_embedding_function()
+        +_set_embedder_config()
+    }
+    BaseKnowledgeStorage <|-- KnowledgeStorage
+    class Telemetry {
+        %% A class to handle anonymous telemetry for the crewai package.
+        %% The data being collected is for development purpose, all data is anonymous.
+        +set_tracer()
+        +_safe_telemetry_operation()
+        +crew_creation()
+        +task_started()
+        +task_ended()
+        +tool_repeated_usage()
+        +tool_usage()
+        +tool_usage_error()
+        +individual_test_result_span()
+        +test_execution_span()
+        +deploy_signup_error_span()
+        +start_deployment_span()
+        +create_crew_deployment_span()
+        +get_crew_logs_span()
+        +remove_crew_span()
+        +crew_execution_span()
+        +end_crew()
+        +_add_attribute()
+        +flow_creation_span()
+        +flow_plotting_span()
+        +flow_execution_span()
+    }
+    class CrewCallVisitor {
+        %% AST visitor to detect .crew() method calls.
+        +visit_Call()
+    }
+    class FlowPlot {
+        %% Handles the creation and rendering of flow visualization diagrams.
+        +plot()
+        +_generate_final_html()
+        +_cleanup_pyvis_lib()
+    }
+    class FlowState {
+        %% Base model for all flow states, ensuring each state has a unique ID.
+    }
+    BaseModel <|-- FlowState
+    class FlowMeta {
+    }
+    class type
+    type <|-- FlowMeta
+    class Flow {
+        %% Base class for all flows.
+        %% Type parameter T must be either Dict[str, Any] or a subclass of BaseModel.
+        +_create_initial_state()
+        +_copy_state()
+        +state()
+        +method_outputs()
+        +flow_id()
+        +_initialize_state()
+        +_restore_state()
+        +kickoff()
+        +_find_triggered_methods()
+        +_log_flow_event()
+        +plot()
+    }
+    class _FlowGeneric {
+    }
+    cls <|-- _FlowGeneric
+    class StateWithId {
+    }
+    class state_type
+    state_type <|-- StateWithId
+    class DictionaryAssignmentVisitor {
+        +visit_Assign()
+    }
+    class ReturnVisitor {
+        +visit_Return()
+    }
+    class HTMLTemplateHandler {
+        %% Handles HTML template processing and generation for flow visualization diagrams.
+        +read_template()
+        +encode_logo()
+        +extract_body_content()
+        +generate_legend_items_html()
+        +generate_final_html()
+    }
+    class SQLiteFlowPersistence {
+        %% SQLite-based implementation of flow state persistence.
+        %% This class provides a simple, file-based persistence implementation using SQLite.
+        +init_db()
+        +save_state()
+        +load_state()
+    }
+    class FlowPersistence
+    FlowPersistence <|-- SQLiteFlowPersistence
+    class PersistenceDecorator {
+        %% Class to handle flow state persistence with consistent logging.
+        +persist_state()
+    }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-12">
+                    <h2 class="text-2xl font-semibold mb-4">Main Workflows</h2>
+                    <div class="bg-white rounded-lg shadow-lg relative">
+                        <div class="zoom-buttons">
+                            <button class="zoom-button" onclick="zoomDiagram('seq-diagram', 1.2)">+</button>
+                            <button class="zoom-button" onclick="zoomDiagram('seq-diagram', 0.8)">-</button>
+                        </div>
+                        <div id="seq-diagram" class="diagram-container">
+                            <div class="mermaid">
+                                sequenceDiagram
+    participant AddImageTool
+    participant AddImageToolSchema
+    participant Agent
+    participant AgentAction
+    participant AgentExecutionCompletedEvent
+    participant AgentExecutionErrorEvent
+    participant AgentExecutionStartedEvent
+    participant AgentExecutorProtocol
+    participant AgentFinish
+    participant AgentOpsListener
+    participant AgentTools
+    participant AskQuestionTool
+    participant AskQuestionToolSchema
+    participant AuthenticationCommand
+    participant BaseAgent
+    participant BaseAgentTool
+    participant BaseCommand
+    participant BaseEmbedder
+    participant BaseEventListener
+    participant BaseFileKnowledgeSource
+    participant BaseKnowledgeSource
+    participant BaseKnowledgeStorage
+    participant BaseRAGStorage
+    participant BaseTool
+    participant CSVKnowledgeSource
+    participant CacheHandler
+    participant CacheTools
+    participant ChatInputField
+    participant ChatInputs
+    participant ConditionalTask
+    participant ContextualMemory
+    participant Converter
+    participant ConverterError
+    participant Crew
+    participant CrewAIEventsBus
+    participant CrewAgentExecutor
+    participant CrewAgentExecutorMixin
+    participant CrewAgentParser
+    participant CrewCallVisitor
+    participant CrewDoclingSource
+    participant CrewEvaluator
+    participant CrewEvent
+    participant CrewJSONEncoder
+    participant CrewKickoffCompletedEvent
+    participant CrewKickoffFailedEvent
+    participant CrewKickoffStartedEvent
+    participant CrewOutput
+    participant CrewPlanner
+    participant CrewPydanticOutputParser
+    participant CrewStructuredTool
+    participant CrewTestCompletedEvent
+    participant CrewTestFailedEvent
+    participant CrewTestStartedEvent
+    participant CrewTrace
+    participant CrewTrainCompletedEvent
+    participant CrewTrainFailedEvent
+    participant CrewTrainStartedEvent
+    participant CrewTrainingHandler
+    participant CrewType
+    participant DatabaseError
+    participant DatabaseOperationError
+    participant DelegateWorkTool
+    participant DelegateWorkToolSchema
+    participant DeployCommand
+    participant DictionaryAssignmentVisitor
+    participant EmbeddingConfigurator
+    participant Entity
+    participant EntityMemory
+    participant EntityMemoryItem
+    participant EventListener
+    participant ExcelKnowledgeSource
+    participant ExecutionLog
+    participant FastEmbed
+    participant FileHandler
+    participant FilteredStream
+    participant Flow
+    participant FlowCreatedEvent
+    participant FlowEvent
+    participant FlowFinishedEvent
+    participant FlowMeta
+    participant FlowPersistence
+    participant FlowPlot
+    participant FlowPlotEvent
+    participant FlowStartedEvent
+    participant FlowState
+    participant FlowStepIO
+    participant GuardrailResult
+    participant HTMLTemplateHandler
+    participant I18N
+    participant InstructorToolCalling
+    participant InternalInstructor
+    participant JSONKnowledgeSource
+    participant KickoffTaskOutputsSQLiteStorage
+    participant Knowledge
+    participant KnowledgeStorage
+    participant LLM
+    participant LLMContextLengthExceededException
+    participant LLMRequest
+    participant LLMResponse
+    participant LTMSQLiteStorage
+    participant Logger
+    participant LongTermMemory
+    participant LongTermMemoryItem
+    participant Mem0Storage
+    participant Memory
+    participant MethodExecutionFailedEvent
+    participant MethodExecutionFinishedEvent
+    participant MethodExecutionStartedEvent
+    participant MyCustomTool
+    participant MyCustomToolInput
+    participant OutputConverter
+    participant OutputFormat
+    participant OutputParserException
+    participant PDFKnowledgeSource
+    participant PersistenceDecorator
+    participant PickleHandler
+    participant PlanPerTask
+    participant PlannerTaskPydanticOutput
+    participant PlusAPI
+    participant PlusAPIMixin
+    participant PoemCrew
+    participant Printer
+    participant Process
+    participant Prompts
+    participant PydanticSchemaParser
+    participant RAGStorage
+    participant RPMController
+    participant Repository
+    participant ReturnVisitor
+    participant RunType
+    participant SQLiteFlowPersistence
+    participant Settings
+    participant ShortTermMemory
+    participant ShortTermMemoryItem
+    participant StateWithId
+    participant Storage
+    participant StringKnowledgeSource
+    participant Task
+    participant TaskCompletedEvent
+    participant TaskEvaluation
+    participant TaskEvaluationEvent
+    participant TaskEvaluationPydanticOutput
+    participant TaskEvaluator
+    participant TaskFailedEvent
+    participant TaskOutput
+    participant TaskOutputStorageHandler
+    participant TaskStartedEvent
+    participant Telemetry
+    participant TextFileKnowledgeSource
+    participant TokenCalcHandler
+    participant TokenManager
+    participant TokenProcess
+    participant Tool
+    participant ToolCall
+    participant ToolCalling
+    participant ToolCommand
+    participant ToolExecutionErrorEvent
+    participant ToolResult
+    participant ToolSelectionErrorEvent
+    participant ToolUsage
+    participant ToolUsageErrorEvent
+    participant ToolUsageErrorException
+    participant ToolUsageEvent
+    participant ToolUsageFinishedEvent
+    participant ToolUsageStartedEvent
+    participant ToolValidateInputErrorEvent
+    participant ToolsHandler
+    participant TraceContext
+    participant TraceType
+    participant TrainingTaskEvaluation
+    participant UnifiedTraceController
+    participant UsageMetrics
+    participant UserMemory
+    participant UserMemoryItem
+    participant WatsonEmbeddingFunction
+    participant WrappedClass
+    participant YamlParser
+    participant _ArgsSchemaPlaceholder
+    participant _FlowGeneric
+    Task->>+Process: process_model_config
+    Process-->>-Task: response
+    Task->>+Tool: check_tools
+    Tool-->>-Task: response
+    Task->>+Tool: increment_tools_errors
+    Tool-->>-Task: response
+    LLM->>+Tool: _get_new_tool_results
+    Tool-->>-LLM: response
+    Crew->>+Memory: create_crew_memory
+    Memory-->>-Crew: response
+    Crew->>+Knowledge: create_crew_knowledge
+    Knowledge-->>-Crew: response
+    Crew->>+LLM: check_manager_llm
+    LLM-->>-Crew: response
+    Crew->>+Task: validate_tasks
+    Task-->>-Crew: response
+    Crew->>+Task: validate_end_with_at_most_one_async_task
+    Task-->>-Crew: response
+    Crew->>+Task: validate_must_have_non_conditional_task
+    Task-->>-Crew: response
+    Crew->>+Task: validate_first_task
+    Task-->>-Crew: response
+    Crew->>+Task: validate_async_tasks_not_async
+    Task-->>-Crew: response
+    Crew->>+Task: validate_async_task_cannot_include_sequential_async_tasks_in_context
+    Task-->>-Crew: response
+    Crew->>+Task: validate_context_no_future_tasks
+    Task-->>-Crew: response
+    Crew->>+Task: _create_task
+    Task-->>-Crew: response
+    Crew->>+Process: _run_sequential_process
+    Process-->>-Crew: response
+    Crew->>+Process: _run_hierarchical_process
+    Process-->>-Crew: response
+    Crew->>+Agent: _create_manager_agent
+    Agent-->>-Crew: response
+    Crew->>+Task: _execute_tasks
+    Task-->>-Crew: response
+    Crew->>+Task: _handle_conditional_task
+    Task-->>-Crew: response
+    Crew->>+Tool: _prepare_tools
+    Tool-->>-Crew: response
+    Crew->>+Agent: _get_agent_to_use
+    Agent-->>-Crew: response
+    Crew->>+Tool: _merge_tools
+    Tool-->>-Crew: response
+    Crew->>+Tool: _inject_delegation_tools
+    Tool-->>-Crew: response
+    Crew->>+Tool: _add_multimodal_tools
+    Tool-->>-Crew: response
+    Crew->>+Tool: _add_code_execution_tools
+    Tool-->>-Crew: response
+    Crew->>+Tool: _add_delegation_tools
+    Tool-->>-Crew: response
+    Crew->>+Task: _log_task_start
+    Task-->>-Crew: response
+    Crew->>+Tool: _update_manager_tools
+    Tool-->>-Crew: response
+    Crew->>+Task: _process_task_result
+    Task-->>-Crew: response
+    Crew->>+Process: _process_task_result
+    Process-->>-Crew: response
+    Crew->>+Task: _process_async_tasks
+    Task-->>-Crew: response
+    Crew->>+Process: _process_async_tasks
+    Process-->>-Crew: response
+    Crew->>+Task: _find_task_index
+    Task-->>-Crew: response
+    Crew->>+Knowledge: query_knowledge
+    Knowledge-->>-Crew: response
+    Crew->>+Task: _set_tasks_callbacks
+    Task-->>-Crew: response
+    Crew->>+Memory: _reset_specific_memory
+    Memory-->>-Crew: response
+    Agent->>+Knowledge: _set_knowledge
+    Knowledge-->>-Agent: response
+    Agent->>+Task: execute_task
+    Task-->>-Agent: response
+    Agent->>+Tool: get_delegation_tools
+    Tool-->>-Agent: response
+    Agent->>+Tool: get_multimodal_tools
+    Tool-->>-Agent: response
+    Agent->>+Tool: get_code_execution_tools
+    Tool-->>-Agent: response
+    Agent->>+Converter: get_output_converter
+    Converter-->>-Agent: response
+    Agent->>+Tool: _parse_tools
+    Tool-->>-Agent: response
+    Agent->>+Tool: __tools_names
+    Tool-->>-Agent: response
+    UnifiedTraceController->>+Task: _add_to_task_traces
+    Task-->>-UnifiedTraceController: response
+    UnifiedTraceController->>+Task: get_task_traces
+    Task-->>-UnifiedTraceController: response
+    UnifiedTraceController->>+Task: clear_task_traces
+    Task-->>-UnifiedTraceController: response
+    UnifiedTraceController->>+Crew: to_crew_trace
+    Crew-->>-UnifiedTraceController: response
+    ConditionalTask->>+Task: get_skipped_task_output
+    Task-->>-ConditionalTask: response
+    BaseTool->>+Tool: to_structured_tool
+    Tool-->>-BaseTool: response
+    ToolUsage->>+Tool: parse_tool_calling
+    Tool-->>-ToolUsage: response
+    ToolUsage->>+Tool: _check_tool_repeated_usage
+    Tool-->>-ToolUsage: response
+    ToolUsage->>+Tool: _select_tool
+    Tool-->>-ToolUsage: response
+    ToolUsage->>+Tool: _original_tool_calling
+    Tool-->>-ToolUsage: response
+    ToolUsage->>+Tool: _tool_calling
+    Tool-->>-ToolUsage: response
+    ToolUsage->>+Tool: _validate_tool_input
+    Tool-->>-ToolUsage: response
+    ToolUsage->>+Tool: on_tool_error
+    Tool-->>-ToolUsage: response
+    ToolUsage->>+Tool: on_tool_use_finished
+    Tool-->>-ToolUsage: response
+    BaseAgentTool->>+Agent: sanitize_agent_name
+    Agent-->>-BaseAgentTool: response
+    AgentTools->>+Tool: tools
+    Tool-->>-AgentTools: response
+    CacheTools->>+Tool: tool
+    Tool-->>-CacheTools: response
+    ContextualMemory->>+Task: build_context_for_task
+    Task-->>-ContextualMemory: response
+    ContextualMemory->>+Entity: _fetch_entity_context
+    Entity-->>-ContextualMemory: response
+    Mem0Storage->>+Agent: _get_agent_name
+    Agent-->>-Mem0Storage: response
+    BaseRAGStorage->>+Agent: _initialize_agents
+    Agent-->>-BaseRAGStorage: response
+    RAGStorage->>+Storage: _build_storage_file_name
+    Storage-->>-RAGStorage: response
+    CrewAgentExecutor->>+LLM: _get_llm_response
+    LLM-->>-CrewAgentExecutor: response
+    CrewAgentExecutor->>+LLM: _process_llm_response
+    LLM-->>-CrewAgentExecutor: response
+    CrewAgentExecutor->>+Process: _process_llm_response
+    Process-->>-CrewAgentExecutor: response
+    CrewAgentExecutor->>+Agent: _handle_agent_action
+    Agent-->>-CrewAgentExecutor: response
+    CrewAgentExecutor->>+Tool: _execute_tool_and_check_finality
+    Tool-->>-CrewAgentExecutor: response
+    CrewAgentExecutor->>+Crew: _handle_crew_training_output
+    Crew-->>-CrewAgentExecutor: response
+    CrewAgentExecutor->>+Process: _process_feedback_iteration
+    Process-->>-CrewAgentExecutor: response
+    ToolsHandler->>+Tool: on_tool_use
+    Tool-->>-ToolsHandler: response
+    BaseAgent->>+Process: process_model_config
+    Process-->>-BaseAgent: response
+    BaseAgent->>+Tool: validate_tools
+    Tool-->>-BaseAgent: response
+    BaseAgent->>+Task: execute_task
+    Task-->>-BaseAgent: response
+    BaseAgent->>+Agent: create_agent_executor
+    Agent-->>-BaseAgent: response
+    BaseAgent->>+Tool: _parse_tools
+    Tool-->>-BaseAgent: response
+    BaseAgent->>+Tool: get_delegation_tools
+    Tool-->>-BaseAgent: response
+    BaseAgent->>+Converter: get_output_converter
+    Converter-->>-BaseAgent: response
+    CrewAgentExecutorMixin->>+Memory: _create_short_term_memory
+    Memory-->>-CrewAgentExecutorMixin: response
+    CrewAgentExecutorMixin->>+Memory: _create_long_term_memory
+    Memory-->>-CrewAgentExecutorMixin: response
+    PlusAPI->>+Tool: login_to_tool_repository
+    Tool-->>-PlusAPI: response
+    PlusAPI->>+Repository: login_to_tool_repository
+    Repository-->>-PlusAPI: response
+    PlusAPI->>+Tool: get_tool
+    Tool-->>-PlusAPI: response
+    PlusAPI->>+Tool: publish_tool
+    Tool-->>-PlusAPI: response
+    PlusAPI->>+Crew: crew_status_by_name
+    Crew-->>-PlusAPI: response
+    PlusAPI->>+Crew: crew_status_by_uuid
+    Crew-->>-PlusAPI: response
+    PlusAPI->>+Crew: crew_by_name
+    Crew-->>-PlusAPI: response
+    PlusAPI->>+Crew: crew_by_uuid
+    Crew-->>-PlusAPI: response
+    PlusAPI->>+Crew: delete_crew_by_name
+    Crew-->>-PlusAPI: response
+    PlusAPI->>+Crew: delete_crew_by_uuid
+    Crew-->>-PlusAPI: response
+    PlusAPI->>+Crew: list_crews
+    Crew-->>-PlusAPI: response
+    PlusAPI->>+Crew: create_crew
+    Crew-->>-PlusAPI: response
+    DeployCommand->>+Crew: create_crew
+    Crew-->>-DeployCommand: response
+    DeployCommand->>+Crew: list_crews
+    Crew-->>-DeployCommand: response
+    DeployCommand->>+Crew: _display_crews
+    Crew-->>-DeployCommand: response
+    DeployCommand->>+Crew: _display_no_crews_message
+    Crew-->>-DeployCommand: response
+    DeployCommand->>+Crew: get_crew_status
+    Crew-->>-DeployCommand: response
+    DeployCommand->>+Crew: _display_crew_status
+    Crew-->>-DeployCommand: response
+    DeployCommand->>+Crew: get_crew_logs
+    Crew-->>-DeployCommand: response
+    DeployCommand->>+Crew: remove_crew
+    Crew-->>-DeployCommand: response
+    PoemCrew->>+Crew: crew
+    Crew-->>-PoemCrew: response
+    TokenManager->>+Storage: get_secure_storage_path
+    Storage-->>-TokenManager: response
+    WrappedClass->>+Agent: map_all_agent_variables
+    Agent-->>-WrappedClass: response
+    WrappedClass->>+Agent: _map_agent_variables
+    Agent-->>-WrappedClass: response
+    WrappedClass->>+Task: map_all_task_variables
+    Task-->>-WrappedClass: response
+    WrappedClass->>+Task: _map_task_variables
+    Task-->>-WrappedClass: response
+    CrewPlanner->>+Crew: _handle_crew_planning
+    Crew-->>-CrewPlanner: response
+    CrewPlanner->>+Agent: _create_planning_agent
+    Agent-->>-CrewPlanner: response
+    CrewPlanner->>+Task: _create_planner_task
+    Task-->>-CrewPlanner: response
+    CrewPlanner->>+Agent: _get_agent_knowledge
+    Agent-->>-CrewPlanner: response
+    CrewPlanner->>+Knowledge: _get_agent_knowledge
+    Knowledge-->>-CrewPlanner: response
+    CrewPlanner->>+Task: _create_tasks_summary
+    Task-->>-CrewPlanner: response
+    AgentExecutorProtocol->>+Agent: agent
+    Agent-->>-AgentExecutorProtocol: response
+    AgentExecutorProtocol->>+Task: task
+    Task-->>-AgentExecutorProtocol: response
+    Prompts->>+Task: task_execution
+    Task-->>-Prompts: response
+    I18N->>+Prompts: load_prompts
+    Prompts-->>-I18N: response
+    I18N->>+Tool: tools
+    Tool-->>-I18N: response
+    Printer->>+Agent: _print_magenta
+    Agent-->>-Printer: response
+    Printer->>+Agent: _print_bold_magenta
+    Agent-->>-Printer: response
+    CrewEvaluator->>+Agent: _evaluator_agent
+    Agent-->>-CrewEvaluator: response
+    CrewEvaluator->>+Task: _evaluation_task
+    Task-->>-CrewEvaluator: response
+    CrewEvaluator->>+Crew: print_crew_evaluation_result
+    Crew-->>-CrewEvaluator: response
+    BaseFileKnowledgeSource->>+Process: _process_file_paths
+    Process-->>-BaseFileKnowledgeSource: response
+    ExcelKnowledgeSource->>+Process: _process_file_paths
+    Process-->>-ExcelKnowledgeSource: response
+    KnowledgeStorage->>+Storage: initialize_knowledge_storage
+    Storage-->>-KnowledgeStorage: response
+    KnowledgeStorage->>+Knowledge: initialize_knowledge_storage
+    Knowledge-->>-KnowledgeStorage: response
+    Telemetry->>+Crew: crew_creation
+    Crew-->>-Telemetry: response
+    Telemetry->>+Task: task_started
+    Task-->>-Telemetry: response
+    Telemetry->>+Task: task_ended
+    Task-->>-Telemetry: response
+    Telemetry->>+Tool: tool_repeated_usage
+    Tool-->>-Telemetry: response
+    Telemetry->>+Tool: tool_usage
+    Tool-->>-Telemetry: response
+    Telemetry->>+Tool: tool_usage_error
+    Tool-->>-Telemetry: response
+    Telemetry->>+Crew: create_crew_deployment_span
+    Crew-->>-Telemetry: response
+    Telemetry->>+Crew: get_crew_logs_span
+    Crew-->>-Telemetry: response
+    Telemetry->>+Crew: remove_crew_span
+    Crew-->>-Telemetry: response
+    Telemetry->>+Crew: crew_execution_span
+    Crew-->>-Telemetry: response
+    Telemetry->>+Crew: end_crew
+    Crew-->>-Telemetry: response
+    Telemetry->>+Flow: flow_creation_span
+    Flow-->>-Telemetry: response
+    Telemetry->>+Flow: flow_plotting_span
+    Flow-->>-Telemetry: response
+    Telemetry->>+Flow: flow_execution_span
+    Flow-->>-Telemetry: response
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documentation Sections -->
+                
+                <div class="mb-8">
+                    <h2 class="text-2xl font-semibold mb-4">Overview</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-lg prose max-w-none">
+                        Based on the provided code snippets, it appears that this codebase is part of a project called "CrewAI". The main purpose of this codebase seems to be providing a framework or library for building and managing AI agents or "crews" composed of different components like language models, tools, and tasks.<br><br>Here are the key components and their responsibilities:<br><br>1. **Annotations**: The `crewai.project.annotations` module contains various decorators that are used to define and configure different components of a CrewAI project, such as agents, tasks, tools, language models, and event handlers.<br><br>2. **CrewBase**: The `crewai.crew_base.CrewBase` class appears to be the base class for defining and managing AI crews. It likely provides methods and functionality for assembling and executing crews.<br><br>3. **Utilities**: The `crewai.utilities` module contains various helper classes and functions for tasks like event handling (`crewai.utilities.events`), output formatting (`crewai.utilities.formatter`), language model creation (`crewai.utilities.llm_utils`), planning (`crewai.utilities.planning_handler`), task output storage (`crewai.utilities.task_output_storage_handler`), and training (`crewai.utilities.training_handler`).<br><br>4. **CLI**: The `crewai.cli` module seems to provide a command-line interface (CLI) for managing CrewAI projects. The `ToolCommand` class in `crewai.cli.tools.main` handles tool repository operations like creating, publishing, and installing tools.<br><br>5. **Tracing and Monitoring**: The codebase includes several functions (e.g., `test_execution_span`, `deploy_signup_error_span`, `start_deployment_span`, etc.) that appear to be related to tracing and monitoring the execution of crews, deployments, and other operations.<br><br>Different parts of the codebase work together to provide a comprehensive framework for building and managing AI crews. The annotations and base classes define the structure and components of a crew, while the utilities provide various helper functions and classes for tasks like planning, output formatting, and language model creation. The CLI allows users to interact with and manage their CrewAI projects from the command line, and the tracing and monitoring functions help in tracking and analyzing the execution of crews and related operations.<br><br>While the provided code snippets do not reveal the complete architecture and design patterns used, it appears that the codebase follows a modular design, with different concerns separated into different modules and classes. The use of decorators (`annotations`) and a base class (`CrewBase`) suggests the use of object-oriented programming principles and possibly some form of dependency injection or inversion of control pattern.
+                    </div>
+                </div>
+                
+                <div class="mb-8">
+                    <h2 class="text-2xl font-semibold mb-4">Dependencies</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-lg prose max-w-none">
+                        Based on the provided code snippets, I can analyze the dependencies in this codebase as follows:<br><br>1. Major external packages and their versions:<br>   - pydantic (version not specified)<br>   - typing (part of Python standard library)<br>   - concurrent.futures (part of Python standard library)<br>   - hashlib (part of Python standard library)<br>   - re (part of Python standard library)<br>   - copy (part of Python standard library)<br>   - warnings (part of Python standard library)<br>   - uuid (part of Python standard library)<br>   - json (part of Python standard library)<br>   - asyncio (part of Python standard library)<br><br>2. Why each major dependency is needed:<br>   - pydantic: Likely used for data validation and modeling of input/output data structures.<br>   - typing: Used for type annotations and type hinting, which can improve code readability and catch certain types of errors during development.<br>   - concurrent.futures: Possibly used for asynchronous execution of tasks or parallel processing.<br>   - hashlib: Potentially used for hashing or generating unique identifiers.<br>   - re: Regular expressions are commonly used for pattern matching and text manipulation.<br>   - copy: Likely used for creating copies of objects or data structures.<br>   - warnings: Allows for handling and filtering warning messages.<br>   - uuid: Generates universally unique identifiers (UUIDs), which can be useful for creating unique identifiers for objects or entities.<br>   - json: Commonly used for serializing and deserializing JSON data.<br>   - asyncio: Provides infrastructure for writing concurrent code using the async/await syntax, which can be useful for building efficient and scalable applications.<br><br>3. Internal dependencies between components:<br>   - The code appears to be structured into different modules or packages, such as `crewai.agent`, `crewai.agents`, `crewai.crews`, `crewai.knowledge`, `crewai.llm`, `crewai.memory`, `crewai.process`, `crewai.task`, `crewai.tasks`, `crewai.telemetry`, `crewai.tools`, `crewai.traces`, `crewai.types`, `crewai.utilities`, and `crewai.project`.<br>   - These modules likely depend on each other to provide different functionalities and services within the application.<br>   - For example, the `crewai.agents` module seems to depend on `crewai.memory`, `crewai.knowledge`, `crewai.llm`, and `crewai.tools`, suggesting that agents may interact with memory, knowledge sources, language models, and tools.<br>   - The `crewai.utilities` module appears to provide utility functions and classes that may be used across different parts of the codebase.<br>   - The `crewai.project` module likely contains project-specific configurations or annotations.<br><br>4. Notable dependency patterns or potential issues:<br>   - The codebase seems to follow a modular structure, which can promote code organization and separation of concerns.<br>   - However, without seeing the actual implementation details, it's difficult to assess potential issues or dependency cycles.<br>   - One potential concern could be circular dependencies between modules, which can make the code harder to maintain and understand.<br>   - Another potential issue could be over-reliance on global state or singletons, which can make the code harder to reason about and test.<br>   - It's also worth noting that importing a large number of modules or symbols from different parts of the codebase can make the code harder to read and maintain, especially if the imports are not organized or grouped logically.<br><br>Please note that without access to the complete codebase and implementation details, this analysis is based solely on the provided code snippets and import statements. A more thorough analysis would require a deeper understanding of the codebase's architecture and design principles.
+                    </div>
+                </div>
+                
+                <div class="mb-8">
+                    <h2 class="text-2xl font-semibold mb-4">Key Classes and Functions</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-lg prose max-w-none">
+                        Based on the provided code files, the most important classes and functions in the CrewAI project are:<br><br>1. **Core classes that define the main functionality**:<br><br>   - `Crew` (from `crewai/crew.py`): This is the central class that represents a group of agents and defines how they should collaborate and perform tasks. It likely contains methods for configuring the agents, assigning tasks, and managing the overall workflow.<br><br>2. **Important utility functions and their purpose**:<br><br>   - `crewai.utilities.formatter.aggregate_raw_outputs_from_tasks`: This function likely aggregates the raw outputs from multiple tasks, potentially for further processing or analysis.<br>   - `crewai.utilities.formatter.aggregate_raw_outputs_from_task_outputs`: Similar to the above function, but it operates on `TaskOutput` objects instead of tasks directly.<br>   - `crewai.utilities.llm_utils.create_llm`: This function is likely responsible for creating and configuring the language model (LLM) used by the agents.<br><br>3. **Class hierarchies and inheritance relationships**:<br><br>   - `crewai.tasks.task_output.TaskOutput`: This class likely represents the output of a task performed by an agent. It may inherit from a base class or implement an interface to provide a consistent structure for task outputs.<br>   - `crewai.tasks.output_format.OutputFormat`: This class might define the format or structure of the task output, potentially serving as a base class or interface for different output formats.<br><br>4. **Key methods and their responsibilities**:<br><br>   - `Crew` class methods:<br>     - `__init__`: This method likely initializes the `Crew` object, setting up the agents, tasks, and other configurations.<br>     - `run`: This method might be responsible for executing the tasks assigned to the agents and coordinating their collaboration.<br>     - `train`: If the agents require training, this method could handle the training process.<br>     - `evaluate`: This method might evaluate the performance of the agents on specific tasks or datasets.<br><br>   - `TaskOutput` class methods:<br>     - `__init__`: This method likely initializes a `TaskOutput` object with the necessary attributes, such as the task ID, agent ID, and the actual output.<br>     - `get_output`: This method might return the actual output produced by the agent for the task.<br>     - `set_output`: This method could be used to set or update the output of the task.<br><br>   - `OutputFormat` class methods:<br>     - `__init__`: This method might initialize the `OutputFormat` object with the desired format specifications.<br>     - `validate`: This method could validate whether a given output adheres to the specified format.<br>     - `format`: This method might format the output according to the specified format rules.<br><br>Without access to the actual implementation details, it's difficult to provide more specific examples or explanations. However, these classes and functions seem to be crucial components of the CrewAI project, responsible for defining and managing agents, tasks, outputs, and the overall collaboration workflow.
+                    </div>
+                </div>
+                
+                <div class="mb-8">
+                    <h2 class="text-2xl font-semibold mb-4">Data Flow</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-lg prose max-w-none">
+                        The crewAI system appears to be designed to handle data flow and transformations between various components involved in executing tasks using AI tools. Here's an overview of how data flows through the system based on the provided code files:<br><br>1. **Main Data Structures and Their Purpose**:<br>   - `Task`: Represents a task to be executed by the system. It likely contains information about the task, such as instructions, input data, and expected output.<br>   - `ToolCalling` and `InstructorToolCalling`: These classes seem to handle the execution of AI tools and the interaction between the system and the tools.<br>   - `CrewStructuredTool`: Represents a structured tool that can be used by the system to perform specific operations.<br><br>2. **Data Transformation Between Components**:<br>   - The `_tool_calling` function in `crewai.flow` appears to be responsible for executing a tool and transforming the input data into a format suitable for the tool.<br>   - The `_validate_tool_input` function validates the input data for a tool before execution.<br>   - The `aggregate_raw_outputs_from_tasks` and `aggregate_raw_outputs_from_task_outputs` functions (in `crewai.utilities.formatter`) likely aggregate and format the outputs from multiple tasks or task outputs.<br><br>3. **Key Input/Output Points**:<br>   - The `Task` object likely serves as a key input point, containing the instructions and data required for executing a task.<br>   - The `ToolCalling` and `InstructorToolCalling` classes seem to handle the interaction with AI tools, potentially providing input data and receiving output data.<br>   - The `TaskOutputStorageHandler` class (imported in `config.py`) might be responsible for storing and retrieving task outputs, acting as an input/output point for task data.<br><br>4. **Data Validation and Error Handling**:<br>   - The `_validate_tool_input` function performs validation of the input data for a tool.<br>   - The `_emit_validate_input_error` function is likely used to handle and report validation errors related to tool input.<br>   - The `on_tool_error` and `on_tool_use_finished` functions seem to handle tool execution errors and successful tool usage, respectively.<br>   - The `ToolUsageErrorEvent`, `ToolSelectionErrorEvent`, and `ToolValidateInputErrorEvent` classes (imported in `crewai.flow`) are likely used to represent and handle different types of tool-related errors.<br><br>Unfortunately, without access to the complete codebase and documentation, it's difficult to provide more specific examples or details about the data flow. However, the provided code snippets suggest a structured approach to handling data transformations, validations, and error handling within the crewAI system.
+                    </div>
+                </div>
+                
+                <div class="mb-8">
+                    <h2 class="text-2xl font-semibold mb-4">Integration Points</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-lg prose max-w-none">
+                        Unfortunately, I don't have enough context from the provided code imports to fully describe how this codebase integrates with external systems. The imports mainly show internal module dependencies within the crewai package, but do not reveal details about external integrations.<br><br>To provide a comprehensive answer, I would need access to the actual implementation code that interacts with external APIs, services, and handles configuration, environment setup, error handling etc. Without seeing that code, I can only make some general guesses:<br><br>1. External APIs and services used: There are no obvious references to specific external APIs or services in the provided imports.<br><br>2. Integration patterns and protocols: Again, no clear patterns are evident from just the imports. Common integration approaches like REST, gRPC, message queues etc. cannot be inferred.<br><br>3. Configuration and environment requirements: The imports suggest there may be some configuration/environment setup happening through modules like rpm_controller, logger, i18n etc. But specifics are unclear.<br><br>4. Error handling and fallback mechanisms: No error handling or fallback code is visible in the imports.<br><br>In summary, while the codebase seems to be a Python project dealing with agents, crews, tasks, memory management and other AI/ML concepts, the provided code snippets do not shed light on how it integrates with external systems specifically. To answer this question accurately, I would need access to the relevant parts of the codebase that actually implement those integration points.
+                    </div>
+                </div>
+                
+
+                <footer class="text-center text-gray-500 mt-12">
+                    Generated on 2025-02-23 18:18:53
+                </footer>
+            </div>
+        </body>
+        </html>
+        
