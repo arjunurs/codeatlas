@@ -311,28 +311,19 @@ class CodeDocumentationGenerator:
             
             # Generate section pages
             for section in documentation['sections']:
-                section_file = f"sections/{section['title'].lower().replace(' ', '_')}.html"
+                filename = f"sections/{section['title'].lower().replace(' ', '_')}.html"
                 self.template_manager.render_template(
                     'section',
                     {
                         'title': section['title'],
-                        'section': section,
-                        'url': section_file,
+                        'content': section['content'],
                         'navigation': self._generate_navigation(section['title'], documentation['sections'])
                     },
                     output_dir,
-                    section_file
+                    filename
                 )
             
             # Generate diagram pages
-            diagram_descriptions = {
-                'architecture': 'System architecture showing component relationships',
-                'dependencies': 'Package dependency graph showing external and internal dependencies',
-                'classes': 'Class diagram showing inheritance and composition relationships',
-                'sequence': 'Sequence diagram showing main workflow interactions',
-                'call_graph': 'Function call graph showing code execution flow'
-            }
-            
             diagram_files = {
                 'architecture': diagrams.get('architecture', ''),
                 'dependencies': diagrams.get('package_dependencies', ''),
@@ -343,16 +334,16 @@ class CodeDocumentationGenerator:
             
             for name, diagram in diagram_files.items():
                 if diagram:
+                    filename = f"diagrams/{name}.html"
                     self.template_manager.render_template(
                         'diagrams',
                         {
-                            'title': name.replace('_', ' ').title(),
-                            'diagram': diagram,
-                            'description': diagram_descriptions.get(name, ''),
-                            'navigation': self._generate_navigation(name, documentation['sections'])
+                            'title': f"{name.replace('_', ' ').title()} Diagram",
+                            'diagram_code': diagram,
+                            'navigation': self._generate_navigation('diagrams', documentation['sections'])
                         },
                         output_dir,
-                        f"diagrams/{name}.html"
+                        filename
                     )
             
             # Generate search page
@@ -365,7 +356,7 @@ class CodeDocumentationGenerator:
                 output_dir,
                 'search.html'
             )
-                
+            
         except Exception as e:
             logger.error(f"Error generating HTML documentation: {str(e)}")
             raise DocumentationError(f"Failed to generate HTML documentation: {str(e)}")

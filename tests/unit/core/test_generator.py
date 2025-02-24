@@ -67,6 +67,13 @@ def mock_template_manager():
     mock.templates = {
         'navigation': Mock(render=Mock(return_value="<nav>Test Navigation</nav>"))
     }
+    
+    # Set up render_template to store call arguments
+    def store_call_args(*args, **kwargs):
+        store_call_args.calls.append((args, kwargs))
+    store_call_args.calls = []
+    mock.render_template.side_effect = store_call_args
+    
     return mock
 
 @pytest.fixture
@@ -193,8 +200,8 @@ def test_generate_documentation_success(generator, tmp_path):
             assert os.path.exists(output_dir / "assets")
             
             # Verify template calls
-            template_calls = generator.template_manager.render_template.call_args_list
-            expected_files = [
+            render_calls = generator.template_manager.render_template.call_args_list
+            expected_files = {
                 'index.html',
                 'sections/overview.html',
                 'sections/dependencies.html',
@@ -207,10 +214,20 @@ def test_generate_documentation_success(generator, tmp_path):
                 'diagrams/sequence.html',
                 'diagrams/call_graph.html',
                 'search.html'
-            ]
+            }
             
-            actual_files = [call[1]['filename'] for call in template_calls]
-            assert all(f in actual_files for f in expected_files)
+            # Extract filenames from call arguments
+            actual_files = set()
+            for call in render_calls:
+                args = call[0]  # Positional arguments
+                if len(args) >= 4:  # Check for filename in fourth position
+                    filename = args[3]
+                    if filename:
+                        actual_files.add(filename)
+            
+            # Verify all expected files were generated
+            missing_files = expected_files - actual_files
+            assert not missing_files, f"Missing expected files: {missing_files}"
 
 def test_generate_documentation_no_files(mock_generator, tmp_path):
     """Test documentation generation with no Python files."""
@@ -300,9 +317,18 @@ def test_documentation_content_structure(generator, tmp_path):
             assert mock_qa_chain.run.call_count == 5  # Number of documentation sections
             
             # Verify template received structured content
-            template_calls = generator.template_manager.render_template.call_args_list
-            index_call = next(call for call in template_calls if call[1]['filename'] == 'index.html')
-            context = index_call[1]['context']
+            render_calls = generator.template_manager.render_template.call_args_list
+            
+            # Find the index page call
+            index_call = None
+            for call in render_calls:
+                args = call[0]  # Positional arguments
+                if len(args) >= 4 and args[3] == 'index.html':  # Check filename in fourth position
+                    index_call = call
+                    break
+            
+            assert index_call is not None, "Index page template call not found"
+            context = index_call[0][1]  # Context is in the second position of args
             assert 'documentation' in context
             assert 'sections' in context['documentation']
             assert len(context['documentation']['sections']) == 5 
