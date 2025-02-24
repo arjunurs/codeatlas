@@ -182,56 +182,95 @@ class CodeDocumentationGenerator:
                     {
                         'title': 'Overview',
                         'content': qa_chain.run(
-                            "Analyze the codebase and provide a comprehensive overview including:\n"
-                            "1. The main purpose and functionality\n"
-                            "2. Key components and their responsibilities\n"
-                            "3. How different parts work together\n"
-                            "4. The overall architecture and design patterns used\n"
-                            "Be specific and use examples from the actual code."
+                            "Analyze the codebase and provide a comprehensive overview. "
+                            "Format your response using proper Markdown with these specific requirements:\n"
+                            "1. Use ## for main sections and ### for subsections\n"
+                            "2. All code elements (class names, method names, properties) must be wrapped in `backticks`\n"
+                            "3. Use proper list indentation with - or * for bullets\n"
+                            "4. Add blank lines between sections and list items for clarity\n"
+                            "5. Use ```python for code blocks\n\n"
+                            "Include these sections:\n"
+                            "## Main Purpose and Functionality\n"
+                            "## Key Components and Responsibilities\n"
+                            "## How Different Parts Work Together\n"
+                            "## Overall Architecture and Design Patterns\n\n"
+                            "Be specific and use examples from the actual code. "
+                            "Every class name, method name, function name, and property must be in `backticks`."
                         )
                     },
                     {
                         'title': 'Dependencies',
                         'content': qa_chain.run(
                             "Analyze the project dependencies and explain:\n"
-                            "1. Core external packages used\n"
-                            "2. Purpose of each major dependency\n"
-                            "3. Version requirements and compatibility\n"
-                            "4. How dependencies are managed\n"
-                            "Include specific examples from requirements.txt."
+                            "Format your response using proper Markdown with these specific requirements:\n"
+                            "1. Use ## for main sections and ### for subsections\n"
+                            "2. All package names and versions must be wrapped in `backticks`\n"
+                            "3. Use proper list indentation with - or * for bullets\n"
+                            "4. Add blank lines between sections and list items for clarity\n"
+                            "5. Use ```python for code blocks\n\n"
+                            "Include these sections:\n"
+                            "## Core Dependencies\n"
+                            "## Optional Dependencies\n"
+                            "## Version Requirements\n"
+                            "## Integration Points\n\n"
+                            "Be specific and reference actual dependencies from the project."
                         )
                     },
                     {
                         'title': 'Key Classes and Functions',
                         'content': qa_chain.run(
-                            "Describe the key classes and functions including:\n"
-                            "1. Main classes, their purposes and relationships\n"
-                            "2. Important methods and their functionality\n"
-                            "3. Design patterns and principles used\n"
-                            "4. Code organization and structure\n"
-                            "Use specific examples from the codebase."
+                            "Describe the key classes and functions. "
+                            "Format your response using proper Markdown with these specific requirements:\n"
+                            "1. Use ## for main sections and ### for subsections\n"
+                            "2. All code elements (class names, method names, properties) must be wrapped in `backticks`\n"
+                            "3. Use proper list indentation with - or * for bullets\n"
+                            "4. Add blank lines between sections and list items for clarity\n"
+                            "5. Use ```python for code blocks\n\n"
+                            "Include these sections:\n"
+                            "## Core Classes\n"
+                            "## Helper Functions\n"
+                            "## Class Relationships\n"
+                            "## Usage Examples\n\n"
+                            "Be specific and use examples from the actual code. "
+                            "Every class name, method name, function name, and property must be in `backticks`."
                         )
                     },
                     {
                         'title': 'Data Flow',
                         'content': qa_chain.run(
-                            "Explain the data flow through the system including:\n"
-                            "1. How data is processed and transformed\n"
-                            "2. Key data structures and their usage\n"
-                            "3. Input/output handling\n"
-                            "4. Error handling and validation\n"
-                            "Provide concrete examples from the code."
+                            "Explain the data flow through the system. "
+                            "Format your response using proper Markdown with these specific requirements:\n"
+                            "1. Use ## for main sections and ### for subsections\n"
+                            "2. All code elements (class names, method names, properties) must be wrapped in `backticks`\n"
+                            "3. Use proper list indentation with - or * for bullets\n"
+                            "4. Add blank lines between sections and list items for clarity\n"
+                            "5. Use ```python for code blocks\n\n"
+                            "Include these sections:\n"
+                            "## Data Processing Flow\n"
+                            "## Key Data Structures\n"
+                            "## Input/Output Handling\n"
+                            "## Error Handling\n\n"
+                            "Be specific and use examples from the actual code. "
+                            "Every class name, method name, function name, and property must be in `backticks`."
                         )
                     },
                     {
                         'title': 'Integration Points',
                         'content': qa_chain.run(
-                            "Describe how the code integrates with other systems:\n"
-                            "1. External APIs and services used\n"
-                            "2. Integration patterns and protocols\n"
-                            "3. Authentication and security\n"
-                            "4. Error handling and fallbacks\n"
-                            "Include specific integration examples."
+                            "Describe how the code integrates with other systems. "
+                            "Format your response using proper Markdown with these specific requirements:\n"
+                            "1. Use ## for main sections and ### for subsections\n"
+                            "2. All code elements (class names, method names, properties) must be wrapped in `backticks`\n"
+                            "3. Use proper list indentation with - or * for bullets\n"
+                            "4. Add blank lines between sections and list items for clarity\n"
+                            "5. Use ```python for code blocks\n\n"
+                            "Include these sections:\n"
+                            "## External Integrations\n"
+                            "## Authentication\n"
+                            "## Error Handling\n"
+                            "## Configuration\n\n"
+                            "Be specific and use examples from the actual code. "
+                            "Every class name, method name, function name, and property must be in `backticks`."
                         )
                     }
                 ]
