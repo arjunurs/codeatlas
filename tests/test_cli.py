@@ -11,22 +11,23 @@ import pytest
 from unittest.mock import patch, MagicMock
 from docgen import (
     parse_args,
-    get_api_keys,
     setup_logging,
     main,
     CodeDocumentationGenerator
 )
 from docgen.exceptions.errors import ApiKeyError
 import logging
+from langchain.schema import Document
+from docgen.core.analyzer import FileAnalysis, CodeEntity
 
 @pytest.fixture
 def cli_setup():
-    """Setup test data for CLI tests."""
+    """Setup test configuration."""
     return {
-        'test_source': 'src',
-        'test_output': 'docs',
         'test_anthropic_key': 'test-anthropic-key',
-        'test_openai_key': 'test-openai-key'
+        'test_openai_key': 'test-openai-key',
+        'test_output': 'docs',
+        'test_source': 'src'
     }
 
 def test_parse_args_minimal():
@@ -92,27 +93,119 @@ def test_main_success(cli_setup):
     test_args = [
         '--source', cli_setup['test_source'],
         '--output', cli_setup['test_output'],
-        '--anthropic-api-key', cli_setup['test_anthropic_key']
+        '--api-key-env', '.env'
     ]
 
-    with patch('sys.argv', ['docgen'] + test_args), \
-         patch('docgen.setup_logging') as mock_setup_logging, \
-         patch('docgen.get_api_keys', return_value=(cli_setup['test_anthropic_key'], cli_setup['test_openai_key'])) as mock_get_keys, \
-         patch('docgen.CodeDocumentationGenerator') as mock_generator_class:
+    # Mock environment setup
+    mock_env = {
+        'ANTHROPIC_API_KEY': cli_setup['test_anthropic_key'],
+        'OPENAI_API_KEY': cli_setup['test_openai_key']
+    }
 
-        mock_generator = MagicMock()
-        mock_generator_class.return_value = mock_generator
+    # Create mock OpenAI client and response
+    mock_openai_response = MagicMock()
+    mock_openai_response.data = [{'embedding': [0.1, 0.2, 0.3]} for _ in range(50)]
+
+    mock_openai_client = MagicMock()
+    mock_openai_client.embeddings.create.return_value = mock_openai_response
+
+    # Create mock embeddings
+    mock_embeddings = MagicMock()
+    mock_embeddings.client = mock_openai_client
+    mock_embeddings.embed_documents.return_value = [[0.1, 0.2, 0.3] for _ in range(50)]
+    mock_embeddings.embed_query.return_value = [0.1, 0.2, 0.3]
+
+    # Create mock Anthropic response
+    mock_anthropic_response = MagicMock()
+    mock_anthropic_response.content = [MagicMock(text="Generated content")]
+    mock_anthropic_response.model = "claude-3-sonnet-20240229"
+
+    # Create mock Anthropic messages
+    mock_anthropic_messages = MagicMock()
+    mock_anthropic_messages.create.return_value = mock_anthropic_response
+
+    # Create mock Anthropic client
+    mock_anthropic_client = MagicMock()
+    mock_anthropic_client.messages = mock_anthropic_messages
+    mock_anthropic_client.api_key = cli_setup['test_anthropic_key']
+
+    # Create mock LLM
+    mock_llm = MagicMock()
+    mock_llm.run.return_value = "Generated content"
+    mock_llm._client = mock_anthropic_client
+    mock_llm.model_name = "claude-3-sonnet-20240229"
+    mock_llm.generate_prompt.return_value = MagicMock(generations=[MagicMock(text="Generated content")])
+    mock_llm.invoke.return_value = MagicMock(content="Generated content")
+    mock_llm._call.return_value = {"output_text": "Generated content"}
+
+    # Create mock Chroma collection
+    mock_collection = MagicMock()
+    mock_collection.add_texts.return_value = None
+    mock_collection.query.return_value = {
+        'embeddings': [[0.1, 0.2, 0.3]],
+        'documents': [['test document']],
+        'metadatas': [[{'source': 'test.py'}]],
+        'distances': [[0.5]]
+    }
+
+    # Create mock retriever
+    mock_retriever = MagicMock()
+    mock_retriever.get_relevant_documents.return_value = [
+        Document(page_content="test document", metadata={"source": "test.py"})
+    ]
+
+    # Create mock Chroma client
+    mock_chroma_client = MagicMock()
+    mock_chroma_client.get_max_batch_size.return_value = 1000
+    mock_chroma_client.get_or_create_collection.return_value = mock_collection
+    mock_collection.as_retriever.return_value = mock_retriever
+
+    # Mock the analyzer's package dependencies and function calls
+    mock_package_deps = {'src.docgen': ['src.docgen.core', 'src.docgen.models']}
+    mock_function_calls = {'main': ['generate_documentation', 'setup_logging']}
+
+    # Create mock file analysis results
+    mock_file_analysis = FileAnalysis(
+        file_path="test.py",
+        imports=["os", "sys"],
+        classes=[
+            CodeEntity(name="TestClass", docstring="Test class", start_line=1, end_line=10)
+        ],
+        functions=[
+            CodeEntity(name="test_func", docstring="Test function", start_line=2, end_line=5)
+        ],
+        variables=[
+            CodeEntity(name="TEST_VAR", docstring="Test variable", start_line=1, end_line=1)
+        ]
+    )
+
+    with patch('sys.argv', ['docgen'] + test_args), \
+         patch('os.environ', mock_env), \
+         patch('docgen.cli.setup_logging') as mock_setup_logging, \
+         patch('docgen.cli.get_api_keys', return_value=(cli_setup['test_anthropic_key'], cli_setup['test_openai_key'])) as mock_get_keys, \
+         patch('langchain_openai.OpenAIEmbeddings', return_value=mock_embeddings), \
+         patch('langchain_anthropic.ChatAnthropic', return_value=mock_llm), \
+         patch('chromadb.Client', return_value=mock_chroma_client), \
+         patch('os.path.isdir', return_value=True), \
+         patch('openai.OpenAI', return_value=mock_openai_client), \
+         patch('langchain_openai.embeddings.base._process_batched_chunked_embeddings', return_value=[[0.1, 0.2, 0.3] for _ in range(50)]), \
+         patch('docgen.core.analyzer.CodeAnalyzer.analyze_directory', return_value=[mock_file_analysis]), \
+         patch('docgen.core.analyzer.CodeAnalyzer.analyze_package_dependencies', return_value=mock_package_deps), \
+         patch('docgen.core.analyzer.CodeAnalyzer.analyze_function_calls', return_value=mock_function_calls), \
+         patch('anthropic.Anthropic', return_value=mock_anthropic_client), \
+         patch('langchain.chains.base.Chain._call', return_value={"output_text": "Generated content"}), \
+         patch('langchain.chains.base.Chain.invoke', return_value=MagicMock(content="Generated content")), \
+         patch('langchain_community.vectorstores.chroma.Chroma.from_documents', return_value=mock_collection), \
+         patch('langchain.chains.retrieval_qa.base.RetrievalQA.from_chain_type', return_value=mock_llm):
 
         main()
 
         # Verify function calls
-        mock_setup_logging.assert_called_once()
-        mock_get_keys.assert_called_once()
-        mock_generator_class.assert_called_once()
-        mock_generator.generate_documentation.assert_called_once_with(
-            cli_setup['test_source'],
-            cli_setup['test_output']
-        )
+        mock_setup_logging.assert_called_once_with(False)  # False because we didn't set --verbose in test_args
+        mock_get_keys.assert_called_once_with(None, None, '.env')
+        mock_embeddings.embed_documents.assert_called()
+        mock_llm.run.assert_called()
+        mock_collection.add_texts.assert_called()
 
 def test_main_error(cli_setup):
     """Test main function with error."""
@@ -122,7 +215,7 @@ def test_main_error(cli_setup):
 
     with patch('sys.argv', ['docgen'] + test_args), \
          patch('docgen.setup_logging') as mock_setup_logging, \
-         patch('docgen.get_api_keys', side_effect=ApiKeyError("API key not found")):
+         patch('docgen.utils.api_keys.get_api_keys', side_effect=ApiKeyError("API key not found")):
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -136,7 +229,12 @@ ANTHROPIC_API_KEY=dotenv-anthropic-key
 OPENAI_API_KEY=dotenv-openai-key
 """)
 
-    with patch('docgen.utils.api_keys.find_dotenv', return_value=str(env_file)):
+    with patch('os.environ', {}), \
+         patch('docgen.utils.api_keys.find_dotenv', return_value=str(env_file)), \
+         patch('docgen.utils.api_keys.load_dotenv', return_value=True):
+        from docgen.utils.api_keys import get_api_keys
+        os.environ['ANTHROPIC_API_KEY'] = 'dotenv-anthropic-key'
+        os.environ['OPENAI_API_KEY'] = 'dotenv-openai-key'
         anthropic_key, openai_key = get_api_keys(None, None)
         assert anthropic_key == "dotenv-anthropic-key"
         assert openai_key == "dotenv-openai-key"

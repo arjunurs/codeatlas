@@ -3,6 +3,8 @@
 This package provides tools for generating comprehensive documentation for Python codebases.
 """
 
+__version__ = "0.1.0"
+
 import ast
 from dotenv import find_dotenv, load_dotenv
 from langchain.chains import RetrievalQA

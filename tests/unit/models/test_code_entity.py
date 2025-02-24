@@ -102,13 +102,17 @@ def test_code_entity_function():
     """Test creating a function entity."""
     entity = CodeEntity(
         name="test_function",
-        docstring="A test function",
-        lineno=5,
         type="function",
-        file_path="/path/to/file.py"
+        docstring="A test function",
+        start_line=5,
+        end_line=6,
+        source="def test_function():\n    pass"
     )
     
     assert entity.name == "test_function"
     assert entity.type == "function"
-    assert not entity.methods  # Should be empty list
-    assert entity.parent_class is None 
+    assert not entity.methods  # Should be None for functions
+    assert entity.parent_class is None
+    assert entity.start_line == 5
+    assert entity.end_line == 6
+    assert entity.source == "def test_function():\n    pass" 
