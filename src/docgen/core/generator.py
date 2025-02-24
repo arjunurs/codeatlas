@@ -316,7 +316,7 @@ class CodeDocumentationGenerator:
                     'section',
                     {
                         'title': section['title'],
-                        'content': section['content'],
+                        'section': section,
                         'navigation': self._generate_navigation(section['title'], documentation['sections'])
                     },
                     output_dir,

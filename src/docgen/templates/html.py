@@ -7,7 +7,19 @@ including styling and interactive features.
 from typing import Dict, Any, Optional
 from pathlib import Path
 import os
-from jinja2 import Environment, Template, FileSystemLoader
+from jinja2 import Environment, Template, BaseLoader, TemplateNotFound
+
+class StringTemplateLoader(BaseLoader):
+    """Custom template loader that loads templates from strings."""
+    
+    def __init__(self, templates):
+        self.templates = templates
+        
+    def get_source(self, environment, template):
+        if template in self.templates:
+            source = self.templates[template]
+            return source, None, lambda: True
+        raise TemplateNotFound(template)
 
 class TemplateManager:
     """Manages HTML templates for documentation generation.
@@ -18,19 +30,26 @@ class TemplateManager:
     
     def __init__(self):
         """Initialize the template manager."""
+        # Define template mapping
+        template_map = {
+            'base': _BASE_TEMPLATE,
+            'index': _INDEX_TEMPLATE,
+            'section': _SECTION_TEMPLATE,
+            'diagrams': _DIAGRAMS_TEMPLATE,
+            'search': _SEARCH_TEMPLATE,
+            'navigation': _NAVIGATION_TEMPLATE
+        }
+        
+        # Create environment with string loader
         self.env = Environment(
-            loader=FileSystemLoader(os.path.dirname(__file__)),
+            loader=StringTemplateLoader(template_map),
             autoescape=True
         )
         
         # Load all templates
         self.templates = {
-            'base': self.env.from_string(_BASE_TEMPLATE),
-            'index': self.env.from_string(_INDEX_TEMPLATE),
-            'section': self.env.from_string(_SECTION_TEMPLATE),
-            'diagrams': self.env.from_string(_DIAGRAMS_TEMPLATE),
-            'search': self.env.from_string(_SEARCH_TEMPLATE),
-            'navigation': self.env.from_string(_NAVIGATION_TEMPLATE)
+            name: self.env.get_template(name)
+            for name in template_map
         }
     
     def render_template(
