@@ -233,37 +233,61 @@ _BASE_TEMPLATE = """
             }
         });
 
-        // Add error handling for Mermaid initialization
+        // Add enhanced error handling for Mermaid initialization
         window.addEventListener('load', function() {
             try {
                 mermaid.contentLoaded();
+                console.debug('Mermaid initialization completed');
             } catch (e) {
                 console.error('Mermaid initialization error:', e);
-                // Add error message to diagram container
+                console.debug('Mermaid configuration:', mermaid.mermaidAPI.getConfig());
+                
+                // Add detailed error message to diagram containers
                 document.querySelectorAll('.mermaid').forEach(function(el) {
                     if (!el.querySelector('svg')) {
-                        el.innerHTML = `<div class="text-red-500 p-4">
-                            Error rendering diagram: ${e.message}
-                            <pre class="mt-2 text-sm bg-gray-100 p-2 rounded">
-                                ${el.textContent}
-                            </pre>
-                        </div>`;
+                        console.debug('Diagram content:', el.textContent);
+                        el.innerHTML = `
+                            <div class="text-red-500 p-4">
+                                <p class="font-bold mb-2">Error rendering diagram:</p>
+                                <p class="mb-2">${e.message}</p>
+                                <div class="bg-gray-100 p-4 rounded overflow-auto">
+                                    <p class="font-mono text-sm mb-2">Diagram source:</p>
+                                    <pre class="text-xs">${el.textContent}</pre>
+                                </div>
+                                <p class="mt-4 text-sm">Check browser console for detailed debug information.</p>
+                            </div>
+                        `;
                     }
                 });
             }
         });
 
+        // Add debug logging for zoom operations
         function zoomDiagram(diagramId, factor) {
             const container = document.getElementById(diagramId);
             const svg = container.querySelector('svg');
-            if (!svg) return;
+            if (!svg) {
+                console.debug('No SVG found in diagram container:', diagramId);
+                return;
+            }
             
-            const currentScale = svg.style.transform ? 
-                parseFloat(svg.style.transform.replace('scale(', '').replace(')', '')) : 1;
-            const newScale = currentScale * factor;
-            
-            svg.style.transform = `scale(${newScale})`;
-            svg.style.transformOrigin = 'top left';
+            try {
+                const currentScale = svg.style.transform ? 
+                    parseFloat(svg.style.transform.replace('scale(', '').replace(')', '')) : 1;
+                const newScale = currentScale * factor;
+                
+                console.debug('Zooming diagram:', {
+                    diagramId,
+                    currentScale,
+                    newScale,
+                    factor
+                });
+                
+                svg.style.transform = `scale(${newScale})`;
+                svg.style.transformOrigin = 'top left';
+            } catch (e) {
+                console.error('Error during zoom operation:', e);
+            }
         }
 
         function search() {

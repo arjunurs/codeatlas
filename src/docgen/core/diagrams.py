@@ -44,27 +44,24 @@ class DiagramGenerator:
         clean = name.replace("-", "_").replace(".", "_").replace("/", "_").replace("@", "")
         return clean
 
-    def _add_node_with_limit(self, diagram: List[str], node_name: str, nodes_seen: Set[str], nodes_added: int) -> bool:
-        """Add a node to the diagram if within node limit.
+    def _add_node_with_limit(self, diagram: List[str], name: str, nodes_seen: Set[str], nodes_added: int) -> bool:
+        """Add a node to the diagram if it hasn't been seen and we're under the limit.
 
         Args:
             diagram: List of diagram lines
-            node_name: Name of node to add
-            nodes_seen: Set of nodes already added
+            name: Node name
+            nodes_seen: Set of seen node names
             nodes_added: Number of nodes added so far
 
         Returns:
-            True if node was added, False if limit reached
+            True if node was added, False otherwise
         """
-        if nodes_added >= self.max_nodes:
-            if not any(line.startswith("    Note:") for line in diagram):
-                diagram.append(f"    Note: Showing top {self.max_nodes} nodes")
-            return False
-
-        clean_name = self._clean_name(node_name)
-        if node_name not in nodes_seen:
-            diagram.append(f"    {clean_name}[{clean_name}]")
-            nodes_seen.add(node_name)
+        clean_name = self._clean_name(name)
+        if clean_name not in nodes_seen and nodes_added < self.max_nodes:
+            # Format node with proper escaping and quotes for special characters
+            display_name = name.replace('"', '\\"')  # Escape quotes
+            diagram.append(f'    {clean_name}["{display_name}"]')
+            nodes_seen.add(clean_name)
             return True
         return False
 
@@ -80,42 +77,66 @@ class DiagramGenerator:
         Raises:
             DiagramGenerationError: If no classes found or diagram generation fails
         """
-        if not analyses:
-            raise DiagramGenerationError("No files to analyze")
+        try:
+            if not analyses:
+                raise DiagramGenerationError("No files to analyze")
 
-        classes = []
-        for analysis in analyses:
-            for entity in analysis.entities:
-                if entity.type == "class":
-                    classes.append(entity)
+            # Collect unique classes
+            classes = {}  # Use dict to ensure uniqueness by name
+            for analysis in analyses:
+                for entity in analysis.entities:
+                    if entity.type == "class":
+                        clean_name = self._clean_name(entity.name)
+                        if clean_name not in classes:
+                            classes[clean_name] = entity
 
-        if not classes:
-            raise DiagramGenerationError("No classes found in analyzed files")
+            if not classes:
+                raise DiagramGenerationError("No classes found in analyzed files")
 
-        diagram = ["classDiagram"]
-        nodes_added = 0
+            # Start with class diagram declaration
+            diagram_lines = ["classDiagram"]
 
-        for cls in classes:
+            # First declare all classes and their members
+            nodes_added = 0
+            for clean_name, cls in classes.items():
+                if nodes_added >= self.max_nodes:
+                    break
+
+                # Add class declaration
+                if cls.methods:
+                    # Class with methods
+                    diagram_lines.append(f"    class {clean_name} {{")
+                    for method in cls.methods:
+                        # Clean method name and escape special characters
+                        clean_method = method.replace('"', '\\"')
+                        diagram_lines.append(f"        +{clean_method}()")
+                    diagram_lines.append("    }")
+                else:
+                    # Empty class
+                    diagram_lines.append(f"    class {clean_name}")
+                
+                nodes_added += 1
+
+            # Add blank line before relationships
+            if nodes_added > 0:
+                diagram_lines.append("")
+
+            # Add inheritance relationships
+            for clean_name, cls in classes.items():
+                if cls.parent_class:
+                    clean_parent = self._clean_name(cls.parent_class)
+                    if clean_parent in classes:  # Only add if parent class is in diagram
+                        diagram_lines.append(f"    {clean_name} --|> {clean_parent}")
+
+            # Add truncation note if needed
             if nodes_added >= self.max_nodes:
-                diagram.append(f"    note \"Diagram truncated at {self.max_nodes} nodes\"")
-                break
+                diagram_lines.append("")  # Add blank line for readability
+                diagram_lines.append(f'    note "Diagram truncated: showing top {self.max_nodes} classes"')
 
-            # Add class definition
-            if cls.parent_class:
-                diagram.append(f"    {cls.name} --|> {cls.parent_class}")
-            
-            # Add class declaration
-            diagram.append(f"    class {cls.name} {{")
-
-            # Add methods
-            if cls.methods:
-                for method in cls.methods:
-                    diagram.append(f"        +{method}()")
-            
-            diagram.append("    }")
-            nodes_added += 1
-
-        return "\n".join(diagram)
+            return "\n".join(diagram_lines)
+        except Exception as e:
+            logger.debug(f"Error in class diagram: {str(e)}")
+            raise DiagramGenerationError(f"Failed to generate class diagram: {str(e)}")
 
     def generate_sequence_diagram(self, call_graph: Dict[str, Set[str]]) -> str:
         """Generate a sequence diagram from function call graph.
@@ -140,7 +161,8 @@ class DiagramGenerator:
                 continue
 
             if nodes_added >= self.max_nodes:
-                diagram.append(f"    Note over {self._clean_name(caller)}: Diagram truncated at {self.max_nodes} nodes")
+                diagram.append("")  # Add blank line for readability
+                diagram.append(f'    Note over participant1: Diagram truncated at {self.max_nodes} nodes')
                 break
 
             for callee in callees:
@@ -176,12 +198,13 @@ class DiagramGenerator:
 
         for package, deps in dependencies.items():
             if nodes_added >= self.max_nodes:
-                diagram.append(f"    Note: Diagram truncated at {self.max_nodes} nodes")
+                diagram.append("")  # Add blank line for readability
+                diagram.append(f'    note["Diagram truncated: showing top {self.max_nodes} nodes"]')
                 break
 
             clean_package = self._clean_name(package)
             if package not in nodes_seen:
-                diagram.append(f"    {clean_package}[{package}]")
+                diagram.append(f'    {clean_package}["{package}"]')
                 nodes_seen.add(package)
                 nodes_added += 1
 
@@ -191,7 +214,7 @@ class DiagramGenerator:
 
                 clean_dep = self._clean_name(dep)
                 if dep not in nodes_seen:
-                    diagram.append(f"    {clean_dep}[{dep}]")
+                    diagram.append(f'    {clean_dep}["{dep}"]')
                     nodes_seen.add(dep)
                     nodes_added += 1
 
@@ -216,7 +239,7 @@ class DiagramGenerator:
         """
         try:
             if not call_graph:
-                return "graph TD\n    Note: No function calls found"
+                return 'graph TD\n    note["No function calls found"]'
 
             diagram = ["graph TD"]
             nodes_seen = set()
@@ -241,7 +264,8 @@ class DiagramGenerator:
                     diagram.append(f"    {clean_caller} --> {clean_callee}")
 
             if nodes_added >= self.max_nodes:
-                diagram.append(f"    Note: Showing top {self.max_nodes} nodes")
+                diagram.append("")  # Add blank line for readability
+                diagram.append(f'    note["Diagram truncated: showing top {self.max_nodes} nodes"]')
 
             return "\n".join(diagram)
         except Exception as e:
@@ -262,12 +286,13 @@ class DiagramGenerator:
         """
         try:
             if not analyses:
-                return "graph TD\n    Note: No files to analyze"
+                return "graph TD\n    note[No files to analyze]"
 
             diagram = ["graph TD"]
             nodes_seen = set()
             nodes_added = 0
 
+            # First add all nodes
             for analysis in analyses:
                 if nodes_added >= self.max_nodes:
                     break
@@ -283,13 +308,28 @@ class DiagramGenerator:
                     if self._add_node_with_limit(diagram, imp, nodes_seen, nodes_added):
                         nodes_added += 1
 
-                    clean_module = self._clean_name(module_name)
+            # Then add all edges
+            for analysis in analyses:
+                if nodes_added >= self.max_nodes:
+                    break
+
+                module_name = os.path.splitext(os.path.basename(analysis.file_path))[0]
+                clean_module = self._clean_name(module_name)
+
+                for imp in analysis.imports:
+                    if nodes_added >= self.max_nodes:
+                        break
+
                     clean_imp = self._clean_name(imp)
-                    diagram.append(f"    {clean_module} --> {clean_imp}")
+                    if clean_module in nodes_seen and clean_imp in nodes_seen:
+                        diagram.append(f"    {clean_module} --> {clean_imp}")
 
+            # Add node limit note if needed
             if nodes_added >= self.max_nodes:
-                diagram.append(f"    Note: Showing top {self.max_nodes} nodes")
+                diagram.append("")  # Add blank line for readability
+                diagram.append(f'    note["Diagram truncated: showing top {self.max_nodes} nodes"]')
 
+            # Add proper line breaks and indentation
             return "\n".join(diagram)
         except Exception as e:
             logger.debug(f"Error in architecture diagram: {str(e)}")
