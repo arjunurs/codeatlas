@@ -43,6 +43,7 @@ htmlcov/
 .tox/
 
 # Documentation
+docs/
 docs/_build/
 docs/generated/
 
