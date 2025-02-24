@@ -150,8 +150,47 @@ class CodeAnalyzer:
         Returns:
             Dictionary mapping module names to their dependencies
         """
-        # Implementation to be added
-        return {}
+        try:
+            # Try to analyze requirements.txt first
+            dependencies = self.analyze_dependencies()
+        except (FileNotFoundError, ValueError):
+            dependencies = {}
+
+        # Add package dependencies from imports
+        for root, _, files in os.walk(os.getcwd()):
+            for file in files:
+                if not file.endswith('.py'):
+                    continue
+
+                file_path = os.path.join(root, file)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    tree = ast.parse(content)
+                    imports = self._extract_imports(tree)
+                    
+                    # Get package name from file path
+                    rel_path = os.path.relpath(file_path)
+                    package_name = os.path.dirname(rel_path).replace(os.sep, '.')
+                    if not package_name:
+                        package_name = os.path.splitext(file)[0]
+                    
+                    # Add dependencies
+                    if package_name not in dependencies:
+                        dependencies[package_name] = set()
+                    
+                    for imp in imports:
+                        # Get top-level package name
+                        top_pkg = imp.split('.')[0]
+                        if top_pkg != package_name:
+                            dependencies[package_name].add(top_pkg)
+                
+                except Exception as e:
+                    logger.warning(f"Error analyzing dependencies in {file_path}: {str(e)}")
+                    continue
+
+        return dependencies
 
     def analyze_function_calls(self, analyses: List[FileAnalysis]) -> Dict[str, Set[str]]:
         """Analyze function call relationships between entities.

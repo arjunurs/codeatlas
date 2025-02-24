@@ -79,14 +79,13 @@ def test_generate_class_diagram(diagram_generator, sample_analyses):
     diagram = diagram_generator.generate_class_diagram(sample_analyses)
     
     # Verify diagram structure
-    assert diagram.startswith("@startuml")
-    assert "skinparam monochrome true" in diagram
-    assert "class Class1 extends BaseClass" in diagram
+    assert diagram.startswith("classDiagram")
+    assert "class Class1" in diagram
     assert "class Class2" in diagram
-    assert "+ method1" in diagram
-    assert "+ method2" in diagram
-    assert "+ method3" in diagram
-    assert diagram.endswith("@enduml")
+    assert "Class1 --|> BaseClass" in diagram
+    assert "+method1()" in diagram
+    assert "+method2()" in diagram
+    assert "+method3()" in diagram
 
 def test_generate_sequence_diagram(diagram_generator):
     """Test sequence diagram generation."""
@@ -98,12 +97,13 @@ def test_generate_sequence_diagram(diagram_generator):
     diagram = diagram_generator.generate_sequence_diagram(call_graph)
 
     # Verify diagram structure
-    assert diagram.startswith("@startuml")
-    assert "skinparam monochrome true" in diagram
-    assert "func1 -> func2: call()" in diagram
-    assert "func1 -> func3: call()" in diagram
-    assert "func2 -> func4: call()" in diagram
-    assert diagram.endswith("@enduml")
+    assert diagram.startswith("sequenceDiagram")
+    assert "func1->>+func2: call()" in diagram
+    assert "func2-->>-func1: return" in diagram
+    assert "func1->>+func3: call()" in diagram
+    assert "func3-->>-func1: return" in diagram
+    assert "func2->>+func4: call()" in diagram
+    assert "func4-->>-func2: return" in diagram
 
 def test_generate_dependency_diagram(diagram_generator):
     """Test dependency diagram generation."""
@@ -115,12 +115,10 @@ def test_generate_dependency_diagram(diagram_generator):
     diagram = diagram_generator.generate_dependency_diagram(dependencies)
     
     # Verify diagram structure
-    assert diagram.startswith("@startuml")
-    assert "skinparam monochrome true" in diagram
-    assert "[package1] as package1" in diagram
-    assert "[dep1] as dep1" in diagram
+    assert diagram.startswith("graph LR")
+    assert "package1[package1]" in diagram
+    assert "dep1[dep1]" in diagram
     assert "package1 --> dep1" in diagram
-    assert diagram.endswith("@enduml")
 
 def test_generate_call_graph_diagram(diagram_generator):
     """Test function call graph diagram generation."""

@@ -153,12 +153,14 @@ class CodeDocumentationGenerator:
                 diagrams = {
                     'architecture': self.diagram_generator.generate_architecture_diagram(analyses),
                     'class_diagram': self.diagram_generator.generate_class_diagram(analyses),
-                    'sequence': self.diagram_generator.generate_sequence_diagram(analyses),
+                    'sequence': self.diagram_generator.generate_sequence_diagram(
+                        self.analyzer.analyze_function_calls(analyses)
+                    ),
                     'package_dependencies': self.diagram_generator.generate_dependency_diagram(
-                        {k: tuple(sorted(v)) for k, v in self.analyzer.analyze_package_dependencies().items()}
+                        self.analyzer.analyze_package_dependencies()
                     ),
                     'function_calls': self.diagram_generator.generate_call_graph_diagram(
-                        {k: tuple(sorted(v)) for k, v in self.analyzer.analyze_function_calls(analyses).items()}
+                        self.analyzer.analyze_function_calls(analyses)
                     )
                 }
             except Exception as e:

@@ -52,11 +52,11 @@ def mock_analyzer():
 def mock_diagram_generator():
     """Create a mock DiagramGenerator."""
     mock = Mock()
-    mock.generate_architecture_diagram.return_value = "graph TD\n    A-->B"
-    mock.generate_class_diagram.return_value = "classDiagram\n    class Test"
-    mock.generate_sequence_diagram.return_value = "sequenceDiagram\n    A->>B: call"
-    mock.generate_dependency_diagram.return_value = "graph TD\n    pkg1-->pkg2"
-    mock.generate_call_graph_diagram.return_value = "graph TD\n    func1-->func2"
+    mock.generate_architecture_diagram.return_value = "graph TD\n    A[A]\n    B[B]\n    A --> B"
+    mock.generate_class_diagram.return_value = "classDiagram\n    class Test {\n        +method()\n    }"
+    mock.generate_sequence_diagram.return_value = "sequenceDiagram\n    A->>+B: call()\n    B-->>-A: return"
+    mock.generate_dependency_diagram.return_value = "graph LR\n    pkg1[pkg1]\n    pkg2[pkg2]\n    pkg1 --> pkg2"
+    mock.generate_call_graph_diagram.return_value = "graph TD\n    func1[func1]\n    func2[func2]\n    func1 --> func2"
     return mock
 
 @pytest.fixture
@@ -246,8 +246,8 @@ def test_generate_html_documentation(generator, tmp_path):
     }
     
     diagrams = {
-        'architecture': 'graph TD\n    A-->B',
-        'class_diagram': 'classDiagram\n    class Test'
+        'architecture': 'graph TD\n    A[A]\n    B[B]\n    A --> B',
+        'class_diagram': 'classDiagram\n    class Test {\n        +method()\n    }'
     }
     
     with patch("docgen.core.generator.get_documentation_template") as mock_template:

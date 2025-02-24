@@ -56,11 +56,11 @@ class TestCodeDocumentationGenerator:
         self.mock_embeddings.embed_documents.return_value = [[0.1, 0.2, 0.3]]
         
         # Set up mock diagram generator returns
-        self.mock_diagram_generator.generate_architecture_diagram.return_value = "graph TD\n    A-->B"
-        self.mock_diagram_generator.generate_class_diagram.return_value = "classDiagram\n    class Test"
-        self.mock_diagram_generator.generate_sequence_diagram.return_value = "sequenceDiagram\n    A->>B: call"
-        self.mock_diagram_generator.generate_dependency_diagram.return_value = "graph TD\n    pkg1-->pkg2"
-        self.mock_diagram_generator.generate_call_graph_diagram.return_value = "graph TD\n    func1-->func2"
+        self.mock_diagram_generator.generate_architecture_diagram.return_value = "graph TD\n    A[A]\n    B[B]\n    A --> B"
+        self.mock_diagram_generator.generate_class_diagram.return_value = "classDiagram\n    class Test {\n        +method()\n    }"
+        self.mock_diagram_generator.generate_sequence_diagram.return_value = "sequenceDiagram\n    A->>+B: call()\n    B-->>-A: return"
+        self.mock_diagram_generator.generate_dependency_diagram.return_value = "graph LR\n    pkg1[pkg1]\n    pkg2[pkg2]\n    pkg1 --> pkg2"
+        self.mock_diagram_generator.generate_call_graph_diagram.return_value = "graph TD\n    func1[func1]\n    func2[func2]\n    func1 --> func2"
 
         # Create generator instance with patches
         with patch('docgen.core.generator.ChatAnthropic', return_value=self.mock_llm), \

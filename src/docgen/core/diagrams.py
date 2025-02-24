@@ -75,7 +75,7 @@ class DiagramGenerator:
             analyses: List of file analyses
 
         Returns:
-            PlantUML class diagram source
+            Mermaid class diagram source
 
         Raises:
             DiagramGenerationError: If no classes found or diagram generation fails
@@ -92,30 +92,29 @@ class DiagramGenerator:
         if not classes:
             raise DiagramGenerationError("No classes found in analyzed files")
 
-        diagram = ["@startuml", "skinparam monochrome true", ""]
+        diagram = ["classDiagram"]
         nodes_added = 0
 
         for cls in classes:
             if nodes_added >= self.max_nodes:
-                diagram.append(f"note \"Diagram truncated at {self.max_nodes} nodes\" as N1")
+                diagram.append(f"    note \"Diagram truncated at {self.max_nodes} nodes\"")
                 break
 
             # Add class definition
             if cls.parent_class:
-                diagram.append(f"class {cls.name} extends {cls.parent_class} {{")
-            else:
-                diagram.append(f"class {cls.name} {{")
+                diagram.append(f"    {cls.name} --|> {cls.parent_class}")
+            
+            # Add class declaration
+            diagram.append(f"    class {cls.name} {{")
 
             # Add methods
             if cls.methods:
                 for method in cls.methods:
-                    diagram.append(f"    + {method}")
+                    diagram.append(f"        +{method}()")
             
-            diagram.append("}")
-            diagram.append("")
+            diagram.append("    }")
             nodes_added += 1
 
-        diagram.append("@enduml")
         return "\n".join(diagram)
 
     def generate_sequence_diagram(self, call_graph: Dict[str, Set[str]]) -> str:
@@ -125,7 +124,7 @@ class DiagramGenerator:
             call_graph: Dictionary mapping functions to their called functions
 
         Returns:
-            PlantUML sequence diagram source
+            Mermaid sequence diagram source
 
         Raises:
             DiagramGenerationError: If no function calls found or diagram generation fails
@@ -133,7 +132,7 @@ class DiagramGenerator:
         if not call_graph:
             raise DiagramGenerationError("Empty call graph")
 
-        diagram = ["@startuml", "skinparam monochrome true", ""]
+        diagram = ["sequenceDiagram"]
         nodes_added = 0
 
         for caller, callees in call_graph.items():
@@ -141,17 +140,19 @@ class DiagramGenerator:
                 continue
 
             if nodes_added >= self.max_nodes:
-                diagram.append(f"note over {caller}: Diagram truncated at {self.max_nodes} nodes")
+                diagram.append(f"    Note over {self._clean_name(caller)}: Diagram truncated at {self.max_nodes} nodes")
                 break
 
             for callee in callees:
-                diagram.append(f"{caller} -> {callee}: call()")
+                clean_caller = self._clean_name(caller)
+                clean_callee = self._clean_name(callee)
+                diagram.append(f"    {clean_caller}->>+{clean_callee}: call()")
+                diagram.append(f"    {clean_callee}-->>-{clean_caller}: return")
                 nodes_added += 1
 
         if nodes_added == 0:
             raise DiagramGenerationError("No function calls found in call graph")
 
-        diagram.append("@enduml")
         return "\n".join(diagram)
 
     def generate_dependency_diagram(self, dependencies: Dict[str, Set[str]]) -> str:
@@ -161,7 +162,7 @@ class DiagramGenerator:
             dependencies: Dictionary mapping packages to their dependencies
 
         Returns:
-            PlantUML component diagram source
+            Mermaid graph diagram source
 
         Raises:
             DiagramGenerationError: If no dependencies found or diagram generation fails
@@ -169,24 +170,36 @@ class DiagramGenerator:
         if not dependencies:
             raise DiagramGenerationError("No dependencies to analyze")
 
-        diagram = ["@startuml", "skinparam monochrome true", ""]
+        diagram = ["graph LR"]
+        nodes_seen = set()
         nodes_added = 0
 
         for package, deps in dependencies.items():
             if nodes_added >= self.max_nodes:
-                diagram.append(f"note \"Diagram truncated at {self.max_nodes} nodes\" as N1")
+                diagram.append(f"    Note: Diagram truncated at {self.max_nodes} nodes")
                 break
 
-            diagram.append(f"[{package}] as {package.replace('-', '_')}")
-            for dep in deps:
-                diagram.append(f"[{dep}] as {dep.replace('-', '_')}")
-                diagram.append(f"{package.replace('-', '_')} --> {dep.replace('-', '_')}")
+            clean_package = self._clean_name(package)
+            if package not in nodes_seen:
+                diagram.append(f"    {clean_package}[{package}]")
+                nodes_seen.add(package)
                 nodes_added += 1
+
+            for dep in deps:
+                if nodes_added >= self.max_nodes:
+                    break
+
+                clean_dep = self._clean_name(dep)
+                if dep not in nodes_seen:
+                    diagram.append(f"    {clean_dep}[{dep}]")
+                    nodes_seen.add(dep)
+                    nodes_added += 1
+
+                diagram.append(f"    {clean_package} --> {clean_dep}")
 
         if nodes_added == 0:
             raise DiagramGenerationError("No dependencies found in packages")
 
-        diagram.append("@enduml")
         return "\n".join(diagram)
 
     def generate_call_graph_diagram(self, call_graph: Dict[str, Set[str]]) -> str:
