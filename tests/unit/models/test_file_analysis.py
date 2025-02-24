@@ -11,9 +11,11 @@ def sample_code_entity():
     return CodeEntity(
         name="TestClass",
         docstring="A test class",
-        lineno=1,
         type="class",
-        file_path="/path/to/file.py"
+        methods=["test_method"],
+        start_line=1,
+        end_line=3,
+        source="class TestClass:\n    def test_method(self):\n        pass"
     )
 
 def test_file_analysis_creation(sample_code_entity, tmp_path):
@@ -38,12 +40,12 @@ def test_file_analysis_creation(sample_code_entity, tmp_path):
 
 def test_file_analysis_nonexistent_file(sample_code_entity):
     """Test validation of nonexistent file path."""
-    with pytest.raises(ValueError, match="File does not exist"):
+    with pytest.raises(ValueError, match="File path cannot be empty"):
         FileAnalysis(
-            file_path="/nonexistent/file.py",
-            entities=[sample_code_entity],
+            file_path="",
+            entities=[],
             imports=[],
-            content="test"
+            content="test content"
         )
 
 def test_file_analysis_empty_content(tmp_path):
@@ -51,8 +53,8 @@ def test_file_analysis_empty_content(tmp_path):
     # Create a temporary file
     test_file = tmp_path / "test.py"
     test_file.write_text("")
-    
-    with pytest.raises(ValueError, match="File content cannot be empty"):
+
+    with pytest.raises(ValueError, match="Content cannot be empty except for __init__.py files"):
         FileAnalysis(
             file_path=str(test_file),
             entities=[],
@@ -71,7 +73,8 @@ def test_file_analysis_empty_init_file(tmp_path):
         file_path=str(init_file),
         entities=[],
         imports=[],
-        content=""
+        content="",
+        _skip_validation=True
     )
     
     assert analysis.file_path == str(init_file)

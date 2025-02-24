@@ -125,11 +125,20 @@ class CodeDocumentationGenerator:
             logger.info("Analyzing Python files...")
             analyses = self.analyzer.analyze_directory(abs_directory_path)
             
+            if not analyses:
+                logger.error("No Python files found in directory")
+                raise DocumentationError("No Python files found in directory")
+            
             # Create documents for vector store
             logger.info("Creating vector store...")
             documents = self._create_documents(analyses)
             
+            if not documents:
+                logger.error("No documentation content could be generated")
+                raise DocumentationError("No documentation content could be generated")
+            
             # Create vector store and QA chain
+            logger.info("Creating vector store and QA chain...")
             texts = self.text_splitter.split_documents(documents)
             vector_store = Chroma.from_documents(texts, self.embeddings)
             qa_chain = RetrievalQA.from_chain_type(
@@ -140,17 +149,21 @@ class CodeDocumentationGenerator:
             
             # Generate diagrams
             logger.info("Generating diagrams...")
-            diagrams = {
-                'architecture': self.diagram_generator.generate_architecture_diagram(analyses),
-                'class_diagram': self.diagram_generator.generate_class_diagram(analyses),
-                'sequence': self.diagram_generator.generate_sequence_diagram(analyses),
-                'package_dependencies': self.diagram_generator.generate_dependency_diagram(
-                    self.analyzer.analyze_package_dependencies()
-                ),
-                'function_calls': self.diagram_generator.generate_call_graph_diagram(
-                    self.analyzer.analyze_function_calls(analyses)
-                )
-            }
+            try:
+                diagrams = {
+                    'architecture': self.diagram_generator.generate_architecture_diagram(analyses),
+                    'class_diagram': self.diagram_generator.generate_class_diagram(analyses),
+                    'sequence': self.diagram_generator.generate_sequence_diagram(analyses),
+                    'package_dependencies': self.diagram_generator.generate_dependency_diagram(
+                        {k: tuple(sorted(v)) for k, v in self.analyzer.analyze_package_dependencies().items()}
+                    ),
+                    'function_calls': self.diagram_generator.generate_call_graph_diagram(
+                        {k: tuple(sorted(v)) for k, v in self.analyzer.analyze_function_calls(analyses).items()}
+                    )
+                }
+            except Exception as e:
+                logger.warning(f"Error generating diagrams: {str(e)}")
+                diagrams = {}
             
             # Generate documentation sections
             logger.info("Generating documentation content...")

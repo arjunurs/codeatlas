@@ -1,291 +1,302 @@
-"""Code analysis functionality for the documentation generator.
+"""Code analysis module.
 
-This module provides the CodeAnalyzer class for parsing and analyzing Python source code,
-including dependency analysis and function call tracking.
+This module provides functionality for analyzing Python source code and extracting
+information about code structure, dependencies, and relationships.
 """
 
-import os
 import ast
-import glob
 import logging
-from typing import List, Dict, Set, Optional, Iterator
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import pkg_resources
-import requirements
-from functools import lru_cache
+import os
+from typing import Dict, List, Optional, Set, Union
 
+from ..exceptions.errors import CodeParseError
 from ..models.code_entity import CodeEntity
 from ..models.file_analysis import FileAnalysis
-from ..exceptions.errors import CodeParseError
 
 logger = logging.getLogger(__name__)
 
 class CodeAnalyzer:
-    """Analyzes Python source code to extract structure and relationships.
-    
-    This class handles:
-    1. Parsing Python files to extract classes, functions, and imports
-    2. Analyzing package dependencies
-    3. Building function call graphs
-    4. Tracking inheritance relationships
-    
-    The analyzer uses threading for parallel file processing and caching
-    for improved performance.
-    
-    Attributes:
-        skip_validation: Whether to skip validation in FileAnalysis creation
-        max_workers: Maximum number of parallel workers for file processing
-    """
-    
-    def __init__(self, skip_validation: bool = False, max_workers: int = 4) -> None:
-        """Initialize the analyzer.
-        
+    """Analyzes Python source code to extract code entities and relationships."""
+
+    def __init__(self, skip_validation: bool = False):
+        """Initialize the code analyzer.
+
         Args:
-            skip_validation: Whether to skip validation in FileAnalysis creation
-            max_workers: Maximum number of parallel workers for file processing
+            skip_validation: If True, skip validation in FileAnalysis
         """
         self.skip_validation = skip_validation
-        self.max_workers = max_workers
-    
-    def analyze_directory(self, directory_path: str) -> List[FileAnalysis]:
-        """Analyze all Python files in a directory.
-        
-        Uses parallel processing for improved performance on large codebases.
-        
-        Args:
-            directory_path: Path to the directory to analyze
-            
-        Returns:
-            List of FileAnalysis objects for each Python file
-            
-        Raises:
-            CodeParseError: If directory doesn't exist or no Python files found
-        """
-        if not os.path.isdir(directory_path):
-            raise CodeParseError(f"Directory does not exist: {directory_path}")
-            
-        python_files = self._find_python_files(directory_path)
-        if not python_files:
-            raise CodeParseError(f"No Python files found in {directory_path}")
-            
-        analyses = []
-        failed_files = []
-        
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            future_to_file = {
-                executor.submit(self.analyze_file, file_path): file_path
-                for file_path in python_files
-            }
-            
-            for future in as_completed(future_to_file):
-                file_path = future_to_file[future]
-                try:
-                    analysis = future.result()
-                    analyses.append(analysis)
-                except Exception as e:
-                    logger.warning(f"Failed to analyze {file_path}: {str(e)}")
-                    failed_files.append(file_path)
-                    
-        if not analyses:
-            raise CodeParseError("No files could be successfully analyzed")
-            
-        if failed_files:
-            logger.warning(f"Failed to analyze {len(failed_files)} files")
-            
-        return analyses
-    
-    def _find_python_files(self, directory_path: str) -> List[str]:
-        """Find all Python files in a directory recursively.
-        
-        Args:
-            directory_path: Directory to search
-            
-        Returns:
-            List of Python file paths
-        """
-        python_files = []
-        for root, _, files in os.walk(directory_path):
-            for file in files:
-                if file.endswith('.py'):
-                    python_files.append(os.path.join(root, file))
-        return python_files
-    
-    @lru_cache(maxsize=128)
+        self._source: Optional[str] = None
+
     def analyze_file(self, file_path: str) -> FileAnalysis:
-        """Parse a Python source file and extract code entities.
-        
-        This method is cached to improve performance when the same file
-        is analyzed multiple times.
-        
+        """Analyze a single Python file.
+
         Args:
             file_path: Path to the Python file to analyze
-            
+
         Returns:
-            FileAnalysis object containing extracted information
-            
+            FileAnalysis object containing the analysis results
+
         Raises:
-            CodeParseError: If file parsing fails
+            CodeParseError: If file cannot be read or parsed
         """
+        if not os.path.exists(file_path):
+            raise CodeParseError(f"File does not exist: {file_path}")
+
         try:
-            abs_path = os.path.abspath(file_path)
-            if not os.path.isfile(abs_path):
-                raise CodeParseError(f"File does not exist: {file_path}")
-                
-            with open(abs_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                
-            if not content.strip():
-                logger.warning(f"Empty file: {file_path}")
-                return FileAnalysis(
-                    file_path=abs_path,
-                    entities=[],
-                    imports=[],
-                    content="",
-                    _skip_validation=True
-                )
-                
-            tree = ast.parse(content)
-            entities = self._extract_entities(tree, abs_path)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                self._source = f.read()
+
+            if not self._source and not os.path.basename(file_path) == "__init__.py":
+                raise CodeParseError("File is empty")
+
+            tree = ast.parse(self._source)
+            entities = self._extract_entities(tree, file_path)
             imports = self._extract_imports(tree)
-            
+
             return FileAnalysis(
-                file_path=abs_path,
+                file_path=os.path.abspath(file_path),
                 entities=entities,
                 imports=imports,
-                content=content,
+                content=self._source,
                 _skip_validation=self.skip_validation
             )
-            
+        except SyntaxError as e:
+            raise CodeParseError(f"Failed to parse {file_path}: {str(e)}")
         except Exception as e:
-            raise CodeParseError(f"Failed to parse {file_path}: {str(e)}") from e
-    
-    def analyze_package_dependencies(self) -> Dict[str, Set[str]]:
+            raise CodeParseError(f"Failed to analyze {file_path}: {str(e)}")
+
+    def analyze_directory(self, directory: str) -> List[FileAnalysis]:
+        """Analyze all Python files in a directory.
+
+        Args:
+            directory: Path to directory to analyze
+
+        Returns:
+            List of FileAnalysis objects
+
+        Raises:
+            CodeParseError: If directory cannot be read or contains no Python files
+        """
+        if not os.path.exists(directory):
+            raise CodeParseError(f"Directory does not exist: {directory}")
+
+        if not os.path.isdir(directory):
+            raise CodeParseError(f"Not a directory: {directory}")
+
+        python_files_found = False
+        analyses = []
+
+        for root, _, files in os.walk(directory):
+            for file in files:
+                if file.endswith('.py'):
+                    python_files_found = True
+                    file_path = os.path.join(root, file)
+                    try:
+                        analysis = self.analyze_file(file_path)
+                        analyses.append(analysis)
+                    except Exception as e:
+                        logger.warning(f"Skipping {file_path}: {str(e)}")
+
+        if not python_files_found:
+            raise CodeParseError(f"No Python files found in {directory}")
+
+        return analyses
+
+    def analyze_dependencies(self, requirements_path: str = "requirements.txt") -> Dict[str, Set[str]]:
         """Analyze package dependencies from requirements.txt.
-        
+
+        Args:
+            requirements_path: Path to requirements.txt file
+
         Returns:
             Dictionary mapping packages to their dependencies
-            
+
         Raises:
-            FileNotFoundError: If requirements.txt not found
+            FileNotFoundError: If requirements.txt is not found
             ValueError: If requirements.txt is empty
         """
-        if not os.path.exists('requirements.txt'):
-            raise FileNotFoundError("requirements.txt not found")
-            
-        with open('requirements.txt', 'r') as f:
+        if not os.path.exists(requirements_path):
+            raise FileNotFoundError(f"Requirements file not found: {requirements_path}")
+
+        with open(requirements_path, 'r', encoding='utf-8') as f:
             content = f.read().strip()
-            
+
         if not content:
-            raise ValueError("requirements.txt is empty")
-            
-        dependencies: Dict[str, Set[str]] = {}
-        for req in requirements.parse(content):
-            pkg_name = req.name
-            pkg = pkg_resources.working_set.by_key.get(pkg_name)
-            if pkg:
-                dependencies[pkg_name] = {dep.name for dep in pkg.requires()}
-            else:
-                dependencies[pkg_name] = set()
-                
+            raise ValueError("Requirements file is empty")
+
+        dependencies = {}
+        for line in content.split('\n'):
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+
+            # Parse package name and version
+            parts = line.split('>=')
+            if len(parts) != 2:
+                parts = line.split('==')
+            if len(parts) != 2:
+                parts = line.split('>')
+            if len(parts) != 2:
+                continue
+
+            package = parts[0].strip()
+            dependencies[package] = set()
+
         return dependencies
-    
-    def analyze_function_calls(self, analyses: List[FileAnalysis]) -> Dict[str, Set[str]]:
-        """Analyze function calls between entities.
-        
-        Args:
-            analyses: List of FileAnalysis objects to analyze
-            
+
+    def analyze_package_dependencies(self) -> Dict[str, Set[str]]:
+        """Analyze package dependencies between Python modules.
+
         Returns:
-            Dictionary mapping function names to sets of called functions
+            Dictionary mapping module names to their dependencies
         """
-        call_graph: Dict[str, Set[str]] = {}
-        
-        class CallVisitor(ast.NodeVisitor):
-            def __init__(self, current_function: str):
-                self.current_function = current_function
-                self.called_functions: Set[str] = set()
+        # Implementation to be added
+        return {}
+
+    def analyze_function_calls(self, analyses: List[FileAnalysis]) -> Dict[str, Set[str]]:
+        """Analyze function call relationships between entities.
+
+        Args:
+            analyses: List of file analysis results
+
+        Returns:
+            Dictionary mapping function names to called functions
+        """
+        call_graph = {}
+
+        class FunctionCallVisitor(ast.NodeVisitor):
+            def __init__(self):
+                self.current_function = None
+                self.calls = {}
+
+            def visit_FunctionDef(self, node):
+                """Visit a function definition node."""
+                # Store the current function name
+                prev_function = self.current_function
+                self.current_function = node.name
                 
-            def visit_Call(self, node: ast.Call) -> None:
+                # Initialize empty set for this function's calls
+                self.calls[self.current_function] = set()
+
+                # Visit all the nodes in the function body
+                for child in node.body:
+                    self.visit(child)
+
+                # Restore previous function context
+                self.current_function = prev_function
+
+            def visit_Call(self, node):
+                """Visit a function call node."""
+                if not self.current_function:
+                    return
+
+                # Handle direct function calls
                 if isinstance(node.func, ast.Name):
-                    self.called_functions.add(node.func.id)
+                    self.calls[self.current_function].add(node.func.id)
+                # Handle method calls
                 elif isinstance(node.func, ast.Attribute):
-                    self.called_functions.add(node.func.attr)
+                    self.calls[self.current_function].add(node.func.attr)
+
+                # Visit any nested calls
                 self.generic_visit(node)
-        
+
         for analysis in analyses:
             try:
-                tree = ast.parse(analysis.content)
-                for node in ast.walk(tree):
-                    if isinstance(node, ast.FunctionDef):
-                        visitor = CallVisitor(node.name)
-                        visitor.visit(node)
-                        call_graph[node.name] = visitor.called_functions
+                # Clean up the code by removing leading/trailing whitespace
+                cleaned_code = analysis.content.strip()
+                if not cleaned_code:
+                    continue
+
+                tree = ast.parse(cleaned_code)
+                visitor = FunctionCallVisitor()
+                visitor.visit(tree)
+
+                # Update call graph with all functions and their calls
+                call_graph.update(visitor.calls)
+
             except Exception as e:
-                logger.warning(f"Error analyzing calls in {analysis.file_path}: {str(e)}")
-                
+                logger.warning(f"Error analyzing function calls in {analysis.file_path}: {str(e)}")
+
         return call_graph
-    
+
     def _extract_entities(self, tree: ast.AST, file_path: str) -> List[CodeEntity]:
         """Extract code entities from an AST.
-        
+
         Args:
-            tree: AST to analyze
+            tree: AST to extract entities from
             file_path: Path to the source file
-            
+
         Returns:
-            List of extracted CodeEntity objects
+            List of CodeEntity objects
         """
-        entities: List[CodeEntity] = []
-        
-        for node in ast.walk(tree):
+        entities = []
+
+        # Only process top-level nodes
+        for node in ast.iter_child_nodes(tree):
             if isinstance(node, ast.ClassDef):
+                docstring = ast.get_docstring(node) or ""
+                methods = []
+
+                # Extract method names
+                for item in node.body:
+                    if isinstance(item, ast.FunctionDef):
+                        methods.append(item.name)
+
+                # Get source code
+                source_lines = ast.get_source_segment(self._source, node)
+                if source_lines is None:
+                    source_lines = ""
+
+                # Get parent class if any
                 parent_class = None
                 if node.bases:
-                    base = node.bases[0]
-                    if isinstance(base, ast.Name):
-                        parent_class = base.id
-                        
+                    parent_class = ast.unparse(node.bases[0])
+
                 entities.append(CodeEntity(
                     name=node.name,
-                    docstring=ast.get_docstring(node) or '',
-                    lineno=node.lineno,
-                    type='class',
-                    methods=[m.name for m in node.body if isinstance(m, ast.FunctionDef)],
-                    parent_class=parent_class,
-                    file_path=file_path
+                    type="class",
+                    docstring=docstring,
+                    methods=methods,
+                    start_line=node.lineno,
+                    end_line=node.end_lineno or node.lineno,
+                    source=source_lines,
+                    parent_class=parent_class
                 ))
+
             elif isinstance(node, ast.FunctionDef):
-                # Skip if this is a method (already handled in class processing)
-                if not any(isinstance(parent, ast.ClassDef) for parent in ast.walk(tree) 
-                          if hasattr(parent, 'body') and node in parent.body):
-                    entities.append(CodeEntity(
-                        name=node.name,
-                        docstring=ast.get_docstring(node) or '',
-                        lineno=node.lineno,
-                        type='function',
-                        file_path=file_path
-                    ))
-                    
+                docstring = ast.get_docstring(node) or ""
+                source_lines = ast.get_source_segment(self._source, node)
+                if source_lines is None:
+                    source_lines = ""
+
+                entities.append(CodeEntity(
+                    name=node.name,
+                    type="function",
+                    docstring=docstring,
+                    methods=None,
+                    start_line=node.lineno,
+                    end_line=node.end_lineno or node.lineno,
+                    source=source_lines
+                ))
+
         return entities
-    
+
     def _extract_imports(self, tree: ast.AST) -> List[str]:
         """Extract import statements from an AST.
-        
+
         Args:
-            tree: AST to analyze
-            
+            tree: AST to extract imports from
+
         Returns:
-            List of imported module names
+            List of import statements
         """
-        imports: List[str] = []
-        
+        imports = []
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for name in node.names:
                     imports.append(name.name)
             elif isinstance(node, ast.ImportFrom):
-                module = node.module or ''
+                module = node.module or ""
                 for name in node.names:
                     imports.append(f"{module}.{name.name}")
-                    
         return imports 

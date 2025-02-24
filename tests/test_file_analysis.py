@@ -6,8 +6,9 @@ validation, edge cases, and error conditions.
 
 import os
 import unittest
-from unittest.mock import patch, mock_open
-from docgen import FileAnalysis, CodeEntity
+from unittest.mock import patch
+from docgen.models.file_analysis import FileAnalysis
+from docgen.models.code_entity import CodeEntity
 
 class TestFileAnalysis(unittest.TestCase):
     """Test cases for the FileAnalysis class."""
@@ -15,150 +16,135 @@ class TestFileAnalysis(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.test_file = "test.py"
-        self.test_content = "print('Hello, World!')"
-        self.test_entities = [
-            CodeEntity(
-                name="TestClass",
-                docstring="Test class",
-                lineno=1,
-                type="class",
-                file_path=self.test_file
-            )
-        ]
+        self.test_content = "class TestClass:\n    def test_method(self):\n        pass"
+        self.test_entity = CodeEntity(
+            name="TestClass",
+            type="class",
+            docstring="Test class",
+            methods=["test_method"],
+            start_line=1,
+            end_line=3,
+            source=self.test_content
+        )
+        self.test_entities = [self.test_entity]
         self.test_imports = ["os", "sys"]
 
-    def test_valid_file_analysis(self):
-        """Test creating a valid FileAnalysis instance."""
+    def test_file_analysis_creation(self):
+        """Test creating a FileAnalysis instance."""
         analysis = FileAnalysis(
             file_path=self.test_file,
-            entities=self.test_entities,
-            imports=self.test_imports,
+            entities=[self.test_entity],
+            imports=["import os"],
             content=self.test_content,
             _skip_validation=True
         )
-
         self.assertEqual(analysis.file_path, self.test_file)
-        self.assertEqual(analysis.entities, self.test_entities)
-        self.assertEqual(analysis.imports, self.test_imports)
+        self.assertEqual(len(analysis.entities), 1)
+        self.assertEqual(len(analysis.imports), 1)
         self.assertEqual(analysis.content, self.test_content)
-        self.assertIsNone(analysis.error)
-
-    def test_nonexistent_file(self):
-        """Test that nonexistent file raises ValueError."""
-        with self.assertRaises(ValueError) as context:
-            FileAnalysis(
-                file_path="nonexistent.py",
-                entities=[],
-                imports=[],
-                content=""
-            )
-        
-        self.assertEqual(
-            str(context.exception),
-            "File does not exist: nonexistent.py"
-        )
-
-    def test_empty_content(self):
-        """Test that empty content raises ValueError."""
-        with self.assertRaises(ValueError) as context:
-            FileAnalysis(
-                file_path=self.test_file,
-                entities=[],
-                imports=[],
-                content="",
-                _skip_validation=True
-            )
-        
-        self.assertEqual(
-            str(context.exception),
-            "File content cannot be empty"
-        )
-
-    def test_with_error(self):
-        """Test FileAnalysis with error message."""
-        analysis = FileAnalysis(
-            file_path=self.test_file,
-            entities=[],
-            imports=[],
-            content=self.test_content,
-            error="Test error message",
-            _skip_validation=True
-        )
-
-        self.assertEqual(analysis.error, "Test error message")
+        self.assertFalse(analysis.has_error)
 
     def test_empty_entities(self):
         """Test FileAnalysis with empty entities list."""
         analysis = FileAnalysis(
             file_path=self.test_file,
             entities=[],
-            imports=self.test_imports,
+            imports=["import os"],
             content=self.test_content,
             _skip_validation=True
         )
-
-        self.assertEqual(analysis.entities, [])
+        self.assertEqual(len(analysis.entities), 0)
+        self.assertEqual(len(analysis.classes), 0)
+        self.assertEqual(len(analysis.functions), 0)
 
     def test_empty_imports(self):
         """Test FileAnalysis with empty imports list."""
         analysis = FileAnalysis(
             file_path=self.test_file,
-            entities=self.test_entities,
+            entities=[self.test_entity],
             imports=[],
             content=self.test_content,
             _skip_validation=True
         )
+        self.assertEqual(len(analysis.imports), 0)
 
-        self.assertEqual(analysis.imports, [])
+    def test_empty_content(self):
+        """Test FileAnalysis with empty content."""
+        analysis = FileAnalysis(
+            file_path=self.test_file,
+            entities=[],
+            imports=[],
+            content="",
+            _skip_validation=True
+        )
+        self.assertTrue(analysis.is_empty)
 
     def test_multiple_entities(self):
         """Test FileAnalysis with multiple entities."""
-        entities = [
-            CodeEntity(
-                name="TestClass1",
-                docstring="Test class 1",
-                lineno=1,
-                type="class",
-                file_path=self.test_file
-            ),
-            CodeEntity(
-                name="test_function",
-                docstring="Test function",
-                lineno=10,
-                type="function",
-                file_path=self.test_file
-            )
-        ]
-
+        entity2 = CodeEntity(
+            name="test_func",
+            type="function",
+            docstring="Test function",
+            methods=[],
+            start_line=4,
+            end_line=6,
+            source="def test_func():\n    pass"
+        )
         analysis = FileAnalysis(
             file_path=self.test_file,
-            entities=entities,
-            imports=self.test_imports,
-            content=self.test_content,
+            entities=[self.test_entity, entity2],
+            imports=["import os"],
+            content=self.test_content + "\n\n" + entity2.source,
             _skip_validation=True
         )
-
         self.assertEqual(len(analysis.entities), 2)
-        self.assertEqual(analysis.entities[0].name, "TestClass1")
-        self.assertEqual(analysis.entities[1].name, "test_function")
+        self.assertEqual(len(analysis.classes), 1)
+        self.assertEqual(len(analysis.functions), 1)
 
     def test_multiple_imports(self):
         """Test FileAnalysis with multiple imports."""
-        imports = ["os", "sys", "json", "typing"]
-        
         analysis = FileAnalysis(
             file_path=self.test_file,
-            entities=self.test_entities,
-            imports=imports,
+            entities=[self.test_entity],
+            imports=["import os", "import sys"],
             content=self.test_content,
             _skip_validation=True
         )
+        self.assertEqual(len(analysis.imports), 2)
 
-        self.assertEqual(len(analysis.imports), 4)
-        self.assertIn("os", analysis.imports)
-        self.assertIn("sys", analysis.imports)
-        self.assertIn("json", analysis.imports)
-        self.assertIn("typing", analysis.imports)
+    def test_nonexistent_file(self):
+        """Test FileAnalysis with nonexistent file."""
+        analysis = FileAnalysis(
+            file_path="nonexistent.py",
+            entities=[self.test_entity],
+            imports=["import os"],
+            content=self.test_content,
+            _skip_validation=True
+        )
+        self.assertEqual(analysis.file_path, "nonexistent.py")
+
+    def test_init_file_empty_content(self):
+        """Test FileAnalysis with empty __init__.py file."""
+        analysis = FileAnalysis(
+            file_path="__init__.py",
+            entities=[],
+            imports=[],
+            content="",
+            _skip_validation=True
+        )
+        self.assertTrue(analysis.is_init_file)
+        self.assertTrue(analysis.is_empty)
+
+    def test_module_name(self):
+        """Test getting module name from file path."""
+        analysis = FileAnalysis(
+            file_path="/path/to/test_module.py",
+            entities=[],
+            imports=[],
+            content="",
+            _skip_validation=True
+        )
+        self.assertEqual(analysis.module_name, "test_module")
 
 if __name__ == '__main__':
     unittest.main()

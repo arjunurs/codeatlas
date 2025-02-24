@@ -11,51 +11,43 @@ from typing import List, Optional
 
 @dataclass
 class CodeEntity:
-    """Represents a code entity (class or function) in the codebase.
-
-    This class stores information about a code entity including its name,
-    documentation, location, and relationships with other entities.
+    """Represents a code entity (class or function) in Python source code.
 
     Attributes:
         name: Name of the entity
-        docstring: Documentation string for the entity
-        lineno: Line number where the entity is defined
         type: Type of entity ('class' or 'function')
-        file_path: Path to the file containing this entity
-        methods: List of method names (for classes only)
-        parent_class: Name of parent class (for classes only)
+        docstring: Entity's docstring
+        methods: List of method names for classes, None for functions
+        start_line: Starting line number in source file
+        end_line: Ending line number in source file
+        source: Source code of the entity
+        parent_class: Name of parent class for class entities
     """
     name: str
-    docstring: str
-    lineno: int
     type: str
-    file_path: str
-    methods: List[str] = field(default_factory=list)
+    docstring: str
+    methods: Optional[List[str]] = None
+    start_line: int = 1
+    end_line: int = 1
+    source: str = ""
     parent_class: Optional[str] = None
 
-    def __post_init__(self) -> None:
-        """Validate entity attributes after initialization.
-
-        Raises:
-            ValueError: If validation fails
-        """
+    def __post_init__(self):
+        """Validate entity attributes after initialization."""
         if not self.name:
             raise ValueError("Entity name cannot be empty")
-            
-        if self.type not in ('class', 'function'):
-            raise ValueError("Entity type must be 'class' or 'function'")
-            
-        if self.lineno < 1:
-            raise ValueError("Line number must be positive")
-            
-        if not self.file_path:
-            raise ValueError("File path cannot be empty")
-            
-        if self.type == 'function' and (self.methods or self.parent_class):
-            raise ValueError("Function entities cannot have methods or parent class")
-            
-        if self.type == 'class':
-            if not isinstance(self.methods, list):
-                raise ValueError("Methods must be a list")
-            if any(not isinstance(m, str) for m in self.methods):
-                raise ValueError("Method names must be strings") 
+
+        if not isinstance(self.start_line, int) or self.start_line <= 0:
+            raise ValueError("Start line number must be a positive integer")
+
+        if not isinstance(self.end_line, int) or self.end_line <= 0:
+            raise ValueError("End line number must be a positive integer")
+
+        if self.type not in ["class", "function"]:
+            raise ValueError("Entity type must be either 'class' or 'function'")
+
+        if self.type == "function" and self.methods is not None:
+            raise ValueError("Function entities cannot have methods")
+
+        if self.end_line < self.start_line:
+            raise ValueError("End line cannot be before start line")

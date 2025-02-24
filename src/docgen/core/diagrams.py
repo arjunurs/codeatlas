@@ -1,351 +1,283 @@
-"""Diagram generation functionality for the documentation generator.
+"""Diagram generation module.
 
-This module provides the DiagramGenerator class for creating various types of
-Mermaid diagrams from code analysis results.
+This module provides functionality for generating various types of diagrams
+for code documentation.
 """
 
 import logging
-import networkx as nx
-from typing import List, Dict, Set, Optional, Tuple
-from functools import lru_cache
-from dataclasses import dataclass
+import os
+from typing import Dict, List, Set
 
-from ..models.file_analysis import FileAnalysis
 from ..exceptions.errors import DiagramGenerationError
+from ..models.file_analysis import FileAnalysis
 
 logger = logging.getLogger(__name__)
 
-@dataclass
-class DiagramConfig:
-    """Configuration for diagram generation.
-    
-    Attributes:
-        max_nodes: Maximum number of nodes in function call graphs
-        node_limit_warning: Warning message when node limit is exceeded
-        default_theme: Default theme for diagrams
-    """
-    max_nodes: int = 50
-    node_limit_warning: str = "Note: Showing top {limit} most connected functions"
-    default_theme: str = "default"
-
 class DiagramGenerator:
-    """Generates various types of Mermaid diagrams from code analysis.
-    
-    This class handles the generation of:
-    1. Architecture diagrams showing module relationships
-    2. Class diagrams showing inheritance and composition
-    3. Sequence diagrams showing interactions
-    4. Package dependency diagrams
-    5. Function call graphs
-    
-    Each diagram is generated in Mermaid syntax for rendering in HTML.
-    The generator includes caching for improved performance and
-    configurable limits to prevent oversized diagrams.
+    """Generates various types of diagrams for code documentation.
+
+    This class provides methods for generating:
+    - Class diagrams
+    - Sequence diagrams
+    - Dependency diagrams
+    - Call graph diagrams
     """
-    
-    def __init__(self, config: Optional[DiagramConfig] = None) -> None:
+
+    def __init__(self, max_nodes: int = 50):
         """Initialize the diagram generator.
-        
+
         Args:
-            config: Optional configuration for diagram generation
+            max_nodes: Maximum number of nodes to show in diagrams
         """
-        self.config = config or DiagramConfig()
-    
-    @lru_cache(maxsize=32)
-    def generate_architecture_diagram(self, analyses: Tuple[FileAnalysis, ...]) -> str:
-        """Generate a Mermaid architecture diagram showing module relationships.
-        
-        Uses caching to improve performance for repeated generation of the
-        same diagram.
-        
-        Args:
-            analyses: Tuple of FileAnalysis objects to visualize
-            
-        Returns:
-            Mermaid diagram code as string
-            
-        Raises:
-            DiagramGenerationError: If diagram generation fails
-        """
-        try:
-            # Create directed graph
-            G = nx.DiGraph()
-            
-            # Add nodes and edges from imports
-            for analysis in analyses:
-                module_name = self._get_module_name(analysis.file_path)
-                G.add_node(module_name)
-                
-                for imp in analysis.imports:
-                    imported_module = imp.split('.')[0]
-                    if imported_module != module_name:
-                        G.add_edge(module_name, imported_module)
-            
-            # Generate Mermaid code
-            mermaid_code = [
-                "%%{init: {'theme': '" + self.config.default_theme + "'}}%%",
-                "graph TD"
-            ]
-            
-            # Add nodes with tooltips
-            for node in G.nodes():
-                clean_node = self._clean_name(node)
-                tooltip = f"Module: {node}"
-                mermaid_code.append(
-                    f"    {clean_node}[{node}]:::module"
-                    f" tooltip \"{tooltip}\""
-                )
-            
-            # Add edges with counts
-            edge_counts: Dict[Tuple[str, str], int] = {}
-            for source, target in G.edges():
-                key = (self._clean_name(source), self._clean_name(target))
-                edge_counts[key] = edge_counts.get(key, 0) + 1
-            
-            for (source, target), count in edge_counts.items():
-                label = f" |{count}|" if count > 1 else ""
-                mermaid_code.append(f"    {source} -->|{label}| {target}")
-            
-            # Add styling
-            mermaid_code.extend([
-                "    classDef module fill:#f9f,stroke:#333,stroke-width:2px;",
-                "    linkStyle default stroke:#666,stroke-width:2px;"
-            ])
-            
-            return "\n".join(mermaid_code)
-            
-        except Exception as e:
-            logger.error(f"Error generating architecture diagram: {str(e)}")
-            raise DiagramGenerationError(f"Failed to generate architecture diagram: {str(e)}")
-    
-    def generate_class_diagram(self, analyses: List[FileAnalysis]) -> str:
-        """Generate a Mermaid class diagram showing relationships between classes.
-        
-        Args:
-            analyses: List of FileAnalysis objects to visualize
-            
-        Returns:
-            Mermaid diagram code as string
-            
-        Raises:
-            DiagramGenerationError: If diagram generation fails
-        """
-        try:
-            mermaid_code = ["classDiagram"]
-            added_classes = set()
-            
-            for analysis in analyses:
-                for entity in analysis.entities:
-                    if entity.type == 'class':
-                        class_name = self._clean_name(entity.name)
-                        if class_name in added_classes:
-                            continue
-                        
-                        # Add class definition
-                        mermaid_code.append(f"    class {class_name} {{")
-                        
-                        # Add docstring as comment
-                        if entity.docstring:
-                            doc_lines = entity.docstring.split('\n')
-                            for line in doc_lines[:3]:  # Limit to first 3 lines
-                                if line.strip():
-                                    mermaid_code.append(f"        %% {line.strip()}")
-                        
-                        # Add methods
-                        if entity.methods:
-                            for method in entity.methods:
-                                if not method.startswith('__'):  # Skip special methods
-                                    mermaid_code.append(f"        +{method}()")
-                        
-                        mermaid_code.append("    }")
-                        added_classes.add(class_name)
-                        
-                        # Add inheritance
-                        if entity.parent_class:
-                            parent_name = self._clean_name(entity.parent_class)
-                            if parent_name not in added_classes:
-                                mermaid_code.append(f"    class {parent_name}")
-                                added_classes.add(parent_name)
-                            mermaid_code.append(f"    {parent_name} <|-- {class_name}")
-            
-            return "\n".join(mermaid_code)
-            
-        except Exception as e:
-            logger.error(f"Error generating class diagram: {str(e)}")
-            raise DiagramGenerationError(f"Failed to generate class diagram: {str(e)}")
-    
-    def generate_sequence_diagram(self, analyses: List[FileAnalysis]) -> str:
-        """Generate a Mermaid sequence diagram showing interactions.
-        
-        Args:
-            analyses: List of FileAnalysis objects to visualize
-            
-        Returns:
-            Mermaid diagram code as string
-            
-        Raises:
-            DiagramGenerationError: If diagram generation fails
-        """
-        try:
-            mermaid_code = ["sequenceDiagram"]
-            participants = set()
-            interactions = []
-            
-            # First pass: collect participants
-            for analysis in analyses:
-                for entity in analysis.entities:
-                    if entity.type == 'class':
-                        participants.add(entity.name)
-            
-            if not participants:
-                return "sequenceDiagram\n    Note over A: No clear interactions detected"
-            
-            # Add participants
-            for participant in sorted(participants):
-                clean_name = self._clean_name(participant)
-                mermaid_code.append(f"    participant {clean_name} as {participant}")
-            
-            # Second pass: add interactions based on method calls
-            for analysis in analyses:
-                for entity in analysis.entities:
-                    if entity.type == 'class' and entity.methods:
-                        source = self._clean_name(entity.name)
-                        for method in entity.methods:
-                            if not method.startswith('__'):
-                                target = source  # Self-call by default
-                                interactions.append(
-                                    f"    {source}->>+{target}: {method}"
-                                )
-            
-            mermaid_code.extend(interactions)
-            return "\n".join(mermaid_code)
-            
-        except Exception as e:
-            logger.error(f"Error generating sequence diagram: {str(e)}")
-            raise DiagramGenerationError(f"Failed to generate sequence diagram: {str(e)}")
-    
-    def generate_dependency_diagram(self, dependencies: Dict[str, Set[str]]) -> str:
-        """Generate a Mermaid diagram from package dependencies.
-        
-        Args:
-            dependencies: Dictionary mapping packages to their dependencies
-            
-        Returns:
-            Mermaid diagram code as string
-            
-        Raises:
-            DiagramGenerationError: If diagram generation fails
-        """
-        try:
-            mermaid_code = ["graph TD"]
-            added_nodes = set()
-            
-            for package, deps in dependencies.items():
-                pkg_name = self._clean_name(package)
-                if pkg_name not in added_nodes:
-                    mermaid_code.append(f"    {pkg_name}[{package}]")
-                    added_nodes.add(pkg_name)
-                
-                for dep in deps:
-                    dep_name = self._clean_name(dep)
-                    if dep_name not in added_nodes:
-                        mermaid_code.append(f"    {dep_name}[{dep}]")
-                        added_nodes.add(dep_name)
-                    mermaid_code.append(f"    {pkg_name} --> {dep_name}")
-            
-            return "\n".join(mermaid_code)
-            
-        except Exception as e:
-            logger.error(f"Error generating dependency diagram: {str(e)}")
-            raise DiagramGenerationError(f"Failed to generate dependency diagram: {str(e)}")
-    
-    def generate_call_graph_diagram(self, call_graph: Dict[str, Set[str]]) -> str:
-        """Generate a Mermaid diagram from function call relationships.
-        
-        Args:
-            call_graph: Dictionary mapping functions to their called functions
-            
-        Returns:
-            Mermaid diagram code as string
-            
-        Raises:
-            DiagramGenerationError: If diagram generation fails
-        """
-        try:
-            mermaid_code = ["graph TD"]
-            added_nodes = set()
-            
-            # Calculate function importance (number of connections)
-            function_importance = {}
-            for caller, callees in call_graph.items():
-                function_importance[caller] = len(callees)
-                for callee in callees:
-                    function_importance[callee] = function_importance.get(callee, 0) + 1
-            
-            # Sort functions by importance
-            sorted_functions = sorted(
-                function_importance.items(),
-                key=lambda x: x[1],
-                reverse=True
-            )
-            
-            # Limit to MAX_NODES most important functions
-            important_functions = {
-                func for func, _ in sorted_functions[:self.config.max_nodes]
-            }
-            
-            # Add nodes and edges for important functions
-            for caller, callees in call_graph.items():
-                if caller in important_functions:
-                    caller_name = self._clean_name(caller)
-                    if caller_name not in added_nodes:
-                        mermaid_code.append(f"    {caller_name}[{caller}]")
-                        added_nodes.add(caller_name)
-                    
-                    for callee in callees:
-                        if callee in important_functions:
-                            callee_name = self._clean_name(callee)
-                            if callee_name not in added_nodes:
-                                mermaid_code.append(f"    {callee_name}[{callee}]")
-                                added_nodes.add(callee_name)
-                            mermaid_code.append(f"    {caller_name} --> {callee_name}")
-            
-            # Add note if functions were omitted
-            if len(function_importance) > self.config.max_nodes:
-                mermaid_code.append(
-                    self.config.node_limit_warning.format(limit=self.config.max_nodes)
-                )
-            
-            return "\n".join(mermaid_code)
-            
-        except Exception as e:
-            logger.error(f"Error generating call graph diagram: {str(e)}")
-            raise DiagramGenerationError(f"Failed to generate call graph diagram: {str(e)}")
-    
-    def _clean_name(self, name: str) -> str:
-        """Clean a name for Mermaid compatibility.
-        
+        self.max_nodes = max_nodes
+
+    @staticmethod
+    def _clean_name(name: str) -> str:
+        """Clean a name for use in Mermaid diagrams.
+
         Args:
             name: Name to clean
-            
+
         Returns:
-            Cleaned name safe for Mermaid diagrams
+            Cleaned name safe for use in diagrams
         """
-        return name.replace('-', '_').replace('.', '_').replace('@', 'at_')
-    
-    def _get_module_name(self, file_path: str) -> str:
-        """Extract module name from file path.
-        
+        clean = name.replace("-", "_").replace(".", "_").replace("/", "_").replace("@", "")
+        return clean
+
+    def _add_node_with_limit(self, diagram: List[str], node_name: str, nodes_seen: Set[str], nodes_added: int) -> bool:
+        """Add a node to the diagram if within node limit.
+
         Args:
-            file_path: Path to Python file
-            
+            diagram: List of diagram lines
+            node_name: Name of node to add
+            nodes_seen: Set of nodes already added
+            nodes_added: Number of nodes added so far
+
         Returns:
-            Module name
+            True if node was added, False if limit reached
         """
-        parts = file_path.split('/')
-        for i, part in enumerate(reversed(parts)):
-            if part.endswith('.py'):
-                if part == '__init__.py' and i + 1 < len(parts):
-                    return parts[-(i+2)]
-                return part[:-3]
-        return file_path 
+        if nodes_added >= self.max_nodes:
+            if not any(line.startswith("    Note:") for line in diagram):
+                diagram.append(f"    Note: Showing top {self.max_nodes} nodes")
+            return False
+
+        clean_name = self._clean_name(node_name)
+        if node_name not in nodes_seen:
+            diagram.append(f"    {clean_name}[{clean_name}]")
+            nodes_seen.add(node_name)
+            return True
+        return False
+
+    def generate_class_diagram(self, analyses: List[FileAnalysis]) -> str:
+        """Generate a class diagram from file analyses.
+
+        Args:
+            analyses: List of file analyses
+
+        Returns:
+            PlantUML class diagram source
+
+        Raises:
+            DiagramGenerationError: If no classes found or diagram generation fails
+        """
+        if not analyses:
+            raise DiagramGenerationError("No files to analyze")
+
+        classes = []
+        for analysis in analyses:
+            for entity in analysis.entities:
+                if entity.type == "class":
+                    classes.append(entity)
+
+        if not classes:
+            raise DiagramGenerationError("No classes found in analyzed files")
+
+        diagram = ["@startuml", "skinparam monochrome true", ""]
+        nodes_added = 0
+
+        for cls in classes:
+            if nodes_added >= self.max_nodes:
+                diagram.append(f"note \"Diagram truncated at {self.max_nodes} nodes\" as N1")
+                break
+
+            # Add class definition
+            if cls.parent_class:
+                diagram.append(f"class {cls.name} extends {cls.parent_class} {{")
+            else:
+                diagram.append(f"class {cls.name} {{")
+
+            # Add methods
+            if cls.methods:
+                for method in cls.methods:
+                    diagram.append(f"    + {method}")
+            
+            diagram.append("}")
+            diagram.append("")
+            nodes_added += 1
+
+        diagram.append("@enduml")
+        return "\n".join(diagram)
+
+    def generate_sequence_diagram(self, call_graph: Dict[str, Set[str]]) -> str:
+        """Generate a sequence diagram from function call graph.
+
+        Args:
+            call_graph: Dictionary mapping functions to their called functions
+
+        Returns:
+            PlantUML sequence diagram source
+
+        Raises:
+            DiagramGenerationError: If no function calls found or diagram generation fails
+        """
+        if not call_graph:
+            raise DiagramGenerationError("Empty call graph")
+
+        diagram = ["@startuml", "skinparam monochrome true", ""]
+        nodes_added = 0
+
+        for caller, callees in call_graph.items():
+            if not callees:
+                continue
+
+            if nodes_added >= self.max_nodes:
+                diagram.append(f"note over {caller}: Diagram truncated at {self.max_nodes} nodes")
+                break
+
+            for callee in callees:
+                diagram.append(f"{caller} -> {callee}: call()")
+                nodes_added += 1
+
+        if nodes_added == 0:
+            raise DiagramGenerationError("No function calls found in call graph")
+
+        diagram.append("@enduml")
+        return "\n".join(diagram)
+
+    def generate_dependency_diagram(self, dependencies: Dict[str, Set[str]]) -> str:
+        """Generate a dependency diagram from package dependencies.
+
+        Args:
+            dependencies: Dictionary mapping packages to their dependencies
+
+        Returns:
+            PlantUML component diagram source
+
+        Raises:
+            DiagramGenerationError: If no dependencies found or diagram generation fails
+        """
+        if not dependencies:
+            raise DiagramGenerationError("No dependencies to analyze")
+
+        diagram = ["@startuml", "skinparam monochrome true", ""]
+        nodes_added = 0
+
+        for package, deps in dependencies.items():
+            if nodes_added >= self.max_nodes:
+                diagram.append(f"note \"Diagram truncated at {self.max_nodes} nodes\" as N1")
+                break
+
+            diagram.append(f"[{package}] as {package.replace('-', '_')}")
+            for dep in deps:
+                diagram.append(f"[{dep}] as {dep.replace('-', '_')}")
+                diagram.append(f"{package.replace('-', '_')} --> {dep.replace('-', '_')}")
+                nodes_added += 1
+
+        if nodes_added == 0:
+            raise DiagramGenerationError("No dependencies found in packages")
+
+        diagram.append("@enduml")
+        return "\n".join(diagram)
+
+    def generate_call_graph_diagram(self, call_graph: Dict[str, Set[str]]) -> str:
+        """Generate a call graph diagram showing function calls.
+
+        Args:
+            call_graph: Dictionary mapping functions to their called functions
+
+        Returns:
+            Mermaid graph diagram markup
+
+        Raises:
+            DiagramGenerationError: If diagram generation fails
+        """
+        try:
+            if not call_graph:
+                return "graph TD\n    Note: No function calls found"
+
+            diagram = ["graph TD"]
+            nodes_seen = set()
+            nodes_added = 0
+
+            for caller, callees in call_graph.items():
+                if nodes_added >= self.max_nodes:
+                    break
+
+                clean_caller = self._clean_name(caller)
+                if self._add_node_with_limit(diagram, caller, nodes_seen, nodes_added):
+                    nodes_added += 1
+
+                for callee in callees:
+                    if nodes_added >= self.max_nodes:
+                        break
+
+                    clean_callee = self._clean_name(callee)
+                    if self._add_node_with_limit(diagram, callee, nodes_seen, nodes_added):
+                        nodes_added += 1
+
+                    diagram.append(f"    {clean_caller} --> {clean_callee}")
+
+            if nodes_added >= self.max_nodes:
+                diagram.append(f"    Note: Showing top {self.max_nodes} nodes")
+
+            return "\n".join(diagram)
+        except Exception as e:
+            logger.debug(f"Error in call graph diagram: {str(e)}")
+            raise DiagramGenerationError(f"Failed to generate call graph diagram: {str(e)}")
+
+    def generate_architecture_diagram(self, analyses: List[FileAnalysis]) -> str:
+        """Generate an architecture diagram showing module relationships.
+
+        Args:
+            analyses: List of file analyses
+
+        Returns:
+            Mermaid graph diagram markup
+
+        Raises:
+            DiagramGenerationError: If diagram generation fails
+        """
+        try:
+            if not analyses:
+                return "graph TD\n    Note: No files to analyze"
+
+            diagram = ["graph TD"]
+            nodes_seen = set()
+            nodes_added = 0
+
+            for analysis in analyses:
+                if nodes_added >= self.max_nodes:
+                    break
+
+                module_name = os.path.splitext(os.path.basename(analysis.file_path))[0]
+                if self._add_node_with_limit(diagram, module_name, nodes_seen, nodes_added):
+                    nodes_added += 1
+
+                for imp in analysis.imports:
+                    if nodes_added >= self.max_nodes:
+                        break
+
+                    if self._add_node_with_limit(diagram, imp, nodes_seen, nodes_added):
+                        nodes_added += 1
+
+                    clean_module = self._clean_name(module_name)
+                    clean_imp = self._clean_name(imp)
+                    diagram.append(f"    {clean_module} --> {clean_imp}")
+
+            if nodes_added >= self.max_nodes:
+                diagram.append(f"    Note: Showing top {self.max_nodes} nodes")
+
+            return "\n".join(diagram)
+        except Exception as e:
+            logger.debug(f"Error in architecture diagram: {str(e)}")
+            raise DiagramGenerationError(f"Failed to generate architecture diagram: {str(e)}") 

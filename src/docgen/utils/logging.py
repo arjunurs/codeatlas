@@ -1,38 +1,49 @@
-"""Logging configuration utilities.
+"""Logging configuration module.
 
-This module provides functions for configuring logging settings used throughout
-the documentation generator.
+This module provides functions for setting up logging with consistent formatting
+and output handling.
 """
 
 import logging
 from typing import Optional
 
 def setup_logging(verbose: bool = False, log_file: Optional[str] = None) -> None:
-    """Configure logging settings.
+    """Set up logging configuration.
 
     Args:
-        verbose: If True, set logging level to DEBUG
-        log_file: Optional path to a log file. If provided, logs will be written
-            to this file in addition to console output.
-
-    Example:
-        >>> setup_logging(verbose=True, log_file='docgen.log')
+        verbose: Whether to enable debug logging
+        log_file: Optional path to log file
     """
-    log_level = logging.DEBUG if verbose else logging.INFO
-    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level = logging.DEBUG if verbose else logging.INFO
 
-    # Configure root logger
-    logging.basicConfig(
-        level=log_level,
-        format=log_format
-    )
+    # Set up root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
 
-    # Add file handler if log file specified
+    # Set up docgen logger
+    docgen_logger = logging.getLogger('docgen')
+    docgen_logger.setLevel(level)
+
+    # Remove any existing handlers
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+    for handler in docgen_logger.handlers[:]:
+        docgen_logger.removeHandler(handler)
+
+    # Create console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(level)
+
+    # Create formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+    docgen_logger.addHandler(console_handler)
+
+    # Add file handler if specified
     if log_file:
         file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(logging.Formatter(log_format))
-        logging.getLogger().addHandler(file_handler)
-
-    # Create logger for this package
-    logger = logging.getLogger('docgen')
-    logger.setLevel(log_level) 
+        file_handler.setLevel(level)
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
+        docgen_logger.addHandler(file_handler) 

@@ -1,13 +1,17 @@
-"""API key management utilities.
+"""API key management module.
 
-This module provides functions for managing API keys used by the documentation
-generator, including loading from environment variables and .env files.
+This module provides functionality for retrieving API keys from various sources:
+1. Direct parameters
+2. Custom environment variables
+3. Default environment variables
+4. .env file
 """
 
+import logging
 import os
 from typing import Optional, Tuple
-import logging
-from dotenv import load_dotenv, find_dotenv
+
+from dotenv import find_dotenv, load_dotenv
 
 from ..exceptions.errors import ApiKeyError
 
@@ -16,69 +20,56 @@ logger = logging.getLogger(__name__)
 def get_api_keys(
     anthropic_api_key: Optional[str] = None,
     openai_api_key: Optional[str] = None,
-    api_key_env: Optional[str] = None
+    custom_env_file: Optional[str] = None
 ) -> Tuple[str, str]:
-    """Get Anthropic and OpenAI API keys with fallback priority:
-    1. Environment variables (ANTHROPIC_API_KEY/OPENAI_API_KEY or custom)
-    2. .env file
-    3. Command line parameter
+    """Get API keys from parameters, environment variables, or .env file.
 
     Args:
-        anthropic_api_key: Direct Anthropic API key from command line
-        openai_api_key: Direct OpenAI API key from command line
-        api_key_env: Environment variable name containing the API key
+        anthropic_api_key: Optional Anthropic API key
+        openai_api_key: Optional OpenAI API key
+        custom_env_file: Optional path to custom .env file
 
     Returns:
-        Tuple of (Anthropic API key string, OpenAI API key string)
+        Tuple of (Anthropic API key, OpenAI API key)
 
     Raises:
-        ApiKeyError: If API keys cannot be found in any location
-
-    Example:
-        >>> anthropic_key, openai_key = get_api_keys()
-        >>> anthropic_key, openai_key = get_api_keys(api_key_env='CUSTOM_API_KEY')
+        ApiKeyError: If either API key is missing
     """
-    # Try environment variables first
-    if api_key_env:
-        env_key = os.getenv(api_key_env)
-        if env_key:
-            logger.debug(f"Using API key from environment variable {api_key_env}")
-            return env_key, env_key
+    # Try to get keys from parameters first
+    final_anthropic_key = anthropic_api_key
+    final_openai_key = openai_api_key
 
-    # Try default environment variables
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-    openai_key = os.getenv("OPENAI_API_KEY")
+    # If not provided, try environment variables
+    if not final_anthropic_key:
+        final_anthropic_key = os.environ.get('ANTHROPIC_API_KEY')
+        if final_anthropic_key:
+            logger.debug("Using Anthropic API key from environment")
 
-    # Try loading from .env file
-    env_path = find_dotenv(usecwd=True)
-    if env_path:
-        load_dotenv(env_path)
-        # Check environment variables again after loading .env
-        if not anthropic_key:
-            anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-        if not openai_key:
-            openai_key = os.getenv("OPENAI_API_KEY")
+    if not final_openai_key:
+        final_openai_key = os.environ.get('OPENAI_API_KEY')
+        if final_openai_key:
+            logger.debug("Using OpenAI API key from environment")
 
-    # Finally, try command line parameters
-    if anthropic_api_key:
-        anthropic_key = anthropic_api_key
-    if openai_api_key:
-        openai_key = openai_api_key
+    # If still not found and custom env file provided, try that
+    if custom_env_file and (not final_anthropic_key or not final_openai_key):
+        try:
+            with open(custom_env_file) as f:
+                for line in f:
+                    if '=' in line:
+                        key, value = line.strip().split('=', 1)
+                        if key == 'ANTHROPIC_API_KEY' and not final_anthropic_key:
+                            final_anthropic_key = value
+                            logger.debug("Using Anthropic API key from custom env file")
+                        elif key == 'OPENAI_API_KEY' and not final_openai_key:
+                            final_openai_key = value
+                            logger.debug("Using OpenAI API key from custom env file")
+        except Exception as e:
+            logger.warning(f"Error reading custom env file: {str(e)}")
 
-    if not anthropic_key:
-        raise ApiKeyError(
-            "Anthropic API key not found. Please provide it through one of:\n"
-            "1. ANTHROPIC_API_KEY environment variable\n"
-            "2. .env file with ANTHROPIC_API_KEY=your-key\n"
-            "3. --anthropic-api-key command line parameter"
-        )
+    # Validate we have both keys
+    if not final_anthropic_key:
+        raise ApiKeyError("Anthropic API key not found")
+    if not final_openai_key:
+        raise ApiKeyError("OpenAI API key not found")
 
-    if not openai_key:
-        raise ApiKeyError(
-            "OpenAI API key not found. Please provide it through one of:\n"
-            "1. OPENAI_API_KEY environment variable\n"
-            "2. .env file with OPENAI_API_KEY=your-key\n"
-            "3. --openai-api-key command line parameter"
-        )
-
-    return anthropic_key, openai_key 
+    return final_anthropic_key, final_openai_key 

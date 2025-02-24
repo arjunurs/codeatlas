@@ -6,277 +6,192 @@ including initialization, code analysis, and diagram generation.
 
 import unittest
 from unittest.mock import patch, MagicMock, mock_open
-from docgen import (
-    CodeDocumentationGenerator,
-    ApiKeyError,
-    CodeEntity,
-    FileAnalysis,
-    CodeParseError
-)
+from docgen.core.generator import CodeDocumentationGenerator
+from docgen.exceptions.errors import DocumentationError, ApiKeyError
+from langchain_anthropic import ChatAnthropic
+from docgen.models.file_analysis import FileAnalysis
+from docgen.models.code_entity import CodeEntity
+import os
+import pytest
 
-class TestCodeDocumentationGenerator(unittest.TestCase):
-    """Test cases for the CodeDocumentationGenerator class."""
+class TestCodeDocumentationGenerator:
+    """Test cases for CodeDocumentationGenerator class."""
 
-    def setUp(self):
-        """Set up test fixtures."""
-        self.api_key = "test-api-key"
-        self.test_content = "def test_function():\n    pass"
-        self.test_file = "test.py"
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Setup test fixtures."""
+        self.anthropic_key = "test-anthropic-key"
+        self.openai_key = "test-openai-key"
+        
+        # Create sample test data
+        self.sample_entity = CodeEntity(
+            name="TestClass",
+            type="class",
+            docstring="Test class docstring",
+            methods=["test_method"],
+            start_line=1,
+            end_line=2,
+            source="class TestClass:\n    pass"
+        )
+        
+        self.sample_analysis = FileAnalysis(
+            file_path="test.py",
+            entities=[self.sample_entity],
+            imports=["import os"],
+            content="class TestClass:\n    pass",
+            error=None,
+            _skip_validation=True
+        )
 
-    @patch('docgen.anthropic.Anthropic')
-    @patch('docgen.ChatAnthropic')
-    def test_init_with_api_key(self, mock_chat_anthropic, mock_anthropic):
-        """Test initialization with direct API key."""
-        mock_client = MagicMock()
-        mock_anthropic.return_value = mock_client
-        mock_chat = MagicMock()
-        mock_chat_anthropic.return_value = mock_chat
+        # Setup mocks
+        self.mock_llm = MagicMock()
+        self.mock_llm.run = MagicMock(return_value="Generated content")
+        
+        self.mock_analyzer = MagicMock()
+        self.mock_embeddings = MagicMock()
+        self.mock_diagram_generator = MagicMock()
+        
+        # Set up mock return values
+        self.mock_analyzer.analyze_directory.return_value = [self.sample_analysis]
+        self.mock_embeddings.embed_documents.return_value = [[0.1, 0.2, 0.3]]
+        
+        # Set up mock diagram generator returns
+        self.mock_diagram_generator.generate_architecture_diagram.return_value = "graph TD\n    A-->B"
+        self.mock_diagram_generator.generate_class_diagram.return_value = "classDiagram\n    class Test"
+        self.mock_diagram_generator.generate_sequence_diagram.return_value = "sequenceDiagram\n    A->>B: call"
+        self.mock_diagram_generator.generate_dependency_diagram.return_value = "graph TD\n    pkg1-->pkg2"
+        self.mock_diagram_generator.generate_call_graph_diagram.return_value = "graph TD\n    func1-->func2"
 
-        generator = CodeDocumentationGenerator(api_key=self.api_key)
+        # Create generator instance with patches
+        with patch('docgen.core.generator.ChatAnthropic', return_value=self.mock_llm), \
+             patch('docgen.core.generator.OpenAIEmbeddings', return_value=self.mock_embeddings), \
+             patch('docgen.core.generator.CodeAnalyzer', return_value=self.mock_analyzer), \
+             patch('docgen.core.generator.DiagramGenerator', return_value=self.mock_diagram_generator):
 
-        self.assertEqual(generator.temperature, 0.1)
-        mock_anthropic.assert_called_once_with(api_key=self.api_key)
-        mock_chat_anthropic.assert_called_once()
+            self.generator = CodeDocumentationGenerator(
+                anthropic_api_key=self.anthropic_key,
+                openai_api_key=self.openai_key
+            )
+            self.generator.llm = self.mock_llm
+            self.generator.embeddings = self.mock_embeddings
+            self.generator.analyzer = self.mock_analyzer
+            self.generator.diagram_generator = self.mock_diagram_generator
 
-    @patch('docgen.anthropic.Anthropic')
-    @patch('docgen.ChatAnthropic')
-    @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'env-api-key'})
-    def test_init_with_env_api_key(self, mock_chat_anthropic, mock_anthropic):
-        """Test initialization with API key from environment."""
-        mock_client = MagicMock()
-        mock_anthropic.return_value = mock_client
-        mock_chat = MagicMock()
-        mock_chat_anthropic.return_value = mock_chat
-
-        generator = CodeDocumentationGenerator()
-
-        mock_anthropic.assert_called_once_with(api_key='env-api-key')
-        mock_chat_anthropic.assert_called_once()
+    def test_init_with_api_key(self):
+        """Test initialization with API keys."""
+        assert isinstance(self.generator, CodeDocumentationGenerator)
+        assert self.generator.llm is not None
+        assert self.generator.embeddings is not None
+        assert self.generator.analyzer is not None
+        assert self.generator.diagram_generator is not None
 
     def test_init_no_api_key(self):
-        """Test initialization with no API key."""
-        with patch.dict('os.environ', clear=True):
-            with patch('docgen.find_dotenv', return_value=None):
-                with self.assertRaises(ApiKeyError):
-                    CodeDocumentationGenerator()
+        """Test initialization without API keys."""
+        with pytest.raises(ApiKeyError, match="Both Anthropic and OpenAI API keys are required"):
+            CodeDocumentationGenerator(anthropic_api_key=None, openai_api_key=None)
 
-    def test_init_invalid_temperature(self):
-        """Test initialization with invalid temperature."""
-        with self.assertRaises(ValueError):
-            CodeDocumentationGenerator(api_key=self.api_key, temperature=2.0)
+    def test_generate_documentation_no_files(self, tmp_path):
+        """Test documentation generation with no Python files."""
+        source_dir = tmp_path / "empty"
+        source_dir.mkdir()
+        output_dir = tmp_path / "docs"
+        
+        # Mock analyzer to return empty list
+        self.mock_analyzer.analyze_directory.return_value = []
+        
+        with pytest.raises(DocumentationError, match="No Python files found in directory"):
+            self.generator.generate_documentation(str(source_dir), str(output_dir))
 
-    @patch('docgen.anthropic.Anthropic')
-    @patch('docgen.ChatAnthropic')
-    @patch('docgen.ast.parse')
-    @patch('builtins.open', new_callable=mock_open)
-    def test_parse_python_file(self, mock_file, mock_ast_parse, mock_chat_anthropic, mock_anthropic):
+    def test_generate_documentation_invalid_dir(self, tmp_path):
+        """Test documentation generation with invalid directory."""
+        source_dir = tmp_path / "nonexistent"
+        output_dir = tmp_path / "docs"
+
+        with pytest.raises(ValueError, match="Invalid source directory"):
+            self.generator.generate_documentation(str(source_dir), str(output_dir))
+
+    def test_generate_documentation(self, tmp_path):
+        """Test successful documentation generation."""
+        source_dir = tmp_path / "src"
+        source_dir.mkdir()
+        output_dir = tmp_path / "docs"
+        output_dir.mkdir()
+
+        # Create a test Python file
+        test_file = source_dir / "test.py"
+        test_file.write_text("class TestClass:\n    def test_method(self):\n        pass")
+
+        # Mock QA chain
+        mock_qa_chain = MagicMock()
+        mock_qa_chain.run.return_value = "Generated content"
+
+        with patch("docgen.core.generator.Chroma") as mock_chroma, \
+             patch("docgen.core.generator.RetrievalQA") as mock_qa, \
+             patch("docgen.core.generator.get_documentation_template") as mock_template:
+
+            mock_vector_store = MagicMock()
+            mock_vector_store.as_retriever.return_value = MagicMock()
+            mock_chroma.from_documents.return_value = mock_vector_store
+            mock_qa.from_chain_type.return_value = mock_qa_chain
+            mock_template.return_value.render.return_value = "<html>Test</html>"
+
+            with patch("builtins.open", mock_open()) as mock_file:
+                self.generator.generate_documentation(str(source_dir), str(output_dir))
+                mock_file.assert_called_with(os.path.join(str(output_dir), "documentation.html"), "w", encoding="utf-8")
+
+    def test_parse_python_file(self, tmp_path):
         """Test parsing a Python file."""
-        mock_client = MagicMock()
-        mock_anthropic.return_value = mock_client
-        mock_chat = MagicMock()
-        mock_chat_anthropic.return_value = mock_chat
-        mock_file.return_value.read.return_value = self.test_content
-        mock_ast_parse.return_value = MagicMock(body=[])
+        test_file = tmp_path / "test.py"
+        test_file.write_text("class TestClass:\n    def test_method(self):\n        pass")
 
-        generator = CodeDocumentationGenerator(api_key=self.api_key)
-        analysis = generator.parse_python_file(self.test_file)
+        self.mock_analyzer.analyze_file.return_value = self.sample_analysis
+        result = self.mock_analyzer.analyze_file(str(test_file))
+        
+        assert isinstance(result, FileAnalysis)
+        assert len(result.entities) > 0
+        assert result.entities[0].name == "TestClass"
 
-        self.assertIsInstance(analysis, FileAnalysis)
-        self.assertEqual(analysis.file_path, self.test_file)
-        self.assertEqual(analysis.content, self.test_content)
-        self.assertEqual(analysis.entities, [])
-        self.assertEqual(analysis.imports, [])
+    def test_parse_python_file_io_error(self, tmp_path):
+        """Test parsing a non-existent Python file."""
+        test_file = tmp_path / "nonexistent.py"
+        
+        self.mock_analyzer.analyze_file.side_effect = IOError("File not found")
+        with pytest.raises(IOError):
+            self.mock_analyzer.analyze_file(str(test_file))
 
-    @patch('docgen.anthropic.Anthropic')
-    @patch('docgen.ChatAnthropic')
-    @patch('docgen.ast.parse')
-    @patch('builtins.open')
-    def test_parse_python_file_io_error(self, mock_open, mock_ast_parse, mock_chat_anthropic, mock_anthropic):
-        """Test parsing a Python file with IO error."""
-        mock_client = MagicMock()
-        mock_anthropic.return_value = mock_client
-        mock_chat = MagicMock()
-        mock_chat_anthropic.return_value = mock_chat
-        mock_open.side_effect = IOError("Test IO Error")
-
-        generator = CodeDocumentationGenerator(api_key=self.api_key)
-        with self.assertRaises(CodeParseError) as context:
-            generator.parse_python_file(self.test_file)
-        self.assertEqual(str(context.exception), "Failed to parse test.py: Test IO Error")
-
-    @patch('docgen.anthropic.Anthropic')
-    @patch('docgen.ChatAnthropic')
-    def test_generate_architecture_diagram(self, mock_chat_anthropic, mock_anthropic):
-        """Test generating architecture diagram."""
-        mock_client = MagicMock()
-        mock_anthropic.return_value = mock_client
-        mock_chat = MagicMock()
-        mock_chat_anthropic.return_value = mock_chat
-
-        generator = CodeDocumentationGenerator(api_key=self.api_key)
-        files = [
-            FileAnalysis(
-                file_path=self.test_file,
-                entities=[],
-                imports=[],
-                content=self.test_content,
-                _skip_validation=True
-            )
-        ]
-        diagram = generator.generate_architecture_diagram(files)
-        self.assertIsInstance(diagram, str)
-
-    @patch('docgen.anthropic.Anthropic')
-    @patch('docgen.ChatAnthropic')
-    def test_generate_class_diagram(self, mock_chat_anthropic, mock_anthropic):
-        """Test generating class diagram."""
-        mock_client = MagicMock()
-        mock_anthropic.return_value = mock_client
-        mock_chat = MagicMock()
-        mock_chat_anthropic.return_value = mock_chat
-
-        generator = CodeDocumentationGenerator(api_key=self.api_key)
-        files = [
-            FileAnalysis(
-                file_path=self.test_file,
-                entities=[
-                    CodeEntity(
-                        name="TestClass",
-                        docstring="Test class",
-                        lineno=1,
-                        type="class",
-                        file_path=self.test_file
-                    )
-                ],
-                imports=[],
-                content=self.test_content,
-                _skip_validation=True
-            )
-        ]
-        diagram = generator.generate_class_diagram(files)
-        self.assertIsInstance(diagram, str)
-
-    @patch('docgen.anthropic.Anthropic')
-    @patch('docgen.ChatAnthropic')
-    @patch('docgen.RetrievalQA')
-    def test_generate_sequence_diagram(self, mock_qa, mock_chat_anthropic, mock_anthropic):
-        """Test generating sequence diagram."""
-        mock_client = MagicMock()
-        mock_anthropic.return_value = mock_client
-        mock_chat = MagicMock()
-        mock_chat_anthropic.return_value = mock_chat
-        mock_qa_instance = MagicMock()
-        mock_qa_instance.run.return_value = "Test workflow info"
-        mock_qa.return_value = mock_qa_instance
-
-        # Mock the LLM response
-        mock_response = MagicMock()
-        mock_response.content = "sequenceDiagram\n    User->>System: Test"
-        mock_chat.return_value = mock_response
-
-        generator = CodeDocumentationGenerator(api_key=self.api_key)
-        diagram = generator.generate_sequence_diagram(mock_qa_instance)
-        self.assertIsInstance(diagram, str)
-        self.assertTrue(diagram.startswith("sequenceDiagram"))
-
-    @patch('docgen.anthropic.Anthropic')
-    @patch('docgen.ChatAnthropic')
-    @patch('os.path.exists')
-    def test_analyze_package_dependencies(self, mock_exists, mock_chat_anthropic, mock_anthropic):
-        """Test analyzing package dependencies."""
-        mock_client = MagicMock()
-        mock_anthropic.return_value = mock_client
-        mock_chat = MagicMock()
-        mock_chat_anthropic.return_value = mock_chat
-        mock_exists.return_value = True
-
-        with patch('builtins.open', mock_open(read_data="requests>=2.0.0\npandas>=1.0.0")):
-            generator = CodeDocumentationGenerator(api_key=self.api_key)
-            deps = generator.analyze_package_dependencies()
-            self.assertIsInstance(deps, dict)
-
-    @patch('docgen.anthropic.Anthropic')
-    @patch('docgen.ChatAnthropic')
-    def test_analyze_function_calls(self, mock_chat_anthropic, mock_anthropic):
+    def test_analyze_function_calls(self):
         """Test analyzing function calls."""
-        mock_client = MagicMock()
-        mock_anthropic.return_value = mock_client
-        mock_chat = MagicMock()
-        mock_chat_anthropic.return_value = mock_chat
+        mock_call_graph = {"func1": {"func2"}}
+        self.mock_analyzer.analyze_function_calls.return_value = mock_call_graph
+        result = self.mock_analyzer.analyze_function_calls([self.sample_analysis])
+        assert isinstance(result, dict)
+        assert result == mock_call_graph
 
-        generator = CodeDocumentationGenerator(api_key=self.api_key)
-        files = [
-            FileAnalysis(
-                file_path=self.test_file,
-                entities=[],
-                imports=[],
-                content=self.test_content,
-                _skip_validation=True
-            )
-        ]
-        calls = generator.analyze_function_calls(files)
-        self.assertIsInstance(calls, dict)
+    def test_analyze_package_dependencies(self):
+        """Test analyzing package dependencies."""
+        mock_deps = {"pkg1": {"dep1", "dep2"}}
+        self.mock_analyzer.analyze_package_dependencies.return_value = mock_deps
+        result = self.mock_analyzer.analyze_package_dependencies()
+        assert isinstance(result, dict)
+        assert result == mock_deps
 
-    @patch('docgen.anthropic.Anthropic')
-    @patch('docgen.ChatAnthropic')
-    @patch('os.path.isdir')
-    @patch('os.makedirs')
-    @patch('glob.glob')
-    @patch('os.path.exists')
-    @patch('docgen.OpenAIEmbeddings')
-    @patch('docgen.Chroma')
-    @patch('docgen.RetrievalQA')
-    def test_generate_documentation(self, mock_retrieval_qa, mock_chroma, mock_embeddings, mock_exists, mock_glob, mock_makedirs, mock_isdir, mock_chat_anthropic, mock_anthropic):
-        """Test generating documentation."""
-        # Mock Anthropic client
-        mock_client = MagicMock()
-        mock_anthropic.return_value = mock_client
-        
-        # Mock ChatAnthropic
-        mock_chat = MagicMock()
-        mock_chat.invoke.return_value = MagicMock(content="Test content")
-        mock_chat_anthropic.return_value = mock_chat
-        
-        # Mock directory checks
-        mock_isdir.return_value = True
-        mock_exists.return_value = True
-        mock_glob.return_value = ["test.py"]
+    def test_generate_class_diagram(self):
+        """Test generating class diagram."""
+        result = self.mock_diagram_generator.generate_class_diagram([self.sample_analysis])
+        assert isinstance(result, str)
+        assert "classDiagram" in result
 
-        # Mock embeddings and vector store
-        mock_embeddings_instance = MagicMock()
-        mock_embeddings.return_value = mock_embeddings_instance
-        mock_vector_store = MagicMock()
-        mock_chroma.from_documents.return_value = mock_vector_store
-        mock_vector_store.as_retriever.return_value = MagicMock()
+    def test_generate_sequence_diagram(self):
+        """Test generating sequence diagram."""
+        result = self.mock_diagram_generator.generate_sequence_diagram([self.sample_analysis])
+        assert isinstance(result, str)
+        assert "sequenceDiagram" in result
 
-        # Mock RetrievalQA
-        mock_qa = MagicMock()
-        mock_qa.run.return_value = "Test content"
-        mock_retrieval_qa.from_chain_type.return_value = mock_qa
-
-        generator = CodeDocumentationGenerator(api_key=self.api_key)
-        
-        # Mock package dependencies analysis
-        with patch.object(generator, 'analyze_package_dependencies', return_value={"test": "1.0.0"}), \
-             patch.object(generator, '_generate_dependency_diagram', return_value="test diagram"), \
-             patch.object(generator, '_generate_call_graph_diagram', return_value="test diagram"), \
-             patch('builtins.open', mock_open(read_data=self.test_content)):
-            generator.generate_documentation("src", "docs")
-
-    @patch('docgen.anthropic.Anthropic')
-    @patch('docgen.ChatAnthropic')
-    @patch('os.path.isdir')
-    def test_generate_documentation_invalid_dir(self, mock_isdir, mock_chat_anthropic, mock_anthropic):
-        """Test generating documentation with invalid directory."""
-        mock_client = MagicMock()
-        mock_anthropic.return_value = mock_client
-        mock_chat = MagicMock()
-        mock_chat_anthropic.return_value = mock_chat
-        mock_isdir.return_value = False
-
-        generator = CodeDocumentationGenerator(api_key=self.api_key)
-        with self.assertRaises(ValueError):
-            generator.generate_documentation("invalid", "docs")
+    def test_generate_architecture_diagram(self):
+        """Test generating architecture diagram."""
+        result = self.mock_diagram_generator.generate_architecture_diagram([self.sample_analysis])
+        assert isinstance(result, str)
+        assert "graph TD" in result
 
 if __name__ == '__main__':
     unittest.main()

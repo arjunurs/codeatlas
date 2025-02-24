@@ -5,7 +5,7 @@ validation, edge cases, and error conditions.
 """
 
 import unittest
-from docgen import CodeEntity
+from docgen.models.code_entity import CodeEntity
 
 class TestCodeEntity(unittest.TestCase):
     """Test cases for the CodeEntity class."""
@@ -14,116 +14,91 @@ class TestCodeEntity(unittest.TestCase):
         """Test creating a valid class entity."""
         entity = CodeEntity(
             name="TestClass",
-            docstring="Test class docstring",
-            lineno=10,
             type="class",
-            file_path="test.py",
-            methods=["method1", "method2"],
-            parent_class="BaseClass"
+            docstring="Test class docstring",
+            methods=["test_method"],
+            start_line=1,
+            end_line=10,
+            source="class TestClass:\n    def test_method(self):\n        pass"
         )
-
         self.assertEqual(entity.name, "TestClass")
-        self.assertEqual(entity.docstring, "Test class docstring")
-        self.assertEqual(entity.lineno, 10)
         self.assertEqual(entity.type, "class")
-        self.assertEqual(entity.file_path, "test.py")
-        self.assertEqual(entity.methods, ["method1", "method2"])
-        self.assertEqual(entity.parent_class, "BaseClass")
+        self.assertEqual(entity.docstring, "Test class docstring")
+        self.assertEqual(entity.methods, ["test_method"])
+        self.assertEqual(entity.start_line, 1)
+        self.assertEqual(entity.end_line, 10)
+        self.assertIsNotNone(entity.source)
 
     def test_valid_function_entity(self):
         """Test creating a valid function entity."""
         entity = CodeEntity(
-            name="test_function",
-            docstring="Test function docstring",
-            lineno=20,
+            name="test_func",
             type="function",
-            file_path="test.py"
+            docstring="Test function docstring",
+            start_line=1,
+            end_line=5,
+            source="def test_func():\n    pass"
         )
-
-        self.assertEqual(entity.name, "test_function")
-        self.assertEqual(entity.docstring, "Test function docstring")
-        self.assertEqual(entity.lineno, 20)
+        self.assertEqual(entity.name, "test_func")
         self.assertEqual(entity.type, "function")
-        self.assertEqual(entity.file_path, "test.py")
-        self.assertEqual(entity.methods, [])
-        self.assertIsNone(entity.parent_class)
-
-    def test_invalid_entity_type(self):
-        """Test that invalid entity type raises ValueError."""
-        with self.assertRaises(ValueError) as context:
-            CodeEntity(
-                name="test",
-                docstring="test",
-                lineno=1,
-                type="invalid",
-                file_path="test.py"
-            )
-        
-        self.assertEqual(
-            str(context.exception),
-            "Entity type must be 'class' or 'function'"
-        )
-
-    def test_invalid_line_number(self):
-        """Test that invalid line number raises ValueError."""
-        with self.assertRaises(ValueError) as context:
-            CodeEntity(
-                name="test",
-                docstring="test",
-                lineno=0,
-                type="class",
-                file_path="test.py"
-            )
-        
-        self.assertEqual(
-            str(context.exception),
-            "Line number must be positive"
-        )
+        self.assertEqual(entity.docstring, "Test function docstring")
+        self.assertIsNone(entity.methods)
+        self.assertEqual(entity.start_line, 1)
+        self.assertEqual(entity.end_line, 5)
+        self.assertIsNotNone(entity.source)
 
     def test_empty_name(self):
-        """Test entity with empty name."""
-        entity = CodeEntity(
-            name="",
-            docstring="test",
-            lineno=1,
-            type="function",
-            file_path="test.py"
-        )
-        self.assertEqual(entity.name, "")
+        """Test error when name is empty."""
+        with self.assertRaises(ValueError):
+            CodeEntity(
+                name="",
+                type="class",
+                docstring="Test",
+                methods=["test_method"],
+                start_line=1,
+                end_line=10,
+                source="class TestClass:\n    pass"
+            )
 
-    def test_empty_docstring(self):
-        """Test entity with empty docstring."""
-        entity = CodeEntity(
-            name="test",
-            docstring="",
-            lineno=1,
-            type="function",
-            file_path="test.py"
-        )
-        self.assertEqual(entity.docstring, "")
+    def test_invalid_entity_type(self):
+        """Test error when entity type is invalid."""
+        with self.assertRaises(ValueError):
+            CodeEntity(
+                name="Test",
+                type="invalid",
+                docstring="Test",
+                start_line=1,
+                end_line=10,
+                source="def test():\n    pass"
+            )
 
-    def test_empty_methods_list(self):
-        """Test class entity with empty methods list."""
-        entity = CodeEntity(
-            name="TestClass",
-            docstring="test",
-            lineno=1,
-            type="class",
-            file_path="test.py",
-            methods=[]
-        )
-        self.assertEqual(entity.methods, [])
+    def test_invalid_line_number(self):
+        """Test error when line number is invalid."""
+        with self.assertRaises(ValueError):
+            CodeEntity(
+                name="Test",
+                type="class",
+                docstring="Test",
+                methods=["test_method"],
+                start_line=-1,
+                end_line=10,
+                source="class Test:\n    pass"
+            )
 
     def test_no_parent_class(self):
-        """Test class entity with no parent class."""
+        """Test creating a class entity without parent class."""
         entity = CodeEntity(
             name="TestClass",
-            docstring="test",
-            lineno=1,
             type="class",
-            file_path="test.py"
+            docstring="Test class",
+            methods=["test_method"],
+            start_line=1,
+            end_line=10,
+            source="class TestClass:\n    pass"
         )
-        self.assertIsNone(entity.parent_class)
+        self.assertEqual(entity.name, "TestClass")
+        self.assertEqual(entity.type, "class")
+        self.assertEqual(entity.methods, ["test_method"])
 
 if __name__ == '__main__':
     unittest.main()

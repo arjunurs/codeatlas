@@ -60,22 +60,85 @@ def mock_diagram_generator():
     return mock
 
 @pytest.fixture
-def generator(mock_llm, mock_embeddings, mock_analyzer, mock_diagram_generator):
+def generator():
     """Create a CodeDocumentationGenerator instance with mocked dependencies."""
-    with patch("docgen.core.generator.ChatAnthropic") as mock_chat:
-        mock_chat.return_value = mock_llm
-        with patch("docgen.core.generator.OpenAIEmbeddings") as mock_emb:
-            mock_emb.return_value = mock_embeddings
-            with patch("docgen.core.generator.CodeAnalyzer") as mock_ana:
-                mock_ana.return_value = mock_analyzer
-                with patch("docgen.core.generator.DiagramGenerator") as mock_diag:
-                    mock_diag.return_value = mock_diagram_generator
-                    
-                    generator = CodeDocumentationGenerator(
-                        anthropic_api_key="test_anthropic_key",
-                        openai_api_key="test_openai_key"
-                    )
-                    return generator
+    mock_llm = MagicMock()
+    mock_embeddings = MagicMock()
+    mock_analyzer = MagicMock()
+    mock_diagram_generator = MagicMock()
+
+    # Create a sample FileAnalysis for testing
+    sample_entity = CodeEntity(
+        name="TestClass",
+        type="class",
+        docstring="Test class",
+        start_line=1,
+        end_line=5,
+        source="class TestClass:\n    def test_method(self):\n        pass",
+        methods=["test_method"]
+    )
+    sample_analysis = FileAnalysis(
+        file_path="test.py",
+        entities=[sample_entity],
+        imports=["os", "sys"],
+        content="class TestClass:\n    def test_method(self):\n        pass",
+        _skip_validation=True
+    )
+
+    with patch('docgen.core.generator.ChatAnthropic', return_value=mock_llm), \
+         patch('docgen.core.generator.OpenAIEmbeddings', return_value=mock_embeddings), \
+         patch('docgen.core.generator.CodeAnalyzer', return_value=mock_analyzer), \
+         patch('docgen.core.generator.DiagramGenerator', return_value=mock_diagram_generator):
+        
+        # Set up mock return values
+        mock_analyzer.analyze_directory.return_value = [sample_analysis]
+        mock_embeddings.embed_documents.return_value = [[0.1, 0.2, 0.3]]
+        
+        generator = CodeDocumentationGenerator(
+            anthropic_api_key="test-anthropic",
+            openai_api_key="test-openai"
+        )
+        generator.analyzer = mock_analyzer
+        generator.embeddings = mock_embeddings
+        generator.llm = mock_llm
+        generator.diagram_generator = mock_diagram_generator
+        yield generator
+
+@pytest.fixture
+def mock_generator():
+    """Create a mock generator with test data."""
+    generator = CodeDocumentationGenerator(
+        anthropic_api_key="test-anthropic-key",
+        openai_api_key="test-openai-key"
+    )
+    
+    # Create sample test data
+    sample_entity = CodeEntity(
+        name="TestClass",
+        type="class",
+        docstring="Test class docstring",
+        methods=["test_method"],
+        start_line=1,
+        end_line=2,
+        source="class TestClass:\n    pass"
+    )
+    
+    sample_analysis = FileAnalysis(
+        file_path="test.py",
+        entities=[sample_entity],
+        imports=["import os"],
+        content="class TestClass:\n    pass",
+        error=None,
+        _skip_validation=True
+    )
+    
+    # Setup mocks
+    generator.analyzer = MagicMock()
+    generator.embeddings = MagicMock()
+    generator.diagram_generator = MagicMock()
+    generator.analyzer.analyze_directory.return_value = [sample_analysis]
+    
+    return generator
 
 def test_initialization():
     """Test generator initialization."""
@@ -86,11 +149,10 @@ def test_initialization():
             temperature=2.0  # Invalid temperature
         )
 
-def test_generate_documentation_invalid_directory(generator):
+def test_generate_documentation_invalid_directory(mock_generator):
     """Test documentation generation with invalid directory."""
-    with pytest.raises(ValueError) as exc_info:
-        generator.generate_documentation("/nonexistent/dir", "./output")
-    assert "Invalid source directory" in str(exc_info.value)
+    with pytest.raises(ValueError, match="Invalid source directory"):
+        mock_generator.generate_documentation("nonexistent", "docs")
 
 def test_generate_documentation_success(generator, tmp_path):
     """Test successful documentation generation."""
@@ -124,17 +186,29 @@ def test_generate_documentation_success(generator, tmp_path):
                     )
                     mock_file().write.assert_called_with("<html>Test</html>")
 
-def test_generate_documentation_no_files(generator, tmp_path):
+def test_generate_documentation_no_files(mock_generator, tmp_path):
     """Test documentation generation with no Python files."""
     source_dir = tmp_path / "empty"
     source_dir.mkdir()
     output_dir = tmp_path / "docs"
     
-    generator.analyzer.analyze_directory.return_value = []
+    # Mock analyzer to return empty list
+    mock_generator.analyzer.analyze_directory.return_value = []
     
-    with pytest.raises(DocumentationError) as exc_info:
-        generator.generate_documentation(str(source_dir), str(output_dir))
-    assert "No files could be successfully analyzed" in str(exc_info.value)
+    with pytest.raises(DocumentationError, match="No Python files found in directory"):
+        mock_generator.generate_documentation(str(source_dir), str(output_dir))
+
+def test_generate_documentation_analysis_error(mock_generator, tmp_path):
+    """Test documentation generation with analysis error."""
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    output_dir = tmp_path / "docs"
+    
+    # Mock analyzer to raise error
+    mock_generator.analyzer.analyze_directory.side_effect = Exception("Analysis failed")
+    
+    with pytest.raises(DocumentationError, match="Failed to generate documentation: Analysis failed"):
+        mock_generator.generate_documentation(str(source_dir), str(output_dir))
 
 def test_generate_documentation_with_errors(generator, tmp_path):
     """Test documentation generation with various errors."""
