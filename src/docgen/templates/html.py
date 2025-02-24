@@ -103,22 +103,31 @@ _BASE_TEMPLATE = """
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         .mermaid {
-            min-height: 400px;
+            min-height: 80vh;
+            height: 100%;
+            width: 100%;
             overflow: auto;
         }
         .diagram-container {
             width: 100%;
+            height: 80vh;
             overflow: auto;
             resize: both;
-            min-height: 400px;
             border: 1px solid #e5e7eb;
-            padding: 1rem;
+            padding: 0.5rem;
+            margin: 0;
+            position: relative;
+            background: white;
         }
         .zoom-buttons {
             position: absolute;
             top: 10px;
             right: 10px;
             z-index: 100;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 5px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         .zoom-button {
             background: white;
@@ -127,9 +136,11 @@ _BASE_TEMPLATE = """
             margin: 0 2px;
             cursor: pointer;
             border-radius: 4px;
+            transition: all 0.2s;
         }
         .zoom-button:hover {
             background: #f3f4f6;
+            transform: scale(1.05);
         }
         .sidebar {
             width: 300px;
@@ -141,10 +152,13 @@ _BASE_TEMPLATE = """
             background: white;
             border-right: 1px solid #e5e7eb;
             padding: 1rem;
+            z-index: 10;
         }
         .main-content {
             margin-left: 300px;
-            padding: 2rem;
+            padding: 1rem;
+            min-height: 100vh;
+            width: calc(100% - 300px);
         }
         .search-box {
             width: 100%;
@@ -176,6 +190,22 @@ _BASE_TEMPLATE = """
             margin-bottom: 0.5rem;
             padding: 0.5rem 0;
             border-bottom: 1px solid #e5e7eb;
+        }
+        @media (min-width: 1024px) {
+            .diagram-container {
+                height: 85vh;
+            }
+            .mermaid {
+                min-height: 85vh;
+            }
+        }
+        @media (min-width: 1536px) {
+            .diagram-container {
+                height: 90vh;
+            }
+            .mermaid {
+                min-height: 90vh;
+            }
         }
     </style>
     <script>
@@ -307,25 +337,56 @@ _SECTION_TEMPLATE = """
 _DIAGRAMS_TEMPLATE = """
 {% extends "base" %}
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-lg">
-    <h1 class="text-4xl font-bold mb-8">{{ title }}</h1>
+<div class="bg-white rounded-lg shadow-lg h-full">
+    <div class="p-4 border-b">
+        <h1 class="text-2xl font-bold">{{ title }}</h1>
+    </div>
     <div class="relative">
         <div class="zoom-buttons">
-            <button class="zoom-button" onclick="zoomDiagram('diagram', 1.2)">+</button>
-            <button class="zoom-button" onclick="zoomDiagram('diagram', 0.8)">-</button>
+            <button class="zoom-button" onclick="zoomDiagram('diagram', 1.2)" title="Zoom In">
+                <i class="fas fa-search-plus"></i>
+            </button>
+            <button class="zoom-button" onclick="zoomDiagram('diagram', 0.8)" title="Zoom Out">
+                <i class="fas fa-search-minus"></i>
+            </button>
+            <button class="zoom-button" onclick="zoomDiagram('diagram', 1/currentScale)" title="Reset Zoom">
+                <i class="fas fa-undo"></i>
+            </button>
         </div>
         <div id="diagram" class="diagram-container">
             <div class="mermaid">
-                {{ diagram }}
+                {{ diagram_code }}
             </div>
         </div>
     </div>
     {% if description %}
-    <div class="mt-8 prose max-w-none">
-        {{ description | safe }}
+    <div class="p-4 border-t">
+        <div class="prose max-w-none">
+            {{ description | safe }}
+        </div>
     </div>
     {% endif %}
 </div>
+
+<script>
+let currentScale = 1;
+
+function zoomDiagram(diagramId, factor) {
+    const container = document.getElementById(diagramId);
+    const svg = container.querySelector('svg');
+    if (!svg) return;
+    
+    if (factor === 1/currentScale) {
+        // Reset zoom
+        currentScale = 1;
+    } else {
+        currentScale = currentScale * factor;
+    }
+    
+    svg.style.transform = `scale(${currentScale})`;
+    svg.style.transformOrigin = 'top left';
+}
+</script>
 {% endblock %}
 """
 
