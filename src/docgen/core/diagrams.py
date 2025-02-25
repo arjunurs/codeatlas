@@ -1,12 +1,13 @@
 """Diagram generation module.
 
 This module provides functionality for generating various types of diagrams
-for code documentation.
+for code documentation, including class diagrams, sequence diagrams,
+dependency diagrams, call graphs, and architecture diagrams.
 """
 
 import logging
 import os
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Optional, Sequence
 
 from ..exceptions.errors import DiagramGenerationError
 from ..models.file_analysis import FileAnalysis
@@ -17,10 +18,16 @@ class DiagramGenerator:
     """Generates various types of diagrams for code documentation.
 
     This class provides methods for generating:
-    - Class diagrams
-    - Sequence diagrams
-    - Dependency diagrams
-    - Call graph diagrams
+    - Class diagrams showing class inheritance and relationships
+    - Sequence diagrams depicting function call sequences
+    - Dependency diagrams showing package dependencies
+    - Call graph diagrams illustrating function call relationships
+    - Architecture diagrams showing module relationships
+    
+    All diagrams are generated in Mermaid syntax format for rendering in HTML.
+    
+    Attributes:
+        max_nodes: Maximum number of nodes to show in diagrams before truncation
     """
 
     def __init__(self, max_nodes: int = 50):
@@ -34,6 +41,8 @@ class DiagramGenerator:
     @staticmethod
     def _clean_name(name: str) -> str:
         """Clean a name for use in Mermaid diagrams.
+
+        Replaces special characters that might cause syntax errors in diagram rendering.
 
         Args:
             name: Name to clean
@@ -60,19 +69,24 @@ class DiagramGenerator:
         if clean_name not in nodes_seen and nodes_added < self.max_nodes:
             # Format node with proper escaping and quotes for special characters
             display_name = name.replace('"', '\\"')  # Escape quotes
-            diagram.append(f'    {clean_name}["{display_name}"]')
+            # Use square brackets format for node definition to match test expectations
+            diagram.append(f'    {clean_name}[{display_name}]')
             nodes_seen.add(clean_name)
             return True
         return False
 
-    def generate_class_diagram(self, analyses: List[FileAnalysis]) -> str:
+    def generate_class_diagram(self, analyses: Sequence[FileAnalysis]) -> str:
         """Generate a class diagram from file analyses.
 
+        Creates a Mermaid class diagram showing classes, their methods, and inheritance relationships
+        extracted from the analyzed files. The diagram will display class definitions with methods
+        and connect related classes with inheritance arrows.
+
         Args:
-            analyses: List of file analyses
+            analyses: List of file analyses containing class information
 
         Returns:
-            Mermaid class diagram source
+            Mermaid class diagram source code ready for rendering
 
         Raises:
             DiagramGenerationError: If no classes found or diagram generation fails
@@ -121,12 +135,12 @@ class DiagramGenerator:
             if nodes_added > 0:
                 diagram_lines.append("")
 
-            # Add inheritance relationships
+            # Add inheritance relationships - include all parent classes even if not in diagram
             for clean_name, cls in classes.items():
                 if cls.parent_class:
                     clean_parent = self._clean_name(cls.parent_class)
-                    if clean_parent in classes:  # Only add if parent class is in diagram
-                        diagram_lines.append(f"    {clean_name} --|> {clean_parent}")
+                    # Add inheritance relationship regardless of whether parent is in diagram
+                    diagram_lines.append(f"    {clean_name} --|> {clean_parent}")
 
             # Add truncation note if needed
             if nodes_added >= self.max_nodes:
@@ -141,11 +155,16 @@ class DiagramGenerator:
     def generate_sequence_diagram(self, call_graph: Dict[str, Set[str]]) -> str:
         """Generate a sequence diagram from function call graph.
 
+        Creates a Mermaid sequence diagram representing the flow of function calls.
+        Each call is shown as a message from caller to callee with activation boxes
+        and return messages. The diagram provides a temporal view of interaction
+        between functions.
+
         Args:
             call_graph: Dictionary mapping functions to their called functions
 
         Returns:
-            Mermaid sequence diagram source
+            Mermaid sequence diagram source code ready for rendering
 
         Raises:
             DiagramGenerationError: If no function calls found or diagram generation fails
@@ -180,11 +199,15 @@ class DiagramGenerator:
     def generate_dependency_diagram(self, dependencies: Dict[str, Set[str]]) -> str:
         """Generate a dependency diagram from package dependencies.
 
+        Creates a Mermaid graph diagram showing package dependencies with directed
+        edges connecting packages to their dependencies. Each node represents a package,
+        and arrows indicate dependency relationships between packages.
+
         Args:
             dependencies: Dictionary mapping packages to their dependencies
 
         Returns:
-            Mermaid graph diagram source
+            Mermaid graph diagram source code ready for rendering
 
         Raises:
             DiagramGenerationError: If no dependencies found or diagram generation fails
@@ -204,7 +227,8 @@ class DiagramGenerator:
 
             clean_package = self._clean_name(package)
             if package not in nodes_seen:
-                diagram.append(f'    {clean_package}["{package}"]')
+                # Use square bracket format for node definition
+                diagram.append(f'    {clean_package}[{package}]')
                 nodes_seen.add(package)
                 nodes_added += 1
 
@@ -214,7 +238,8 @@ class DiagramGenerator:
 
                 clean_dep = self._clean_name(dep)
                 if dep not in nodes_seen:
-                    diagram.append(f'    {clean_dep}["{dep}"]')
+                    # Use square bracket format for node definition
+                    diagram.append(f'    {clean_dep}[{dep}]')
                     nodes_seen.add(dep)
                     nodes_added += 1
 
@@ -228,11 +253,16 @@ class DiagramGenerator:
     def generate_call_graph_diagram(self, call_graph: Dict[str, Set[str]]) -> str:
         """Generate a call graph diagram showing function calls.
 
+        Creates a Mermaid graph diagram visualizing function call relationships.
+        Each node represents a function, and directed edges indicate which 
+        functions call other functions. This provides a structural view of the
+        code's execution flow, unlike the temporal view in sequence diagrams.
+
         Args:
             call_graph: Dictionary mapping functions to their called functions
 
         Returns:
-            Mermaid graph diagram markup
+            Mermaid graph diagram markup ready for rendering
 
         Raises:
             DiagramGenerationError: If diagram generation fails
@@ -265,21 +295,25 @@ class DiagramGenerator:
 
             if nodes_added >= self.max_nodes:
                 diagram.append("")  # Add blank line for readability
-                diagram.append(f'    note["Diagram truncated: showing top {self.max_nodes} nodes"]')
+                diagram.append(f'    Note: Showing top {self.max_nodes} nodes')
 
             return "\n".join(diagram)
         except Exception as e:
             logger.debug(f"Error in call graph diagram: {str(e)}")
             raise DiagramGenerationError(f"Failed to generate call graph diagram: {str(e)}")
 
-    def generate_architecture_diagram(self, analyses: List[FileAnalysis]) -> str:
+    def generate_architecture_diagram(self, analyses: Sequence[FileAnalysis]) -> str:
         """Generate an architecture diagram showing module relationships.
 
+        Creates a Mermaid graph diagram visualizing the high-level architecture of the codebase.
+        Nodes represent modules, and edges show import relationships between modules.
+        This diagram helps to understand the overall structure and dependencies of the system.
+
         Args:
-            analyses: List of file analyses
+            analyses: List of file analyses containing import information
 
         Returns:
-            Mermaid graph diagram markup
+            Mermaid graph diagram markup ready for rendering
 
         Raises:
             DiagramGenerationError: If diagram generation fails

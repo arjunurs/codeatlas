@@ -162,9 +162,9 @@ def test_clean_names_in_diagrams(diagram_generator):
     diagram = diagram_generator.generate_dependency_diagram(dependencies)
 
     # Verify special characters are handled
-    assert "[package-name]" in diagram
-    assert "[dep.name]" in diagram
-    assert "[@scope/name]" in diagram
+    assert "package_name[package-name]" in diagram
+    assert "dep_name[dep.name]" in diagram
+    assert "scope_name[@scope/name]" in diagram
 
 def test_empty_inputs(diagram_generator):
     """Test diagram generation with empty inputs."""
