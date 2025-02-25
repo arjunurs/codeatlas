@@ -181,7 +181,7 @@ class CodeDocumentationGenerator:
                 'sections': [
                     {
                         'title': 'Overview',
-                        'content': qa_chain.run(
+                        'content': qa_chain.invoke(
                             "Analyze the codebase and provide a comprehensive overview. "
                             "Format your response using proper Markdown with these specific requirements:\n"
                             "1. Use ## for main sections and ### for subsections\n"
@@ -196,11 +196,11 @@ class CodeDocumentationGenerator:
                             "## Overall Architecture and Design Patterns\n\n"
                             "Be specific and use examples from the actual code. "
                             "Every class name, method name, function name, and property must be in `backticks`."
-                        )
+                        ).get('answer', '')
                     },
                     {
                         'title': 'Dependencies',
-                        'content': qa_chain.run(
+                        'content': qa_chain.invoke(
                             "Analyze the project dependencies and explain:\n"
                             "Format your response using proper Markdown with these specific requirements:\n"
                             "1. Use ## for main sections and ### for subsections\n"
@@ -214,11 +214,11 @@ class CodeDocumentationGenerator:
                             "## Version Requirements\n"
                             "## Integration Points\n\n"
                             "Be specific and reference actual dependencies from the project."
-                        )
+                        ).get('answer', '')
                     },
                     {
                         'title': 'Key Classes and Functions',
-                        'content': qa_chain.run(
+                        'content': qa_chain.invoke(
                             "Describe the key classes and functions. "
                             "Format your response using proper Markdown with these specific requirements:\n"
                             "1. Use ## for main sections and ### for subsections\n"
@@ -233,11 +233,11 @@ class CodeDocumentationGenerator:
                             "## Usage Examples\n\n"
                             "Be specific and use examples from the actual code. "
                             "Every class name, method name, function name, and property must be in `backticks`."
-                        )
+                        ).get('answer', '')
                     },
                     {
                         'title': 'Data Flow',
-                        'content': qa_chain.run(
+                        'content': qa_chain.invoke(
                             "Explain the data flow through the system. "
                             "Format your response using proper Markdown with these specific requirements:\n"
                             "1. Use ## for main sections and ### for subsections\n"
@@ -252,11 +252,11 @@ class CodeDocumentationGenerator:
                             "## Error Handling\n\n"
                             "Be specific and use examples from the actual code. "
                             "Every class name, method name, function name, and property must be in `backticks`."
-                        )
+                        ).get('answer', '')
                     },
                     {
                         'title': 'Integration Points',
-                        'content': qa_chain.run(
+                        'content': qa_chain.invoke(
                             "Describe how the code integrates with other systems. "
                             "Format your response using proper Markdown with these specific requirements:\n"
                             "1. Use ## for main sections and ### for subsections\n"
@@ -271,7 +271,7 @@ class CodeDocumentationGenerator:
                             "## Configuration\n\n"
                             "Be specific and use examples from the actual code. "
                             "Every class name, method name, function name, and property must be in `backticks`."
-                        )
+                        ).get('answer', '')
                     }
                 ]
             }

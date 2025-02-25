@@ -201,7 +201,7 @@ def test_main_success(cli_setup):
         # Verify function calls
         mock_setup_logging.assert_called_once_with(False)  # False because we didn't set --verbose in test_args
         mock_get_keys.assert_called_once_with(None, None, '.env')
-        mock_llm.run.assert_called()
+        mock_llm.invoke.assert_called()
 
 def test_main_error(cli_setup):
     """Test main function with error."""

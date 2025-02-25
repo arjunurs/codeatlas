@@ -294,7 +294,7 @@ def test_documentation_content_structure(generator, tmp_path):
     
     # Create a mock QA chain that returns structured content
     mock_qa_chain = Mock()
-    mock_qa_chain.run.return_value = """
+    mock_qa_chain.invoke.return_value = {"answer": """
     # Section Title
     
     - Point 1
@@ -307,7 +307,7 @@ def test_documentation_content_structure(generator, tmp_path):
     def test():
         pass
     ```
-    """
+    """}
     
     with patch("docgen.core.generator.Chroma"):
         with patch("docgen.core.generator.RetrievalQA") as mock_qa:
@@ -315,7 +315,7 @@ def test_documentation_content_structure(generator, tmp_path):
             generator.generate_documentation(str(source_dir), str(output_dir))
             
             # Verify QA chain was called for each section
-            assert mock_qa_chain.run.call_count == 5  # Number of documentation sections
+            assert mock_qa_chain.invoke.call_count == 5  # Number of documentation sections
             
             # Verify template received structured content
             render_calls = generator.template_manager.render_template.call_args_list
