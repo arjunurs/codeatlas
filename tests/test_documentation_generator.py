@@ -127,7 +127,7 @@ class TestCodeDocumentationGenerator:
 
         with patch("docgen.core.generator.Chroma") as mock_chroma, \
              patch("docgen.core.generator.RetrievalQA") as mock_qa, \
-             patch("docgen.core.generator.get_documentation_template") as mock_template:
+             patch("docgen.core.generator.get_template_manager") as mock_template:
 
             mock_vector_store = MagicMock()
             mock_vector_store.as_retriever.return_value = MagicMock()
@@ -137,7 +137,7 @@ class TestCodeDocumentationGenerator:
 
             with patch("builtins.open", mock_open()) as mock_file:
                 self.generator.generate_documentation(str(source_dir), str(output_dir))
-                mock_file.assert_called_with(os.path.join(str(output_dir), "documentation.html"), "w", encoding="utf-8")
+                mock_file.assert_any_call(os.path.join(str(output_dir), "index.html"), "w", encoding="utf-8")
 
     def test_parse_python_file(self, tmp_path):
         """Test parsing a Python file."""
