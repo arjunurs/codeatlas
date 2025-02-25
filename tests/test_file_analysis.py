@@ -85,7 +85,6 @@ class TestFileAnalysis(unittest.TestCase):
             name="test_func",
             type="function",
             docstring="Test function",
-            methods=[],
             start_line=4,
             end_line=6,
             source="def test_func():\n    pass"

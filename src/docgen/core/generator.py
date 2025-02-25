@@ -309,7 +309,10 @@ class CodeDocumentationGenerator:
                 if entity.docstring:
                     doc += f"Description: {entity.docstring}\n"
                 if entity.type == 'class':
-                    doc += f"Methods: {', '.join(entity.methods)}\n"
+                    if entity.methods is not None:
+                        doc += f"Methods: {', '.join(entity.methods)}\n"
+                    else:
+                        doc += "Methods: None\n"
                     if entity.parent_class:
                         doc += f"Inherits from: {entity.parent_class}\n"
                 documents.append(Document(

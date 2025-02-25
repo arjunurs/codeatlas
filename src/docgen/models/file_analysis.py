@@ -84,6 +84,33 @@ class FileAnalysis:
         """
         return [e for e in self.entities if e.type == 'function']
     
+    @property
+    def is_empty(self) -> bool:
+        """Check if the file has no content.
+        
+        Returns:
+            True if the file has no content, False otherwise
+        """
+        return not self.content.strip()
+    
+    @property
+    def has_error(self) -> bool:
+        """Check if the file analysis has an error.
+        
+        Returns:
+            True if the file analysis has an error, False otherwise
+        """
+        return self.error is not None
+    
+    @property
+    def is_init_file(self) -> bool:
+        """Check if the file is an __init__.py file.
+        
+        Returns:
+            True if the file is an __init__.py file, False otherwise
+        """
+        return os.path.basename(self.file_path) == "__init__.py"
+    
     def get_entity_by_name(self, name: str) -> Optional[CodeEntity]:
         """Get an entity by its name.
         
