@@ -18,7 +18,7 @@ class GeneratorConfig:
     
     # LLM settings
     DEFAULT_TEMPERATURE: float = 0.2
-    DEFAULT_ANTHROPIC_MODEL: str = "claude-3-sonnet-20240229"
+    DEFAULT_ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
     DEFAULT_OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
     
     # Diagram settings
