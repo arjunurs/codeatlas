@@ -11,7 +11,6 @@ import logging
 import os
 from typing import Optional, Tuple
 
-from dotenv import find_dotenv, load_dotenv
 
 from ..exceptions.errors import ApiKeyError
 
@@ -63,8 +62,14 @@ def get_api_keys(
                         elif key == 'OPENAI_API_KEY' and not final_openai_key:
                             final_openai_key = value
                             logger.debug("Using OpenAI API key from custom env file")
+        except FileNotFoundError:
+            logger.warning(f"Custom env file not found: {custom_env_file}")
+        except PermissionError:
+            logger.warning(f"Permission denied reading custom env file: {custom_env_file}")
+        except UnicodeDecodeError as e:
+            logger.warning(f"Encoding error reading custom env file {custom_env_file}: {str(e)}")
         except Exception as e:
-            logger.warning(f"Error reading custom env file: {str(e)}")
+            logger.warning(f"Unexpected error reading custom env file {custom_env_file}: {str(e)}")
 
     # Validate we have both keys
     if not final_anthropic_key:

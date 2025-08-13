@@ -18,4 +18,24 @@ class DiagramGenerationError(DocumentationError):
 
 class ApiKeyError(DocumentationError):
     """Raised when there are issues with the API key configuration."""
+    pass
+
+
+class VectorStoreError(DocumentationError):
+    """Raised when there are issues with vector store operations."""
+    pass
+
+
+class FileEncodingError(DocumentationError):
+    """Raised when there are file encoding issues."""
+    pass
+
+
+class TemplateError(DocumentationError):
+    """Raised when there are template rendering issues."""
+    pass
+
+
+class LLMError(DocumentationError):
+    """Raised when there are LLM communication issues."""
     pass 

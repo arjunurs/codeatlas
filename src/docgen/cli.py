@@ -9,6 +9,7 @@ import logging
 import sys
 from typing import List, Optional
 
+from docgen.config import DEFAULT_CONFIG
 from docgen.core.generator import CodeDocumentationGenerator
 from docgen.utils.api_keys import get_api_keys
 from docgen.utils.logging import setup_logging
@@ -40,17 +41,16 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
         help="Output directory for documentation (default: docs)"
     )
 
-    # API key arguments are mutually exclusive
-    key_group = parser.add_mutually_exclusive_group()
-    key_group.add_argument(
+    # API key arguments
+    parser.add_argument(
         "--anthropic-api-key",
-        help="Anthropic API key"
+        help="Anthropic API key (can also be set via ANTHROPIC_API_KEY env var)"
     )
-    key_group.add_argument(
+    parser.add_argument(
         "--openai-api-key",
-        help="OpenAI API key"
+        help="OpenAI API key (can also be set via OPENAI_API_KEY env var)"
     )
-    key_group.add_argument(
+    parser.add_argument(
         "--api-key-env",
         help="Path to .env file containing API keys"
     )
@@ -58,8 +58,18 @@ def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--temperature",
         type=float,
-        default=0.1,
-        help="Temperature for LLM generation (0.0 to 1.0)"
+        default=DEFAULT_CONFIG.DEFAULT_TEMPERATURE,
+        help=f"Temperature for LLM generation (0.0 to 1.0, default: {DEFAULT_CONFIG.DEFAULT_TEMPERATURE})"
+    )
+    parser.add_argument(
+        "--anthropic-model",
+        default=DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL,
+        help=f"Anthropic model to use (default: {DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL})"
+    )
+    parser.add_argument(
+        "--openai-embedding-model",
+        default=DEFAULT_CONFIG.DEFAULT_OPENAI_EMBEDDING_MODEL,
+        help=f"OpenAI embedding model to use (default: {DEFAULT_CONFIG.DEFAULT_OPENAI_EMBEDDING_MODEL})"
     )
     parser.add_argument(
         "--verbose",
@@ -86,7 +96,9 @@ def main() -> None:
         generator = CodeDocumentationGenerator(
             anthropic_api_key=anthropic_key,
             openai_api_key=openai_key,
-            temperature=args.temperature
+            temperature=args.temperature,
+            anthropic_model=args.anthropic_model,
+            openai_embedding_model=args.openai_embedding_model
         )
 
         # Generate documentation

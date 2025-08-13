@@ -7,9 +7,10 @@ information about code structure, dependencies, and relationships.
 import ast
 import logging
 import os
-from typing import Dict, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set
 
-from ..exceptions.errors import CodeParseError
+from ..config import DEFAULT_CONFIG
+from ..exceptions.errors import CodeParseError, FileEncodingError
 from ..models.code_entity import CodeEntity
 from ..models.file_analysis import FileAnalysis
 
@@ -18,13 +19,15 @@ logger = logging.getLogger(__name__)
 class CodeAnalyzer:
     """Analyzes Python source code to extract code entities and relationships."""
 
-    def __init__(self, skip_validation: bool = False):
+    def __init__(self, skip_validation: bool = False, encoding: str = None):
         """Initialize the code analyzer.
 
         Args:
             skip_validation: If True, skip validation in FileAnalysis
+            encoding: File encoding to use (defaults to config setting)
         """
         self.skip_validation = skip_validation
+        self.encoding = encoding or DEFAULT_CONFIG.DEFAULT_FILE_ENCODING
         self._source: Optional[str] = None
 
     def analyze_file(self, file_path: str) -> FileAnalysis:
@@ -43,9 +46,14 @@ class CodeAnalyzer:
             raise CodeParseError(f"File does not exist: {file_path}")
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, 'r', encoding=self.encoding) as f:
                 self._source = f.read()
+        except UnicodeDecodeError as e:
+            raise FileEncodingError(f"Failed to decode {file_path} with encoding {self.encoding}: {str(e)}")
+        except IOError as e:
+            raise CodeParseError(f"Failed to read {file_path}: {str(e)}")
 
+        try:
             if not self._source and not os.path.basename(file_path) == "__init__.py":
                 raise CodeParseError("File is empty")
 
@@ -186,8 +194,11 @@ class CodeAnalyzer:
                         if top_pkg != package_name:
                             dependencies[package_name].add(top_pkg)
                 
-                except Exception as e:
-                    logger.warning(f"Error analyzing dependencies in {file_path}: {str(e)}")
+                except (UnicodeDecodeError, IOError) as e:
+                    logger.warning(f"Error reading {file_path}: {str(e)}")
+                    continue
+                except (SyntaxError, ValueError) as e:
+                    logger.warning(f"Error parsing {file_path}: {str(e)}")
                     continue
 
         return dependencies
@@ -253,8 +264,10 @@ class CodeAnalyzer:
                 # Update call graph with all functions and their calls
                 call_graph.update(visitor.calls)
 
+            except SyntaxError as e:
+                logger.warning(f"Syntax error analyzing function calls in {analysis.file_path}: {str(e)}")
             except Exception as e:
-                logger.warning(f"Error analyzing function calls in {analysis.file_path}: {str(e)}")
+                logger.warning(f"Unexpected error analyzing function calls in {analysis.file_path}: {str(e)}")
 
         return call_graph
 

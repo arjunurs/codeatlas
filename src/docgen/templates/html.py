@@ -5,9 +5,8 @@ including styling and interactive features.
 """
 
 from typing import Dict, Any, Optional
-from pathlib import Path
 import os
-from jinja2 import Environment, Template, BaseLoader, TemplateNotFound
+from jinja2 import Environment, BaseLoader, TemplateNotFound
 
 class StringTemplateLoader(BaseLoader):
     """Custom template loader that loads templates from strings."""

@@ -8,11 +8,9 @@ import os
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Sequence
 import logging
-import shutil
 
 from langchain_anthropic import ChatAnthropic
 from langchain_openai import OpenAIEmbeddings
-from langchain.prompts import ChatPromptTemplate
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
@@ -20,9 +18,16 @@ from langchain.chains import RetrievalQA
 
 from .analyzer import CodeAnalyzer
 from .diagrams import DiagramGenerator
+from ..config import GeneratorConfig, DEFAULT_CONFIG
 from ..models.file_analysis import FileAnalysis
 from ..templates.html import get_template_manager
-from ..exceptions.errors import DocumentationError, ApiKeyError
+from ..exceptions.errors import (
+    DocumentationError, 
+    ApiKeyError, 
+    VectorStoreError, 
+    LLMError,
+    TemplateError
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +61,10 @@ class CodeDocumentationGenerator:
         self,
         anthropic_api_key: str,
         openai_api_key: str,
-        temperature: float = 0.2,
-        model: str = "claude-3-sonnet-20240229"
+        temperature: Optional[float] = None,
+        anthropic_model: Optional[str] = None,
+        openai_embedding_model: Optional[str] = None,
+        config: Optional[GeneratorConfig] = None
     ) -> None:
         """Initialize the documentation generator.
         
@@ -65,13 +72,23 @@ class CodeDocumentationGenerator:
             anthropic_api_key: API key for Anthropic's Claude
             openai_api_key: API key for OpenAI embeddings
             temperature: Temperature for LLM generation (0.0 to 1.0)
-            model: Anthropic model to use
+            anthropic_model: Anthropic model name to use
+            openai_embedding_model: OpenAI embedding model to use
+            config: Custom configuration settings
             
         Raises:
-            ValueError: If temperature is not between 0 and 1
+            ValueError: If configuration is invalid
             ApiKeyError: If API keys are invalid
         """
-        if not 0 <= temperature <= 1:
+        # Use provided config or default
+        self.config = config or DEFAULT_CONFIG
+        
+        # Override config values if provided
+        final_temperature = temperature or self.config.DEFAULT_TEMPERATURE
+        final_anthropic_model = anthropic_model or self.config.DEFAULT_ANTHROPIC_MODEL
+        final_openai_model = openai_embedding_model or self.config.DEFAULT_OPENAI_EMBEDDING_MODEL
+        
+        if not 0 <= final_temperature <= 1:
             raise ValueError("Temperature must be between 0 and 1")
             
         if not anthropic_api_key or not openai_api_key:
@@ -81,21 +98,21 @@ class CodeDocumentationGenerator:
         try:
             self.llm = ChatAnthropic(
                 anthropic_api_key=anthropic_api_key,
-                model_name=model,
-                temperature=temperature
+                model_name=final_anthropic_model,
+                temperature=final_temperature
             )
             self.embeddings = OpenAIEmbeddings(
                 api_key=openai_api_key,
-                model="text-embedding-3-small"
+                model=final_openai_model
             )
         except Exception as e:
-            raise ApiKeyError(f"Failed to initialize LLM components: {str(e)}")
+            raise LLMError(f"Failed to initialize LLM components: {str(e)}")
             
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=2000,
-            chunk_overlap=200
+            chunk_size=self.config.CHUNK_SIZE,
+            chunk_overlap=self.config.CHUNK_OVERLAP
         )
-        self.temperature = temperature
+        self.temperature = final_temperature
         
         # Initialize analysis components
         self.analyzer = CodeAnalyzer()
@@ -120,13 +137,10 @@ class CodeDocumentationGenerator:
         if not os.path.isdir(abs_directory_path):
             raise ValueError(f"Invalid source directory: {directory_path}")
             
-        # Create output directory structure
-        os.makedirs(abs_output_dir, exist_ok=True)
-        os.makedirs(os.path.join(abs_output_dir, 'sections'), exist_ok=True)
-        os.makedirs(os.path.join(abs_output_dir, 'diagrams'), exist_ok=True)
-        os.makedirs(os.path.join(abs_output_dir, 'assets'), exist_ok=True)
-        
         try:
+            # Setup output directories
+            self._setup_output_directories(abs_output_dir)
+            
             # Analyze codebase
             logger.info("Analyzing Python files...")
             analyses = self.analyzer.analyze_directory(abs_directory_path)
@@ -135,6 +149,49 @@ class CodeDocumentationGenerator:
                 logger.error("No Python files found in directory")
                 raise DocumentationError("No Python files found in directory")
             
+            # Create vector store and QA chain
+            qa_chain = self._create_vector_store_and_qa_chain(analyses)
+            
+            # Generate all diagrams
+            diagrams = self._generate_all_diagrams(analyses)
+            
+            # Generate documentation sections
+            documentation = self._generate_documentation_sections(qa_chain)
+            
+            # Create final HTML output
+            self._create_final_html_output(documentation, diagrams, abs_output_dir)
+            logger.info(f"Documentation generated successfully in {abs_output_dir}")
+            
+        except DocumentationError:
+            raise
+        except Exception as e:
+            logger.error(f"Error generating documentation: {str(e)}")
+            raise DocumentationError(f"Failed to generate documentation: {str(e)}")
+    
+    def _setup_output_directories(self, output_dir: str) -> None:
+        """Create the output directory structure.
+        
+        Args:
+            output_dir: Base output directory path
+        """
+        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(os.path.join(output_dir, 'sections'), exist_ok=True)
+        os.makedirs(os.path.join(output_dir, 'diagrams'), exist_ok=True)
+        os.makedirs(os.path.join(output_dir, 'assets'), exist_ok=True)
+    
+    def _create_vector_store_and_qa_chain(self, analyses: Sequence[FileAnalysis]):
+        """Create vector store and QA chain from analyses.
+        
+        Args:
+            analyses: List of file analysis results
+            
+        Returns:
+            QA chain for documentation generation
+            
+        Raises:
+            VectorStoreError: If vector store creation fails
+        """
+        try:
             # Create documents for vector store
             logger.info("Creating vector store...")
             documents = self._create_documents(analyses)
@@ -152,138 +209,201 @@ class CodeDocumentationGenerator:
                 chain_type="stuff",
                 retriever=vector_store.as_retriever()
             )
-            
-            # Generate diagrams
-            logger.info("Generating diagrams...")
-            try:
-                diagrams = {
-                    'architecture': self.diagram_generator.generate_architecture_diagram(analyses),
-                    'class_diagram': self.diagram_generator.generate_class_diagram(analyses),
-                    'sequence': self.diagram_generator.generate_sequence_diagram(
-                        self.analyzer.analyze_function_calls(analyses)
-                    ),
-                    'package_dependencies': self.diagram_generator.generate_dependency_diagram(
-                        self.analyzer.analyze_package_dependencies()
-                    ),
-                    'function_calls': self.diagram_generator.generate_call_graph_diagram(
-                        self.analyzer.analyze_function_calls(analyses)
-                    )
-                }
-            except Exception as e:
-                logger.warning(f"Error generating diagrams: {str(e)}")
-                diagrams = {}
-            
-            # Generate documentation sections
-            logger.info("Generating documentation content...")
-            documentation = {
-                'title': 'Code Documentation',
-                'generated_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'sections': [
-                    {
-                        'title': 'Overview',
-                        'content': qa_chain.invoke(
-                            "Analyze the codebase and provide a comprehensive overview. "
-                            "Format your response using proper Markdown with these specific requirements:\n"
-                            "1. Use ## for main sections and ### for subsections\n"
-                            "2. All code elements (class names, method names, properties) must be wrapped in `backticks`\n"
-                            "3. Use proper list indentation with - or * for bullets\n"
-                            "4. Add blank lines between sections and list items for clarity\n"
-                            "5. Use ```python for code blocks\n\n"
-                            "Include these sections:\n"
-                            "## Main Purpose and Functionality\n"
-                            "## Key Components and Responsibilities\n"
-                            "## How Different Parts Work Together\n"
-                            "## Overall Architecture and Design Patterns\n\n"
-                            "Be specific and use examples from the actual code. "
-                            "Every class name, method name, function name, and property must be in `backticks`."
-                        ).get('answer', '')
-                    },
-                    {
-                        'title': 'Dependencies',
-                        'content': qa_chain.invoke(
-                            "Analyze the project dependencies and explain:\n"
-                            "Format your response using proper Markdown with these specific requirements:\n"
-                            "1. Use ## for main sections and ### for subsections\n"
-                            "2. All package names and versions must be wrapped in `backticks`\n"
-                            "3. Use proper list indentation with - or * for bullets\n"
-                            "4. Add blank lines between sections and list items for clarity\n"
-                            "5. Use ```python for code blocks\n\n"
-                            "Include these sections:\n"
-                            "## Core Dependencies\n"
-                            "## Optional Dependencies\n"
-                            "## Version Requirements\n"
-                            "## Integration Points\n\n"
-                            "Be specific and reference actual dependencies from the project."
-                        ).get('answer', '')
-                    },
-                    {
-                        'title': 'Key Classes and Functions',
-                        'content': qa_chain.invoke(
-                            "Describe the key classes and functions. "
-                            "Format your response using proper Markdown with these specific requirements:\n"
-                            "1. Use ## for main sections and ### for subsections\n"
-                            "2. All code elements (class names, method names, properties) must be wrapped in `backticks`\n"
-                            "3. Use proper list indentation with - or * for bullets\n"
-                            "4. Add blank lines between sections and list items for clarity\n"
-                            "5. Use ```python for code blocks\n\n"
-                            "Include these sections:\n"
-                            "## Core Classes\n"
-                            "## Helper Functions\n"
-                            "## Class Relationships\n"
-                            "## Usage Examples\n\n"
-                            "Be specific and use examples from the actual code. "
-                            "Every class name, method name, function name, and property must be in `backticks`."
-                        ).get('answer', '')
-                    },
-                    {
-                        'title': 'Data Flow',
-                        'content': qa_chain.invoke(
-                            "Explain the data flow through the system. "
-                            "Format your response using proper Markdown with these specific requirements:\n"
-                            "1. Use ## for main sections and ### for subsections\n"
-                            "2. All code elements (class names, method names, properties) must be wrapped in `backticks`\n"
-                            "3. Use proper list indentation with - or * for bullets\n"
-                            "4. Add blank lines between sections and list items for clarity\n"
-                            "5. Use ```python for code blocks\n\n"
-                            "Include these sections:\n"
-                            "## Data Processing Flow\n"
-                            "## Key Data Structures\n"
-                            "## Input/Output Handling\n"
-                            "## Error Handling\n\n"
-                            "Be specific and use examples from the actual code. "
-                            "Every class name, method name, function name, and property must be in `backticks`."
-                        ).get('answer', '')
-                    },
-                    {
-                        'title': 'Integration Points',
-                        'content': qa_chain.invoke(
-                            "Describe how the code integrates with other systems. "
-                            "Format your response using proper Markdown with these specific requirements:\n"
-                            "1. Use ## for main sections and ### for subsections\n"
-                            "2. All code elements (class names, method names, properties) must be wrapped in `backticks`\n"
-                            "3. Use proper list indentation with - or * for bullets\n"
-                            "4. Add blank lines between sections and list items for clarity\n"
-                            "5. Use ```python for code blocks\n\n"
-                            "Include these sections:\n"
-                            "## External Integrations\n"
-                            "## Authentication\n"
-                            "## Error Handling\n"
-                            "## Configuration\n\n"
-                            "Be specific and use examples from the actual code. "
-                            "Every class name, method name, function name, and property must be in `backticks`."
-                        ).get('answer', '')
-                    }
-                ]
-            }
-            
-            # Generate HTML documentation
-            logger.info("Generating HTML documentation...")
-            self._generate_html_documentation(documentation, diagrams, abs_output_dir)
-            logger.info(f"Documentation generated successfully in {abs_output_dir}")
-            
+            return qa_chain
         except Exception as e:
-            logger.error(f"Error generating documentation: {str(e)}")
-            raise DocumentationError(f"Failed to generate documentation: {str(e)}")
+            logger.error(f"Error creating vector store: {str(e)}")
+            raise VectorStoreError(f"Failed to create vector store: {str(e)}")
+    
+    def _generate_all_diagrams(self, analyses: Sequence[FileAnalysis]) -> Dict[str, str]:
+        """Generate all documentation diagrams.
+        
+        Args:
+            analyses: List of file analysis results
+            
+        Returns:
+            Dictionary of diagram names to diagram codes
+        """
+        logger.info("Generating diagrams...")
+        diagrams = {}
+        
+        try:
+            diagrams['architecture'] = self.diagram_generator.generate_architecture_diagram(analyses)
+        except Exception as e:
+            logger.warning(f"Error generating architecture diagram: {str(e)}")
+            
+        try:
+            diagrams['class_diagram'] = self.diagram_generator.generate_class_diagram(analyses)
+        except Exception as e:
+            logger.warning(f"Error generating class diagram: {str(e)}")
+            
+        try:
+            function_calls = self.analyzer.analyze_function_calls(analyses)
+            diagrams['sequence'] = self.diagram_generator.generate_sequence_diagram(function_calls)
+            diagrams['function_calls'] = self.diagram_generator.generate_call_graph_diagram(function_calls)
+        except Exception as e:
+            logger.warning(f"Error generating function-related diagrams: {str(e)}")
+            
+        try:
+            package_deps = self.analyzer.analyze_package_dependencies()
+            diagrams['package_dependencies'] = self.diagram_generator.generate_dependency_diagram(package_deps)
+        except Exception as e:
+            logger.warning(f"Error generating dependency diagram: {str(e)}")
+            
+        return diagrams
+    
+    def _generate_documentation_sections(self, qa_chain) -> Dict[str, Any]:
+        """Generate all documentation sections using the QA chain.
+        
+        Args:
+            qa_chain: QA chain for content generation
+            
+        Returns:
+            Dictionary containing documentation content
+        """
+        logger.info("Generating documentation content...")
+        
+        sections = [
+            {
+                'title': 'Overview',
+                'content': self._generate_overview_section(qa_chain)
+            },
+            {
+                'title': 'Dependencies',
+                'content': self._generate_dependencies_section(qa_chain)
+            },
+            {
+                'title': 'Key Classes and Functions',
+                'content': self._generate_key_components_section(qa_chain)
+            },
+            {
+                'title': 'Data Flow',
+                'content': self._generate_data_flow_section(qa_chain)
+            },
+            {
+                'title': 'Integration Points',
+                'content': self._generate_integration_section(qa_chain)
+            }
+        ]
+        
+        return {
+            'title': 'Code Documentation',
+            'generated_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'sections': sections
+        }
+    
+    def _generate_overview_section(self, qa_chain) -> str:
+        """Generate overview section content."""
+        return qa_chain.invoke(
+            "Analyze the codebase and provide a comprehensive overview. "
+            "Format your response using proper Markdown with these specific requirements:\n"
+            "1. Use ## for main sections and ### for subsections\n"
+            "2. All code elements (class names, method names, properties) must be wrapped in `backticks`\n"
+            "3. Use proper list indentation with - or * for bullets\n"
+            "4. Add blank lines between sections and list items for clarity\n"
+            "5. Use ```python for code blocks\n\n"
+            "Include these sections:\n"
+            "## Main Purpose and Functionality\n"
+            "## Key Components and Responsibilities\n"
+            "## How Different Parts Work Together\n"
+            "## Overall Architecture and Design Patterns\n\n"
+            "Be specific and use examples from the actual code. "
+            "Every class name, method name, function name, and property must be in `backticks`."
+        ).get('answer', '')
+    
+    def _generate_dependencies_section(self, qa_chain) -> str:
+        """Generate dependencies section content."""
+        return qa_chain.invoke(
+            "Analyze the project dependencies and explain:\n"
+            "Format your response using proper Markdown with these specific requirements:\n"
+            "1. Use ## for main sections and ### for subsections\n"
+            "2. All package names and versions must be wrapped in `backticks`\n"
+            "3. Use proper list indentation with - or * for bullets\n"
+            "4. Add blank lines between sections and list items for clarity\n"
+            "5. Use ```python for code blocks\n\n"
+            "Include these sections:\n"
+            "## Core Dependencies\n"
+            "## Optional Dependencies\n"
+            "## Version Requirements\n"
+            "## Integration Points\n\n"
+            "Be specific and reference actual dependencies from the project."
+        ).get('answer', '')
+    
+    def _generate_key_components_section(self, qa_chain) -> str:
+        """Generate key classes and functions section content."""
+        return qa_chain.invoke(
+            "Describe the key classes and functions. "
+            "Format your response using proper Markdown with these specific requirements:\n"
+            "1. Use ## for main sections and ### for subsections\n"
+            "2. All code elements (class names, method names, properties) must be wrapped in `backticks`\n"
+            "3. Use proper list indentation with - or * for bullets\n"
+            "4. Add blank lines between sections and list items for clarity\n"
+            "5. Use ```python for code blocks\n\n"
+            "Include these sections:\n"
+            "## Core Classes\n"
+            "## Helper Functions\n"
+            "## Class Relationships\n"
+            "## Usage Examples\n\n"
+            "Be specific and use examples from the actual code. "
+            "Every class name, method name, function name, and property must be in `backticks`."
+        ).get('answer', '')
+    
+    def _generate_data_flow_section(self, qa_chain) -> str:
+        """Generate data flow section content."""
+        return qa_chain.invoke(
+            "Explain the data flow through the system. "
+            "Format your response using proper Markdown with these specific requirements:\n"
+            "1. Use ## for main sections and ### for subsections\n"
+            "2. All code elements (class names, method names, properties) must be wrapped in `backticks`\n"
+            "3. Use proper list indentation with - or * for bullets\n"
+            "4. Add blank lines between sections and list items for clarity\n"
+            "5. Use ```python for code blocks\n\n"
+            "Include these sections:\n"
+            "## Data Processing Flow\n"
+            "## Key Data Structures\n"
+            "## Input/Output Handling\n"
+            "## Error Handling\n\n"
+            "Be specific and use examples from the actual code. "
+            "Every class name, method name, function name, and property must be in `backticks`."
+        ).get('answer', '')
+    
+    def _generate_integration_section(self, qa_chain) -> str:
+        """Generate integration points section content."""
+        return qa_chain.invoke(
+            "Describe how the code integrates with other systems. "
+            "Format your response using proper Markdown with these specific requirements:\n"
+            "1. Use ## for main sections and ### for subsections\n"
+            "2. All code elements (class names, method names, properties) must be wrapped in `backticks`\n"
+            "3. Use proper list indentation with - or * for bullets\n"
+            "4. Add blank lines between sections and list items for clarity\n"
+            "5. Use ```python for code blocks\n\n"
+            "Include these sections:\n"
+            "## External Integrations\n"
+            "## Authentication\n"
+            "## Error Handling\n"
+            "## Configuration\n\n"
+            "Be specific and use examples from the actual code. "
+            "Every class name, method name, function name, and property must be in `backticks`."
+        ).get('answer', '')
+    
+    def _create_final_html_output(
+        self,
+        documentation: Dict[str, Any],
+        diagrams: Dict[str, str],
+        output_dir: str
+    ) -> None:
+        """Generate final HTML documentation output.
+        
+        Args:
+            documentation: Dictionary containing documentation content
+            diagrams: Dictionary containing Mermaid diagram codes
+            output_dir: Directory where HTML files will be generated
+        """
+        logger.info("Generating HTML documentation...")
+        try:
+            self._generate_html_documentation(documentation, diagrams, output_dir)
+        except Exception as e:
+            logger.error(f"Error generating HTML documentation: {str(e)}")
+            raise TemplateError(f"Failed to generate HTML documentation: {str(e)}")
     
     def _create_documents(self, analyses: Sequence[FileAnalysis]) -> List[Document]:
         """Create LangChain documents from file analyses.
