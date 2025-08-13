@@ -29,6 +29,7 @@ class CodeAnalyzer:
         self.skip_validation = skip_validation
         self.encoding = encoding or DEFAULT_CONFIG.DEFAULT_FILE_ENCODING
         self._source: Optional[str] = None
+        self._analyzed_directory: Optional[str] = None
 
     def analyze_file(self, file_path: str) -> FileAnalysis:
         """Analyze a single Python file.
@@ -91,6 +92,9 @@ class CodeAnalyzer:
         if not os.path.isdir(directory):
             raise CodeParseError(f"Not a directory: {directory}")
 
+        # Store the analyzed directory path for use in other methods
+        self._analyzed_directory = os.path.abspath(directory)
+        
         python_files_found = False
         analyses = []
 
@@ -164,8 +168,11 @@ class CodeAnalyzer:
         except (FileNotFoundError, ValueError):
             dependencies = {}
 
+        # Use the analyzed directory if available, otherwise fall back to current working directory
+        search_directory = self._analyzed_directory or os.getcwd()
+        
         # Add package dependencies from imports
-        for root, _, files in os.walk(os.getcwd()):
+        for root, _, files in os.walk(search_directory):
             for file in files:
                 if not file.endswith('.py'):
                     continue
@@ -178,8 +185,8 @@ class CodeAnalyzer:
                     tree = ast.parse(content)
                     imports = self._extract_imports(tree)
                     
-                    # Get package name from file path
-                    rel_path = os.path.relpath(file_path)
+                    # Get package name from file path relative to the search directory
+                    rel_path = os.path.relpath(file_path, search_directory)
                     package_name = os.path.dirname(rel_path).replace(os.sep, '.')
                     if not package_name:
                         package_name = os.path.splitext(file)[0]
