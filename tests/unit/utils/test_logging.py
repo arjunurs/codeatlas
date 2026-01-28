@@ -33,12 +33,33 @@ def test_setup_logging_default(clean_logging):
 def test_setup_logging_verbose(clean_logging):
     """Test verbose logging setup."""
     setup_logging(verbose=True)
-    
+
     root_logger = logging.getLogger()
     docgen_logger = logging.getLogger('docgen')
-    
+
     assert root_logger.level == logging.DEBUG
     assert docgen_logger.level == logging.DEBUG
+
+
+def test_setup_logging_quiet(clean_logging):
+    """Test quiet logging setup (errors only)."""
+    setup_logging(quiet=True)
+
+    root_logger = logging.getLogger()
+    docgen_logger = logging.getLogger('docgen')
+
+    assert root_logger.level == logging.ERROR
+    assert docgen_logger.level == logging.ERROR
+
+
+def test_setup_logging_quiet_overrides_verbose(clean_logging):
+    """Test that quiet mode takes precedence over verbose."""
+    setup_logging(verbose=True, quiet=True)
+
+    root_logger = logging.getLogger()
+
+    # Quiet should take precedence
+    assert root_logger.level == logging.ERROR
 
 def test_setup_logging_with_file(clean_logging, tmp_path):
     """Test logging setup with file output."""

@@ -1,10 +1,11 @@
 """API key management module.
 
 This module provides functionality for retrieving API keys from various sources:
-1. Direct parameters
-2. Custom environment variables
-3. Default environment variables
-4. .env file
+1. Environment variables (ANTHROPIC_API_KEY, OPENAI_API_KEY)
+2. Custom .env file
+
+Note: Direct CLI parameters for API keys have been removed for security reasons.
+Passing secrets on command line exposes them in shell history, `ps` output, and logs.
 """
 
 import logging
@@ -17,16 +18,17 @@ from .path_validation import validate_env_file_path, PathValidationError
 
 logger = logging.getLogger(__name__)
 
+
 def get_api_keys(
-    anthropic_api_key: Optional[str] = None,
-    openai_api_key: Optional[str] = None,
     custom_env_file: Optional[str] = None
 ) -> Tuple[str, str]:
-    """Get API keys from parameters, environment variables, or .env file.
+    """Get API keys from environment variables or .env file.
+
+    API keys are retrieved in the following priority order:
+    1. Environment variables (ANTHROPIC_API_KEY, OPENAI_API_KEY)
+    2. Custom .env file (if provided)
 
     Args:
-        anthropic_api_key: Optional Anthropic API key
-        openai_api_key: Optional OpenAI API key
         custom_env_file: Optional path to custom .env file
 
     Returns:
@@ -35,20 +37,14 @@ def get_api_keys(
     Raises:
         ApiKeyError: If either API key is missing
     """
-    # Try to get keys from parameters first
-    final_anthropic_key = anthropic_api_key
-    final_openai_key = openai_api_key
+    # Try environment variables first
+    final_anthropic_key = os.environ.get('ANTHROPIC_API_KEY')
+    if final_anthropic_key:
+        logger.debug("Using Anthropic API key from environment")
 
-    # If not provided, try environment variables
-    if not final_anthropic_key:
-        final_anthropic_key = os.environ.get('ANTHROPIC_API_KEY')
-        if final_anthropic_key:
-            logger.debug("Using Anthropic API key from environment")
-
-    if not final_openai_key:
-        final_openai_key = os.environ.get('OPENAI_API_KEY')
-        if final_openai_key:
-            logger.debug("Using OpenAI API key from environment")
+    final_openai_key = os.environ.get('OPENAI_API_KEY')
+    if final_openai_key:
+        logger.debug("Using OpenAI API key from environment")
 
     # If custom env file provided, read it (failure is an error, not a warning)
     if custom_env_file:

@@ -5,6 +5,7 @@ information about code structure, dependencies, and relationships.
 """
 
 import ast
+import fnmatch
 import logging
 import os
 from typing import Dict, List, Optional, Set
@@ -74,11 +75,18 @@ class CodeAnalyzer:
         except Exception as e:
             raise CodeParseError(f"Failed to analyze {file_path}: {str(e)}")
 
-    def analyze_directory(self, directory: str) -> List[FileAnalysis]:
+    def analyze_directory(
+        self,
+        directory: str,
+        exclude_patterns: Optional[List[str]] = None,
+        max_files: Optional[int] = None
+    ) -> List[FileAnalysis]:
         """Analyze all Python files in a directory.
 
         Args:
             directory: Path to directory to analyze
+            exclude_patterns: Optional list of glob patterns to exclude files/dirs
+            max_files: Optional maximum number of files to analyze
 
         Returns:
             List of FileAnalysis objects
@@ -94,25 +102,65 @@ class CodeAnalyzer:
 
         # Store the analyzed directory path for use in other methods
         self._analyzed_directory = os.path.abspath(directory)
-        
+        exclude_patterns = exclude_patterns or []
+
         python_files_found = False
         analyses = []
 
-        for root, _, files in os.walk(directory):
+        for root, dirs, files in os.walk(directory):
+            # Filter out excluded directories (modifying dirs in-place affects os.walk)
+            if exclude_patterns:
+                dirs[:] = [
+                    d for d in dirs
+                    if not self._matches_any_pattern(d, exclude_patterns)
+                    and not self._matches_any_pattern(
+                        os.path.relpath(os.path.join(root, d), directory),
+                        exclude_patterns
+                    )
+                ]
+
             for file in files:
-                if file.endswith('.py'):
-                    python_files_found = True
-                    file_path = os.path.join(root, file)
-                    try:
-                        analysis = self.analyze_file(file_path)
-                        analyses.append(analysis)
-                    except Exception as e:
-                        logger.warning(f"Skipping {file_path}: {str(e)}")
+                if not file.endswith('.py'):
+                    continue
+
+                # Check if file matches any exclude pattern
+                rel_path = os.path.relpath(os.path.join(root, file), directory)
+                if self._matches_any_pattern(file, exclude_patterns):
+                    logger.debug(f"Excluding file by name: {rel_path}")
+                    continue
+                if self._matches_any_pattern(rel_path, exclude_patterns):
+                    logger.debug(f"Excluding file by path: {rel_path}")
+                    continue
+
+                python_files_found = True
+                file_path = os.path.join(root, file)
+                try:
+                    analysis = self.analyze_file(file_path)
+                    analyses.append(analysis)
+
+                    # Check max_files limit
+                    if max_files is not None and len(analyses) >= max_files:
+                        logger.info(f"Reached max_files limit ({max_files})")
+                        return analyses
+                except Exception as e:
+                    logger.warning(f"Skipping {file_path}: {str(e)}")
 
         if not python_files_found:
             raise CodeParseError(f"No Python files found in {directory}")
 
         return analyses
+
+    def _matches_any_pattern(self, name: str, patterns: List[str]) -> bool:
+        """Check if a name matches any of the given glob patterns.
+
+        Args:
+            name: File or directory name to check
+            patterns: List of glob patterns
+
+        Returns:
+            True if name matches any pattern
+        """
+        return any(fnmatch.fnmatch(name, pattern) for pattern in patterns)
 
     def analyze_dependencies(self, requirements_path: str = "requirements.txt") -> Dict[str, Set[str]]:
         """Analyze package dependencies from requirements.txt.

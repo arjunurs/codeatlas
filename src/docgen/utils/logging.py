@@ -7,28 +7,35 @@ and output handling.
 import logging
 from typing import Optional
 
-def setup_logging(verbose: bool = False, log_file: Optional[str] = None) -> None:
+
+def setup_logging(
+    verbose: bool = False,
+    quiet: bool = False,
+    log_file: Optional[str] = None
+) -> None:
     """Set up logging configuration.
 
     Args:
-        verbose: Whether to enable debug logging
+        verbose: Whether to enable debug logging (ignored if quiet=True)
+        quiet: Whether to enable quiet mode (errors only)
         log_file: Optional path to log file
     """
-    level = logging.DEBUG if verbose else logging.INFO
+    if quiet:
+        level = logging.ERROR
+    elif verbose:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
 
-    # Set up root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(level)
-
-    # Set up docgen logger
     docgen_logger = logging.getLogger('docgen')
+
+    root_logger.setLevel(level)
     docgen_logger.setLevel(level)
 
-    # Remove any existing handlers
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
-    for handler in docgen_logger.handlers[:]:
-        docgen_logger.removeHandler(handler)
+    # Remove existing handlers to avoid duplicates if called multiple times
+    root_logger.handlers.clear()
+    docgen_logger.handlers.clear()
 
     # Create console handler
     console_handler = logging.StreamHandler()

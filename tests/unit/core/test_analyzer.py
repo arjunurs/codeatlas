@@ -228,4 +228,68 @@ def helper():
     assert "print" in call_graph["test_method"]
     assert "helper" in call_graph["test_method"]
     assert "helper" in call_graph
-    assert len(call_graph["helper"]) == 0 
+    assert len(call_graph["helper"]) == 0
+
+
+def test_analyze_directory_with_exclude_patterns(analyzer, tmp_path, sample_python_code):
+    """Test directory analysis with exclude patterns."""
+    # Create test files
+    (tmp_path / "module1.py").write_text(sample_python_code)
+    (tmp_path / "module1_test.py").write_text(sample_python_code)
+    (tmp_path / "module2.py").write_text(sample_python_code)
+    os.makedirs(tmp_path / "__pycache__")
+    (tmp_path / "__pycache__" / "cached.py").write_text(sample_python_code)
+
+    # Analyze with exclude patterns
+    analyses = analyzer.analyze_directory(
+        str(tmp_path),
+        exclude_patterns=["*_test.py", "__pycache__"]
+    )
+
+    # Should only include module1.py and module2.py
+    filenames = [os.path.basename(a.file_path) for a in analyses]
+    assert "module1.py" in filenames
+    assert "module2.py" in filenames
+    assert "module1_test.py" not in filenames
+    assert "cached.py" not in filenames
+    assert len(analyses) == 2
+
+
+def test_analyze_directory_with_max_files(analyzer, tmp_path, sample_python_code):
+    """Test directory analysis with max_files limit."""
+    # Create multiple test files
+    for i in range(10):
+        (tmp_path / f"module{i}.py").write_text(sample_python_code)
+
+    # Analyze with max_files limit
+    analyses = analyzer.analyze_directory(str(tmp_path), max_files=3)
+
+    assert len(analyses) == 3
+
+
+def test_analyze_directory_exclude_by_path(analyzer, tmp_path, sample_python_code):
+    """Test excluding files by relative path pattern."""
+    # Create nested structure
+    os.makedirs(tmp_path / "tests")
+    os.makedirs(tmp_path / "src")
+    (tmp_path / "tests" / "test_module.py").write_text(sample_python_code)
+    (tmp_path / "src" / "module.py").write_text(sample_python_code)
+
+    # Exclude tests directory
+    analyses = analyzer.analyze_directory(
+        str(tmp_path),
+        exclude_patterns=["tests/*"]
+    )
+
+    filenames = [os.path.basename(a.file_path) for a in analyses]
+    assert "module.py" in filenames
+    assert "test_module.py" not in filenames
+
+
+def test_matches_any_pattern(analyzer):
+    """Test the _matches_any_pattern helper method."""
+    assert analyzer._matches_any_pattern("test_foo.py", ["test_*.py"])
+    assert analyzer._matches_any_pattern("foo_test.py", ["*_test.py"])
+    assert analyzer._matches_any_pattern("__pycache__", ["__pycache__"])
+    assert not analyzer._matches_any_pattern("module.py", ["*_test.py"])
+    assert not analyzer._matches_any_pattern("main.py", ["test_*.py", "__pycache__"])

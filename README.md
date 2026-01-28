@@ -38,10 +38,10 @@ pip install git+https://github.com/yourusername/CodeDocumentationGenerator.git
 
 ## Usage
 
-1. Set up your API keys:
+### 1. Set up your API keys
 
 ```bash
-# Using environment variables
+# Using environment variables (recommended)
 export ANTHROPIC_API_KEY=your-key-here
 export OPENAI_API_KEY=your-key-here
 
@@ -50,22 +50,102 @@ echo "ANTHROPIC_API_KEY=your-key-here" > .env
 echo "OPENAI_API_KEY=your-key-here" >> .env
 ```
 
-2. Generate documentation:
+### 2. Generate documentation
 
 ```bash
-# Basic usage
-docgen --source ./my_project --output ./docs
+# Basic usage (API keys from environment)
+docgen --source ./my_project -o ./docs
+
+# With .env file for API keys
+docgen --source ./my_project --api-key-env ./.env
 
 # With verbose logging
-docgen --source ./my_project --output ./docs --verbose
-
-# Using custom API keys
-docgen --source ./my_project --output ./docs \
-    --anthropic-api-key sk-ant-... \
-    --openai-api-key sk-...
+docgen --source ./my_project -o ./docs -v
 ```
 
-3. View the generated documentation by opening `docs/index.html` in your browser.
+### 3. View the generated documentation
+
+Open `docs/index.html` in your browser.
+
+## CLI Options
+
+```
+usage: docgen [-h] [--version] --source SOURCE [-o OUTPUT]
+              [--api-key-env PATH] [--temperature TEMP]
+              [--anthropic-model MODEL] [--openai-embedding-model MODEL]
+              [-v] [-q] [--exclude PATTERN] [--no-diagrams]
+              [--sections LIST] [--diagrams LIST] [--template-dir PATH]
+              [--dry-run] [--max-files N]
+
+Generate comprehensive documentation for Python codebases
+
+options:
+  -h, --help            show this help message and exit
+  --version, -V         show program's version number and exit
+  --source SOURCE       Source directory containing Python files
+  -o, --output OUTPUT   Output directory (default: docs)
+
+API Keys:
+  --api-key-env PATH    Path to .env file containing API keys
+                        (Or set ANTHROPIC_API_KEY and OPENAI_API_KEY env vars)
+
+Model Options:
+  --temperature TEMP    LLM temperature 0.0-1.0 (default: 0.2)
+  --anthropic-model     Anthropic model (default: claude-sonnet-4-20250514)
+  --openai-embedding-model  Embedding model (default: text-embedding-3-small)
+
+Output Options:
+  -v, --verbose         Enable verbose logging
+  -q, --quiet           Minimal output (errors only)
+  --template-dir PATH   Custom HTML template directory
+
+Generation Options:
+  --exclude PATTERN     Exclude files matching glob (repeatable)
+  --no-diagrams         Skip diagram generation
+  --sections LIST       Generate only: overview,dependencies,classes,dataflow,integration
+  --diagrams LIST       Generate only: architecture,class,sequence,callgraph,dependency
+  --dry-run             Analyze without LLM calls
+  --max-files N         Limit files to analyze
+```
+
+## Advanced Usage
+
+### Exclude files and directories
+
+```bash
+# Exclude test files
+docgen --source ./src --exclude "*_test.py" --exclude "test_*.py"
+
+# Exclude multiple patterns
+docgen --source ./src --exclude "__pycache__" --exclude "*.pyc" --exclude "migrations/*"
+```
+
+### Generate specific sections or diagrams
+
+```bash
+# Only generate overview and dependencies sections
+docgen --source ./src --sections overview,dependencies
+
+# Only generate architecture and class diagrams
+docgen --source ./src --diagrams architecture,class
+
+# Skip diagram generation entirely (faster)
+docgen --source ./src --no-diagrams
+```
+
+### Preview mode (no API costs)
+
+```bash
+# Dry-run mode: analyze code without making LLM calls
+docgen --source ./src --dry-run
+```
+
+### Limit analysis scope
+
+```bash
+# Analyze only the first 50 files (useful for large codebases)
+docgen --source ./src --max-files 50
+```
 
 ## Documentation Features
 

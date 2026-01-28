@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence
 import logging
 
 from langchain_anthropic import ChatAnthropic
@@ -78,6 +78,13 @@ class CodeDocumentationGenerator:
         *,
         llm_provider: Optional[LLMProvider] = None,
         embedding_provider: Optional[EmbeddingProvider] = None,
+        exclude_patterns: Optional[List[str]] = None,
+        skip_diagrams: bool = False,
+        sections: Optional[List[str]] = None,
+        diagrams: Optional[List[str]] = None,
+        template_dir: Optional[str] = None,
+        dry_run: bool = False,
+        max_files: Optional[int] = None,
     ) -> None:
         """Initialize the documentation generator.
 
@@ -94,6 +101,13 @@ class CodeDocumentationGenerator:
             config: Custom configuration settings
             llm_provider: LLM provider instance (provider mode)
             embedding_provider: Embedding provider instance (provider mode)
+            exclude_patterns: Glob patterns to exclude files/directories
+            skip_diagrams: Skip diagram generation entirely
+            sections: List of sections to generate (None = all)
+            diagrams: List of diagrams to generate (None = all)
+            template_dir: Custom HTML template directory
+            dry_run: Analyze code without LLM calls
+            max_files: Maximum number of files to analyze
 
         Raises:
             ValueError: If configuration is invalid
@@ -158,10 +172,19 @@ class CodeDocumentationGenerator:
             chunk_overlap=self.config.CHUNK_OVERLAP
         )
 
+        # Store generation options
+        self.exclude_patterns = exclude_patterns or []
+        self.skip_diagrams = skip_diagrams
+        self.selected_sections = sections
+        self.selected_diagrams = diagrams
+        self.template_dir = template_dir
+        self.dry_run = dry_run
+        self.max_files = max_files
+
         # Initialize analysis components
         self.analyzer = CodeAnalyzer()
         self.diagram_generator = DiagramGenerator()
-        self.template_manager = get_template_manager()
+        self.template_manager = get_template_manager(template_dir)
 
     def __enter__(self) -> "CodeDocumentationGenerator":
         """Enter context manager."""
@@ -225,20 +248,45 @@ class CodeDocumentationGenerator:
 
             # Analyze codebase
             logger.info("Analyzing Python files...")
-            analyses = self.analyzer.analyze_directory(abs_directory_path)
+            analyses = self.analyzer.analyze_directory(
+                abs_directory_path,
+                exclude_patterns=self.exclude_patterns,
+                max_files=self.max_files
+            )
 
             if not analyses:
                 logger.error("No Python files found in directory")
                 raise DocumentationError("No Python files found in directory")
 
-            # Create vector store and RAG chain
-            rag_chain = self._create_vector_store_and_rag_chain(analyses)
+            logger.info(f"Analyzed {len(analyses)} Python files")
 
-            # Generate all diagrams (with error aggregation)
-            diagrams, diagram_errors = self._generate_all_diagrams(analyses)
+            # Generate diagrams (unless skipped)
+            diagrams: Dict[str, str] = {}
+            diagram_errors: List[tuple[str, str]] = []
+            if not self.skip_diagrams:
+                diagrams, diagram_errors = self._generate_all_diagrams(analyses)
+            else:
+                logger.info("Skipping diagram generation (--no-diagrams)")
 
-            # Generate documentation sections (with error aggregation)
-            documentation, section_errors = self._generate_documentation_sections(rag_chain)
+            # In dry-run mode, skip LLM calls
+            if self.dry_run:
+                logger.info("Dry-run mode: skipping LLM calls")
+                documentation = {
+                    'title': 'Code Documentation (Dry Run)',
+                    'generated_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    'sections': [
+                        {'title': name, 'content': '*Dry-run mode: LLM content not generated*'}
+                        for name in (self.selected_sections or SECTION_ORDER)
+                        if name in SECTION_ORDER
+                    ]
+                }
+                section_errors = []
+            else:
+                # Create vector store and RAG chain
+                rag_chain = self._create_vector_store_and_rag_chain(analyses)
+
+                # Generate documentation sections (with error aggregation)
+                documentation, section_errors = self._generate_documentation_sections(rag_chain)
 
             # Create final HTML output with any generation errors
             generation_errors = {
@@ -338,38 +386,51 @@ Answer:"""
         diagrams: Dict[str, str] = {}
         errors: List[tuple[str, str]] = []
 
+        def should_generate(diagram_key: str) -> bool:
+            """Check if a diagram should be generated based on selection."""
+            if not self.selected_diagrams:
+                return True
+            return diagram_key in self.selected_diagrams
+
         # Generate architecture diagram
-        try:
-            diagrams['architecture'] = self.diagram_generator.generate_architecture_diagram(analyses)
-        except Exception as e:
-            errors.append(('architecture', str(e)))
+        if should_generate('architecture'):
+            try:
+                diagrams['architecture'] = self.diagram_generator.generate_architecture_diagram(analyses)
+            except Exception as e:
+                errors.append(('architecture', str(e)))
 
         # Generate class diagram
-        try:
-            diagrams['class_diagram'] = self.diagram_generator.generate_class_diagram(analyses)
-        except Exception as e:
-            errors.append(('class_diagram', str(e)))
+        if should_generate('class'):
+            try:
+                diagrams['class_diagram'] = self.diagram_generator.generate_class_diagram(analyses)
+            except Exception as e:
+                errors.append(('class_diagram', str(e)))
 
         # Generate function-related diagrams
-        try:
-            function_calls = self.analyzer.analyze_function_calls(analyses)
+        need_function_analysis = should_generate('sequence') or should_generate('callgraph')
+        if need_function_analysis:
             try:
-                diagrams['sequence'] = self.diagram_generator.generate_sequence_diagram(function_calls)
+                function_calls = self.analyzer.analyze_function_calls(analyses)
+                if should_generate('sequence'):
+                    try:
+                        diagrams['sequence'] = self.diagram_generator.generate_sequence_diagram(function_calls)
+                    except Exception as e:
+                        errors.append(('sequence', str(e)))
+                if should_generate('callgraph'):
+                    try:
+                        diagrams['function_calls'] = self.diagram_generator.generate_call_graph_diagram(function_calls)
+                    except Exception as e:
+                        errors.append(('function_calls', str(e)))
             except Exception as e:
-                errors.append(('sequence', str(e)))
-            try:
-                diagrams['function_calls'] = self.diagram_generator.generate_call_graph_diagram(function_calls)
-            except Exception as e:
-                errors.append(('function_calls', str(e)))
-        except Exception as e:
-            errors.append(('function_analysis', str(e)))
+                errors.append(('function_analysis', str(e)))
 
         # Generate dependency diagram
-        try:
-            package_deps = self.analyzer.analyze_package_dependencies()
-            diagrams['package_dependencies'] = self.diagram_generator.generate_dependency_diagram(package_deps)
-        except Exception as e:
-            errors.append(('package_dependencies', str(e)))
+        if should_generate('dependency'):
+            try:
+                package_deps = self.analyzer.analyze_package_dependencies()
+                diagrams['package_dependencies'] = self.diagram_generator.generate_dependency_diagram(package_deps)
+            except Exception as e:
+                errors.append(('package_dependencies', str(e)))
 
         return diagrams, errors
 
@@ -387,7 +448,12 @@ Answer:"""
         sections = []
         errors: List[tuple[str, str]] = []
 
-        for section_name in SECTION_ORDER:
+        # Filter sections if specific ones are selected
+        sections_to_generate = self._filter_sections(SECTION_ORDER)
+        if self.selected_sections:
+            logger.info(f"Generating selected sections: {sections_to_generate}")
+
+        for section_name in sections_to_generate:
             logger.info(f"Generating section: {section_name}")
             try:
                 content = self._generate_section(rag_chain, section_name)
@@ -434,6 +500,33 @@ Answer:"""
             return rag_chain.invoke(prompt)
         except Exception as e:
             raise LLMError(f"Failed to generate section '{section_name}': {str(e)}") from e
+
+    def _filter_sections(self, available_sections: List[str]) -> List[str]:
+        """Filter sections based on user selection.
+
+        Args:
+            available_sections: List of all available section names
+
+        Returns:
+            List of sections to generate (all if no selection, filtered otherwise)
+        """
+        if not self.selected_sections:
+            return available_sections
+
+        selected_lower = [sel.lower() for sel in self.selected_sections]
+
+        def matches_selection(section: str) -> bool:
+            """Check if section matches any user selection."""
+            normalized = section.lower().replace(' ', '_').replace('_and_', '_')
+            section_lower = section.lower()
+            return (
+                section in self.selected_sections
+                or section_lower in selected_lower
+                or normalized in selected_lower
+                or any(section_lower.startswith(sel) for sel in selected_lower)
+            )
+
+        return [s for s in available_sections if matches_selection(s)]
 
     def _create_final_html_output(
         self,
