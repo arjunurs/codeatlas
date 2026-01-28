@@ -25,6 +25,7 @@ venv/
 env/
 ENV/
 .env
+.env.*
 
 # IDE
 .idea/
@@ -42,14 +43,29 @@ htmlcov/
 .pytest_cache/
 .tox/
 
+# Type checking / Linting
+.mypy_cache/
+.ruff_cache/
+
 # Documentation
 docs/
 docs/_build/
 docs/generated/
+
+# Vector Store
+chroma_db/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Claude Code
+.claude/
+CLAUDE.md
+spec.md
 
 # Misc
 .DS_Store
 Thumbs.db
 *.log
 *.bak
-*.tmp 
+*.tmp

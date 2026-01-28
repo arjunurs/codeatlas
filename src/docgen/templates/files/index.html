@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-4xl font-bold mb-8">{{ documentation.title }}</h1>
+
+{% if generation_errors %}
+<div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+    <div class="flex">
+        <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+        </div>
+        <div class="ml-3">
+            <h3 class="text-sm font-medium text-yellow-800">Generation Warnings</h3>
+            <div class="mt-2 text-sm text-yellow-700">
+                <p>Some content could not be generated:</p>
+                <ul class="list-disc list-inside mt-1">
+                    {% for name, error in generation_errors.sections %}
+                    <li><strong>Section "{{ name }}":</strong> {{ error }}</li>
+                    {% endfor %}
+                    {% for name, error in generation_errors.diagrams %}
+                    <li><strong>Diagram "{{ name }}":</strong> {{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+    <div class="bg-white p-6 rounded-lg shadow-lg">
+        <h2 class="text-2xl font-semibold mb-4">Quick Links</h2>
+        <ul class="space-y-2">
+            {% for section in documentation.sections %}
+            <li>
+                <a href="{{ base_url }}/sections/{{ section.title | lower | replace(' ', '_') }}.html"
+                   class="text-blue-600 hover:text-blue-800">
+                    {{ section.title }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-lg">
+        <h2 class="text-2xl font-semibold mb-4">Diagrams</h2>
+        <ul class="space-y-2">
+            <li><a href="{{ base_url }}/diagrams/architecture.html" class="text-blue-600 hover:text-blue-800">System Architecture</a></li>
+            <li><a href="{{ base_url }}/diagrams/dependencies.html" class="text-blue-600 hover:text-blue-800">Package Dependencies</a></li>
+            <li><a href="{{ base_url }}/diagrams/classes.html" class="text-blue-600 hover:text-blue-800">Class Diagram</a></li>
+            <li><a href="{{ base_url }}/diagrams/sequence.html" class="text-blue-600 hover:text-blue-800">Sequence Diagram</a></li>
+            <li><a href="{{ base_url }}/diagrams/call_graph.html" class="text-blue-600 hover:text-blue-800">Call Graph</a></li>
+        </ul>
+    </div>
+</div>
+
+<div class="bg-white p-6 rounded-lg shadow-lg mb-8">
+    <h2 class="text-2xl font-semibold mb-4">Overview</h2>
+    <div class="prose max-w-none">
+        {{ documentation.sections[0].content | safe }}
+    </div>
+</div>
+
+<footer class="text-center text-gray-500 mt-12">
+    Generated on {{ documentation.generated_date }}
+</footer>
+{% endblock %}

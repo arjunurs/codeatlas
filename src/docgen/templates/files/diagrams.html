@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="bg-white rounded-lg shadow-lg h-full">
+    <div class="p-4 border-b">
+        <h1 class="text-2xl font-bold">{{ title }}</h1>
+    </div>
+    <div class="relative">
+        <div class="zoom-buttons">
+            <button class="zoom-button" onclick="zoomDiagram('diagram', 1.2)" title="Zoom In">
+                <i class="fas fa-search-plus"></i>
+            </button>
+            <button class="zoom-button" onclick="zoomDiagram('diagram', 0.8)" title="Zoom Out">
+                <i class="fas fa-search-minus"></i>
+            </button>
+            <button class="zoom-button" onclick="zoomDiagram('diagram', 1/currentScale)" title="Reset Zoom">
+                <i class="fas fa-undo"></i>
+            </button>
+        </div>
+        <div id="diagram" class="diagram-container">
+            <pre class="mermaid">
+{{- diagram_code | trim | indent(width=12) -}}
+            </pre>
+        </div>
+    </div>
+    {% if description %}
+    <div class="p-4 border-t">
+        <div class="prose max-w-none">
+            {{ description | safe }}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+let currentScale = 1;
+
+function zoomDiagram(diagramId, factor) {
+    const container = document.getElementById(diagramId);
+    const svg = container.querySelector('svg');
+    if (!svg) return;
+
+    if (factor === 1/currentScale) {
+        // Reset zoom
+        currentScale = 1;
+    } else {
+        currentScale = currentScale * factor;
+    }
+
+    svg.style.transform = 'scale(' + currentScale + ')';
+    svg.style.transformOrigin = 'top left';
+}
+</script>
+{% endblock %}

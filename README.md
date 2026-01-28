@@ -16,24 +16,24 @@ A powerful tool for automatically generating comprehensive documentation for Pyt
 
 ## Installation
 
-You can install the package directly from GitHub:
+Using [uv](https://docs.astral.sh/uv/) (recommended):
+
+```bash
+git clone https://github.com/yourusername/CodeDocumentationGenerator.git
+cd CodeDocumentationGenerator
+uv sync
+```
+
+Or install with pip:
 
 ```bash
 pip install git+https://github.com/yourusername/CodeDocumentationGenerator.git
 ```
 
-Or install in development mode:
-
-```bash
-git clone https://github.com/yourusername/CodeDocumentationGenerator.git
-cd CodeDocumentationGenerator
-pip install -e .
-```
-
 ## Requirements
 
-- Python 3.8 or higher
-- Anthropic API key (for Claude 3 Sonnet)
+- Python 3.10 or higher
+- Anthropic API key (for Claude Sonnet 4)
 - OpenAI API key (for embeddings)
 
 ## Usage
@@ -65,7 +65,7 @@ docgen --source ./my_project --output ./docs \
     --openai-api-key sk-...
 ```
 
-3. View the generated documentation by opening `docs/documentation.html` in your browser.
+3. View the generated documentation by opening `docs/index.html` in your browser.
 
 ## Documentation Features
 
@@ -88,14 +88,19 @@ The generated documentation includes:
 To set up the development environment:
 
 1. Clone the repository
-2. Create a virtual environment
-3. Install development dependencies:
+2. Install dependencies with uv:
    ```bash
-   pip install -e ".[dev]"
+   uv sync
    ```
-4. Run tests:
+3. Run tests:
    ```bash
-   pytest
+   uv run pytest tests/ -v
+   ```
+4. Format and lint:
+   ```bash
+   uv run black src/ tests/
+   uv run ruff src/
+   uv run mypy src/
    ```
 
 ## Contributing

@@ -14,8 +14,12 @@ from .code_entity import CodeEntity
 class FileAnalysis:
     """Represents the analysis results of a Python source file.
 
+    This class is a pure data container and does not perform filesystem checks.
+    File existence should be verified by the caller (e.g., CodeAnalyzer) before
+    creating FileAnalysis instances.
+
     Attributes:
-        file_path: Path to the analyzed file
+        file_path: Path to the analyzed file (does not need to exist on disk)
         entities: List of code entities found in the file
         imports: List of import statements
         content: Raw file content
@@ -30,13 +34,14 @@ class FileAnalysis:
     _skip_validation: bool = field(default=False, repr=False)
 
     def __post_init__(self):
-        """Validate file analysis attributes after initialization."""
+        """Validate file analysis attributes after initialization.
+
+        Note: This does NOT check if the file exists. File existence should be
+        verified by the caller before creating a FileAnalysis instance.
+        """
         if not self._skip_validation:
             if not self.file_path:
                 raise ValueError("File path cannot be empty")
-
-            if not os.path.exists(self.file_path):
-                raise ValueError(f"File does not exist: {self.file_path}")
 
             if not self.content and not self.file_path.endswith("__init__.py"):
                 raise ValueError("Content cannot be empty except for __init__.py files")

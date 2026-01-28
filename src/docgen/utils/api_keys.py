@@ -13,6 +13,7 @@ from typing import Optional, Tuple
 
 
 from ..exceptions.errors import ApiKeyError
+from .path_validation import validate_env_file_path, PathValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +50,13 @@ def get_api_keys(
         if final_openai_key:
             logger.debug("Using OpenAI API key from environment")
 
-    # If still not found and custom env file provided, try that
-    if custom_env_file and (not final_anthropic_key or not final_openai_key):
+    # If custom env file provided, read it (failure is an error, not a warning)
+    if custom_env_file:
         try:
-            with open(custom_env_file) as f:
+            # Validate the path before reading to prevent path traversal
+            validated_path = validate_env_file_path(custom_env_file)
+
+            with open(validated_path) as f:
                 for line in f:
                     if '=' in line:
                         key, value = line.strip().split('=', 1)
@@ -62,14 +66,16 @@ def get_api_keys(
                         elif key == 'OPENAI_API_KEY' and not final_openai_key:
                             final_openai_key = value
                             logger.debug("Using OpenAI API key from custom env file")
+        except PathValidationError as e:
+            raise ApiKeyError(f"Invalid env file path '{custom_env_file}': {e}") from e
         except FileNotFoundError:
-            logger.warning(f"Custom env file not found: {custom_env_file}")
+            raise ApiKeyError(f"Custom env file not found: {custom_env_file}")
         except PermissionError:
-            logger.warning(f"Permission denied reading custom env file: {custom_env_file}")
+            raise ApiKeyError(f"Permission denied reading custom env file: {custom_env_file}")
         except UnicodeDecodeError as e:
-            logger.warning(f"Encoding error reading custom env file {custom_env_file}: {str(e)}")
-        except Exception as e:
-            logger.warning(f"Unexpected error reading custom env file {custom_env_file}: {str(e)}")
+            raise ApiKeyError(f"Encoding error reading custom env file '{custom_env_file}': {e}") from e
+        except (IOError, OSError) as e:
+            raise ApiKeyError(f"Failed to read custom env file '{custom_env_file}': {e}") from e
 
     # Validate we have both keys
     if not final_anthropic_key:

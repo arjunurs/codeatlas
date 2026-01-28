@@ -7,12 +7,24 @@ from .errors import (
     DocumentationError,
     CodeParseError,
     DiagramGenerationError,
-    ApiKeyError
+    ApiKeyError,
+    VectorStoreError,
+    FileEncodingError,
+    TemplateError,
+    LLMError,
+    EmbeddingError,
+    PathValidationError,
 )
 
 __all__ = [
     'DocumentationError',
     'CodeParseError',
     'DiagramGenerationError',
-    'ApiKeyError'
+    'ApiKeyError',
+    'VectorStoreError',
+    'FileEncodingError',
+    'TemplateError',
+    'LLMError',
+    'EmbeddingError',
+    'PathValidationError',
 ]

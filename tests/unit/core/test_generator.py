@@ -176,58 +176,54 @@ def test_generate_documentation_invalid_directory(mock_generator):
 def test_generate_documentation_success(generator, tmp_path):
     """Test successful documentation generation."""
     output_dir = tmp_path / "docs"
-    
-    # Mock vector store and QA chain
-    mock_vector_store = Mock()
-    mock_vector_store.as_retriever.return_value = Mock()
-    
-    with patch("docgen.core.generator.Chroma") as mock_chroma:
-        mock_chroma.from_documents.return_value = mock_vector_store
-        with patch("docgen.core.generator.RetrievalQA") as mock_qa:
-            mock_qa.from_chain_type.return_value.run.return_value = "Generated content"
-            
-            # Create source directory with a Python file
-            source_dir = tmp_path / "src"
-            source_dir.mkdir()
-            (source_dir / "test.py").write_text("print('test')")
-            
-            # Generate documentation
-            generator.generate_documentation(str(source_dir), str(output_dir))
-            
-            # Verify directory structure
-            assert os.path.exists(output_dir / "sections")
-            assert os.path.exists(output_dir / "diagrams")
-            assert os.path.exists(output_dir / "assets")
-            
-            # Verify template calls
-            render_calls = generator.template_manager.render_template.call_args_list
-            expected_files = {
-                'index.html',
-                'sections/overview.html',
-                'sections/dependencies.html',
-                'sections/key_classes_and_functions.html',
-                'sections/data_flow.html',
-                'sections/integration_points.html',
-                'diagrams/architecture.html',
-                'diagrams/dependencies.html',
-                'diagrams/classes.html',
-                'diagrams/sequence.html',
-                'diagrams/call_graph.html',
-                'search.html'
-            }
-            
-            # Extract filenames from call arguments
-            actual_files = set()
-            for call in render_calls:
-                args = call[0]  # Positional arguments
-                if len(args) >= 4:  # Check for filename in fourth position
-                    filename = args[3]
-                    if filename:
-                        actual_files.add(filename)
-            
-            # Verify all expected files were generated
-            missing_files = expected_files - actual_files
-            assert not missing_files, f"Missing expected files: {missing_files}"
+
+    # Create a mock RAG chain that returns strings directly (as LCEL chains do after StrOutputParser)
+    mock_rag_chain = Mock()
+    mock_rag_chain.invoke.return_value = "Generated content"
+
+    with patch.object(generator, '_create_vector_store_and_rag_chain', return_value=mock_rag_chain):
+        # Create source directory with a Python file
+        source_dir = tmp_path / "src"
+        source_dir.mkdir()
+        (source_dir / "test.py").write_text("print('test')")
+
+        # Generate documentation
+        generator.generate_documentation(str(source_dir), str(output_dir))
+
+        # Verify directory structure
+        assert os.path.exists(output_dir / "sections")
+        assert os.path.exists(output_dir / "diagrams")
+        assert os.path.exists(output_dir / "assets")
+
+        # Verify template calls
+        render_calls = generator.template_manager.render_template.call_args_list
+        expected_files = {
+            'index.html',
+            'sections/overview.html',
+            'sections/dependencies.html',
+            'sections/key_classes_and_functions.html',
+            'sections/data_flow.html',
+            'sections/integration_points.html',
+            'diagrams/architecture.html',
+            'diagrams/dependencies.html',
+            'diagrams/classes.html',
+            'diagrams/sequence.html',
+            'diagrams/call_graph.html',
+            'search.html'
+        }
+
+        # Extract filenames from call arguments
+        actual_files = set()
+        for call in render_calls:
+            args = call[0]  # Positional arguments
+            if len(args) >= 4:  # Check for filename in fourth position
+                filename = args[3]
+                if filename:
+                    actual_files.add(filename)
+
+        # Verify all expected files were generated
+        missing_files = expected_files - actual_files
+        assert not missing_files, f"Missing expected files: {missing_files}"
 
 def test_generate_documentation_no_files(mock_generator, tmp_path):
     """Test documentation generation with no Python files."""
@@ -258,16 +254,9 @@ def test_generate_documentation_with_errors(generator, tmp_path):
     source_dir = tmp_path / "src"
     source_dir.mkdir()
     output_dir = tmp_path / "docs"
-    
+
     # Test analyzer error
     generator.analyzer.analyze_directory.side_effect = Exception("Analysis failed")
-    with pytest.raises(DocumentationError) as exc_info:
-        generator.generate_documentation(str(source_dir), str(output_dir))
-    assert "Failed to generate documentation" in str(exc_info.value)
-    
-    # Test diagram generation error
-    generator.analyzer.analyze_directory.side_effect = None
-    generator.diagram_generator.generate_architecture_diagram.side_effect = Exception("Diagram failed")
     with pytest.raises(DocumentationError) as exc_info:
         generator.generate_documentation(str(source_dir), str(output_dir))
     assert "Failed to generate documentation" in str(exc_info.value)
@@ -291,45 +280,51 @@ def test_documentation_content_structure(generator, tmp_path):
     source_dir = tmp_path / "src"
     source_dir.mkdir()
     output_dir = tmp_path / "docs"
-    
-    # Create a mock QA chain that returns structured content
-    mock_qa_chain = Mock()
-    mock_qa_chain.invoke.return_value = {"answer": """
+
+    # Track RAG chain invocations
+    invocation_count = 0
+
+    def mock_rag_invoke(prompt):
+        nonlocal invocation_count
+        invocation_count += 1
+        # Return string directly (as LCEL chains do after StrOutputParser)
+        return """
     # Section Title
-    
+
     - Point 1
     - Point 2
-    
+
     ## Subsection
-    
+
     Example code:
     ```python
     def test():
         pass
     ```
-    """}
-    
-    with patch("docgen.core.generator.Chroma"):
-        with patch("docgen.core.generator.RetrievalQA") as mock_qa:
-            mock_qa.from_chain_type.return_value = mock_qa_chain
-            generator.generate_documentation(str(source_dir), str(output_dir))
-            
-            # Verify QA chain was called for each section
-            assert mock_qa_chain.invoke.call_count == 5  # Number of documentation sections
-            
-            # Verify template received structured content
-            render_calls = generator.template_manager.render_template.call_args_list
-            
-            # Find the index page call
-            index_call = None
-            for call in render_calls:
-                args = call[0]  # Positional arguments
-                if len(args) >= 4 and args[3] == 'index.html':  # Check filename in fourth position
-                    index_call = call
-                    break
-            
-            assert index_call is not None, "Index page template call not found"
-            context = index_call[0][1]  # Context is in the second position of args
-            assert 'documentation' in context
-            assert 'sections' in context['documentation']
-            assert len(context['documentation']['sections']) == 5 
+    """
+
+    mock_rag_chain = Mock()
+    mock_rag_chain.invoke.side_effect = mock_rag_invoke
+
+    with patch.object(generator, '_create_vector_store_and_rag_chain', return_value=mock_rag_chain):
+        generator.generate_documentation(str(source_dir), str(output_dir))
+
+        # Verify RAG chain was invoked for each section (5 sections)
+        assert invocation_count == 5
+
+        # Verify template received structured content
+        render_calls = generator.template_manager.render_template.call_args_list
+
+        # Find the index page call
+        index_call = None
+        for call in render_calls:
+            args = call[0]  # Positional arguments
+            if len(args) >= 4 and args[3] == 'index.html':  # Check filename in fourth position
+                index_call = call
+                break
+
+        assert index_call is not None, "Index page template call not found"
+        context = index_call[0][1]  # Context is in the second position of args
+        assert 'documentation' in context
+        assert 'sections' in context['documentation']
+        assert len(context['documentation']['sections']) == 5

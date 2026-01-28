@@ -38,4 +38,14 @@ class TemplateError(DocumentationError):
 
 class LLMError(DocumentationError):
     """Raised when there are LLM communication issues."""
-    pass 
+    pass
+
+
+class EmbeddingError(DocumentationError):
+    """Raised when there are embedding generation issues."""
+    pass
+
+
+class PathValidationError(DocumentationError):
+    """Raised when a path fails security validation."""
+    pass
