@@ -88,7 +88,7 @@ class TestTemplateManager:
         output_file = output_dir / "search.html"
         assert output_file.exists()
         content = output_file.read_text()
-        assert "Search Results" in content
+        assert "Search Documentation" in content
 
     def test_render_template_creates_subdirectory(self, tmp_path):
         """Test that render_template creates subdirectories if needed."""

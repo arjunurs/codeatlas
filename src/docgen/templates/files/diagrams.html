@@ -1,53 +1,99 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="bg-white rounded-lg shadow-lg h-full">
-    <div class="p-4 border-b">
-        <h1 class="text-2xl font-bold">{{ title }}</h1>
-    </div>
-    <div class="relative">
-        <div class="zoom-buttons">
-            <button class="zoom-button" onclick="zoomDiagram('diagram', 1.2)" title="Zoom In">
-                <i class="fas fa-search-plus"></i>
+<!-- Breadcrumbs -->
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+    <a href="{{ base_url }}index.html">Home</a>
+    <span class="separator" aria-hidden="true">›</span>
+    <a href="{{ base_url }}index.html#diagrams">Diagrams</a>
+    <span class="separator" aria-hidden="true">›</span>
+    <span class="current">{{ title }}</span>
+</nav>
+
+<div class="content-card" style="padding: 0; overflow: hidden;">
+    <div style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <h1 style="font-size: 20px; font-weight: 600; color: #111827; margin: 0;">{{ title }}</h1>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 4px; background: #f3f4f6; border-radius: 6px; padding: 2px;">
+                <button class="diagram-btn" onclick="zoomDiagram(0.8)" title="Zoom out (-)">
+                    <i class="fas fa-minus" aria-hidden="true"></i>
+                </button>
+                <span id="zoom-level" style="min-width: 50px; text-align: center; font-size: 13px; color: #374151;">100%</span>
+                <button class="diagram-btn" onclick="zoomDiagram(1.25)" title="Zoom in (+)">
+                    <i class="fas fa-plus" aria-hidden="true"></i>
+                </button>
+            </div>
+            <button class="diagram-btn" onclick="zoomDiagram('reset')" title="Reset zoom">
+                <i class="fas fa-undo" aria-hidden="true"></i>
+                <span>Reset</span>
             </button>
-            <button class="zoom-button" onclick="zoomDiagram('diagram', 0.8)" title="Zoom Out">
-                <i class="fas fa-search-minus"></i>
+            <button class="diagram-btn" onclick="toggleFullscreen()" title="Fullscreen (F)">
+                <i class="fas fa-expand" aria-hidden="true"></i>
+                <span>Fullscreen</span>
             </button>
-            <button class="zoom-button" onclick="zoomDiagram('diagram', 1/currentScale)" title="Reset Zoom">
-                <i class="fas fa-undo"></i>
+            <button class="diagram-btn" onclick="downloadDiagram()" title="Download SVG">
+                <i class="fas fa-download" aria-hidden="true"></i>
+                <span>Download</span>
             </button>
         </div>
-        <div id="diagram" class="diagram-container">
-            <pre class="mermaid">
-{{- diagram_code | trim | indent(width=12) -}}
-            </pre>
+    </div>
+
+    <div class="diagram-container" id="diagram-container" style="border: none; border-radius: 0;">
+        <div class="diagram-content">
+            <pre class="mermaid">{{ diagram_code | trim }}</pre>
         </div>
     </div>
+
     {% if description %}
-    <div class="p-4 border-t">
-        <div class="prose max-w-none">
+    <div style="padding: 16px 20px; border-top: 1px solid #e5e7eb; background: #f9fafb;">
+        <div style="font-size: 14px; line-height: 1.6; color: #4b5563;">
             {{ description | safe }}
         </div>
     </div>
     {% endif %}
 </div>
 
+<div style="margin-top: 16px; font-size: 13px; color: #6b7280;">
+    <strong>Tip:</strong> Use mouse wheel to scroll, toolbar buttons to zoom. Press <kbd class="kbd">F</kbd> for fullscreen.
+</div>
+
 <script>
-let currentScale = 1;
+// Keyboard shortcuts for diagrams
+document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-function zoomDiagram(diagramId, factor) {
-    const container = document.getElementById(diagramId);
-    const svg = container.querySelector('svg');
-    if (!svg) return;
-
-    if (factor === 1/currentScale) {
-        // Reset zoom
-        currentScale = 1;
-    } else {
-        currentScale = currentScale * factor;
+    switch(e.key) {
+        case '+':
+        case '=':
+            e.preventDefault();
+            zoomDiagram(1.25);
+            break;
+        case '-':
+            e.preventDefault();
+            zoomDiagram(0.8);
+            break;
+        case '0':
+            e.preventDefault();
+            zoomDiagram('reset');
+            break;
+        case 'f':
+        case 'F':
+            e.preventDefault();
+            toggleFullscreen();
+            break;
     }
+});
 
-    svg.style.transform = 'scale(' + currentScale + ')';
-    svg.style.transformOrigin = 'top left';
-}
+// Handle fullscreen change
+document.addEventListener('fullscreenchange', function() {
+    const container = document.getElementById('diagram-container');
+    if (document.fullscreenElement) {
+        container.style.maxHeight = '100vh';
+        container.style.height = '100vh';
+    } else {
+        container.style.maxHeight = '80vh';
+        container.style.height = '';
+    }
+});
 </script>
 {% endblock %}

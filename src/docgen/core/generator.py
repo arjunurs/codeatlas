@@ -621,13 +621,21 @@ Answer:"""
             self.template_manager.render_template('index', index_context, output_dir, 'index.html')
 
             # Generate section pages
-            for section in documentation['sections']:
+            sections_list = documentation['sections']
+            for i, section in enumerate(sections_list):
                 filename = f"sections/{section['title'].lower().replace(' ', '_')}.html"
+
+                # Determine prev/next sections for navigation
+                prev_section = sections_list[i - 1]['title'] if i > 0 else None
+                next_section = sections_list[i + 1]['title'] if i < len(sections_list) - 1 else None
+
                 section_context = {
                     'title': section['title'],
                     'section': section,
                     'base_url': '../',  # Parent directory for section pages
-                    'navigation': self._generate_navigation(section['title'], documentation['sections'], '../')
+                    'navigation': self._generate_navigation(section['title'], sections_list, '../'),
+                    'prev_section': prev_section,
+                    'next_section': next_section,
                 }
                 self.template_manager.render_template('section', section_context, output_dir, filename)
 

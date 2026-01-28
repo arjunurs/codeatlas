@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <title>{{ title }}</title>
     <meta charset="utf-8">
@@ -8,121 +8,419 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        .mermaid {
-            min-height: 80vh;
-            height: 100%;
-            width: 100%;
-            overflow: auto;
+        :root {
+            --sidebar-width: 280px;
+            --header-height: 56px;
         }
-        .diagram-container {
-            width: 100%;
-            height: 80vh;
-            overflow: auto;
-            resize: both;
-            border: 1px solid #e5e7eb;
-            padding: 0.5rem;
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
             margin: 0;
-            position: relative;
-            background: white;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
         }
-        .zoom-buttons {
+
+        /* Skip to content link for accessibility */
+        .skip-link {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 100;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 5px;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            top: -40px;
+            left: 0;
+            background: #1a1a1a;
+            color: white;
+            padding: 8px 16px;
+            z-index: 1000;
+            text-decoration: none;
         }
-        .zoom-button {
+        .skip-link:focus {
+            top: 0;
+        }
+
+        /* Mobile header */
+        .mobile-header {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--header-height);
             background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 16px;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 50;
+        }
+
+        .mobile-menu-btn {
+            background: none;
             border: 1px solid #e5e7eb;
-            padding: 5px 10px;
-            margin: 0 2px;
+            border-radius: 6px;
+            padding: 8px 12px;
             cursor: pointer;
-            border-radius: 4px;
-            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
         }
-        .zoom-button:hover {
+        .mobile-menu-btn:hover {
             background: #f3f4f6;
-            transform: scale(1.05);
         }
+
+        /* Sidebar */
         .sidebar {
-            width: 300px;
+            width: var(--sidebar-width);
             height: 100vh;
             position: fixed;
             top: 0;
             left: 0;
             overflow-y: auto;
-            background: white;
+            background: #fafafa;
             border-right: 1px solid #e5e7eb;
-            padding: 1rem;
-            z-index: 10;
+            padding: 16px;
+            z-index: 40;
         }
-        .main-content {
-            margin-left: 300px;
-            padding: 1rem;
-            min-height: 100vh;
-            width: calc(100% - 300px);
+
+        .sidebar-header {
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .sidebar-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0;
+        }
+
+        /* Search */
+        .search-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            pointer-events: none;
         }
         .search-box {
             width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #e5e7eb;
-            border-radius: 4px;
-            margin-bottom: 1rem;
+            padding: 10px 10px 10px 36px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+        .search-box:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .search-box::placeholder {
+            color: #9ca3af;
+        }
+
+        /* Clear search button */
+        .search-clear {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 4px;
+            display: none;
+        }
+        .search-clear:hover {
+            color: #374151;
+        }
+        .search-box:not(:placeholder-shown) + .search-clear {
+            display: block;
+        }
+
+        /* Navigation */
+        .nav-section {
+            margin-bottom: 20px;
+        }
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            padding: 8px 0;
+            margin: 0;
         }
         .nav-item {
-            padding: 0.5rem;
-            cursor: pointer;
-            border-radius: 4px;
-            display: block;
-            width: 100%;
-            margin-bottom: 0.25rem;
-            white-space: normal;
-            word-wrap: break-word;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            margin: 2px 0;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #374151;
+            font-size: 14px;
+            transition: background-color 0.15s;
         }
         .nav-item:hover {
-            background: #f3f4f6;
-        }
-        .nav-item.active {
             background: #e5e7eb;
         }
-        .nav-section {
-            margin-bottom: 1rem;
+        .nav-item.active {
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-weight: 500;
         }
-        .nav-section h3 {
-            margin-bottom: 0.5rem;
-            padding: 0.5rem 0;
+        .nav-item i {
+            width: 16px;
+            text-align: center;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        /* Main content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 24px 32px;
+            min-height: 100vh;
+            max-width: 1200px;
+        }
+
+        /* Breadcrumbs */
+        .breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .breadcrumbs a {
+            color: #6b7280;
+            text-decoration: none;
+        }
+        .breadcrumbs a:hover {
+            color: #374151;
+            text-decoration: underline;
+        }
+        .breadcrumbs .separator {
+            color: #d1d5db;
+        }
+        .breadcrumbs .current {
+            color: #374151;
+            font-weight: 500;
+        }
+
+        /* Content cards */
+        .content-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .content-card h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #111827;
+            margin: 0 0 16px 0;
+            line-height: 1.3;
+        }
+
+        .content-card h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #111827;
+            margin: 24px 0 12px 0;
+        }
+
+        /* Diagram container */
+        .diagram-container {
+            width: 100%;
+            min-height: 500px;
+            max-height: 80vh;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: white;
+            position: relative;
+        }
+
+        .diagram-toolbar {
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            background: #f9fafb;
             border-bottom: 1px solid #e5e7eb;
+            z-index: 10;
         }
-        @media (min-width: 1024px) {
-            .diagram-container {
-                height: 85vh;
+
+        .diagram-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #374151;
+        }
+        .diagram-btn:hover {
+            background: #f3f4f6;
+        }
+        .diagram-btn:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .diagram-content {
+            padding: 16px;
+            overflow: auto;
+        }
+
+        .mermaid {
+            min-height: 400px;
+        }
+
+        /* Footer navigation */
+        .footer-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 40px;
+            padding-top: 24px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer-nav-link {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 12px 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #374151;
+            max-width: 45%;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .footer-nav-link:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+        }
+        .footer-nav-link.next {
+            text-align: right;
+            margin-left: auto;
+        }
+        .footer-nav-label {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .footer-nav-title {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Sidebar overlay for mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 35;
+        }
+
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            .mobile-header {
+                display: flex;
             }
-            .mermaid {
-                min-height: 85vh;
+
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                top: var(--header-height);
+                height: calc(100vh - var(--header-height));
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay.open {
+                display: block;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 16px;
+                padding-top: calc(var(--header-height) + 16px);
+            }
+
+            .footer-nav {
+                flex-direction: column;
+            }
+            .footer-nav-link {
+                max-width: 100%;
+            }
+            .footer-nav-link.next {
+                text-align: left;
             }
         }
-        @media (min-width: 1536px) {
-            .diagram-container {
-                height: 90vh;
+
+        /* Keyboard shortcut hints */
+        .kbd {
+            display: inline-block;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-family: monospace;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            color: #6b7280;
+        }
+
+        /* Focus visible for keyboard navigation */
+        :focus-visible {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+
+        /* Print styles */
+        @media print {
+            .sidebar, .mobile-header, .diagram-toolbar, .footer-nav, .search-container {
+                display: none !important;
             }
-            .mermaid {
-                min-height: 90vh;
+            .main-content {
+                margin-left: 0 !important;
+                padding: 0 !important;
             }
         }
     </style>
     <script>
+        // Mermaid configuration
         mermaid.initialize({
             startOnLoad: true,
-            logLevel: 'debug',
             theme: 'default',
             securityLevel: 'loose',
             maxTextSize: 100000,
             fontSize: 14,
-            fontFamily: 'monospace',
             flowchart: {
                 useMaxWidth: false,
                 htmlLabels: true,
@@ -130,99 +428,147 @@
             },
             sequence: {
                 useMaxWidth: false,
-                showSequenceNumbers: true,
-                actorMargin: 50,
-                messageMargin: 40
-            },
-            er: {
-                useMaxWidth: false
+                showSequenceNumbers: true
             }
         });
 
-        window.addEventListener('load', function() {
-            try {
-                mermaid.contentLoaded();
-                console.debug('Mermaid initialization completed');
-            } catch (e) {
-                console.error('Mermaid initialization error:', e);
-                console.debug('Mermaid configuration:', mermaid.mermaidAPI.getConfig());
-            }
-        });
-
-        function zoomDiagram(diagramId, factor) {
-            const container = document.getElementById(diagramId);
-            const svg = container.querySelector('svg');
-            if (!svg) {
-                console.debug('No SVG found in diagram container:', diagramId);
-                return;
-            }
-
-            try {
-                const currentScale = svg.style.transform ?
-                    parseFloat(svg.style.transform.replace('scale(', '').replace(')', '')) : 1;
-                const newScale = currentScale * factor;
-
-                console.debug('Zooming diagram:', {
-                    diagramId,
-                    currentScale,
-                    newScale,
-                    factor
-                });
-
-                svg.style.transform = 'scale(' + newScale + ')';
-                svg.style.transformOrigin = 'top left';
-            } catch (e) {
-                console.error('Error during zoom operation:', e);
-            }
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            document.querySelector('.sidebar').classList.toggle('open');
+            document.querySelector('.sidebar-overlay').classList.toggle('open');
         }
 
-        function search() {
-            const query = document.getElementById('search').value.toLowerCase();
-            const resultsContainer = document.getElementById('search-results');
-
-            // Clear existing results safely
-            while (resultsContainer.firstChild) {
-                resultsContainer.removeChild(resultsContainer.firstChild);
+        // Close mobile menu when clicking overlay
+        document.addEventListener('DOMContentLoaded', function() {
+            const overlay = document.querySelector('.sidebar-overlay');
+            if (overlay) {
+                overlay.addEventListener('click', toggleMobileMenu);
             }
 
-            // Search in content
-            document.querySelectorAll('.searchable').forEach(element => {
-                if (element.textContent.toLowerCase().includes(query)) {
-                    const title = element.getAttribute('data-title');
-                    const url = element.getAttribute('data-url');
-                    const excerpt = element.textContent.substring(0, 200) + '...';
-
-                    // Create result elements safely using DOM methods
-                    const resultDiv = document.createElement('div');
-                    resultDiv.className = 'p-4 border-b';
-
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.className = 'text-blue-600 hover:text-blue-800 font-medium';
-                    link.textContent = title;
-
-                    const excerptP = document.createElement('p');
-                    excerptP.className = 'text-gray-600 text-sm mt-1';
-                    excerptP.textContent = excerpt;
-
-                    resultDiv.appendChild(link);
-                    resultDiv.appendChild(excerptP);
-                    resultsContainer.appendChild(resultDiv);
+            // Close mobile menu on escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const sidebar = document.querySelector('.sidebar');
+                    if (sidebar && sidebar.classList.contains('open')) {
+                        toggleMobileMenu();
+                    }
                 }
             });
+        });
+
+        // Diagram zoom functionality
+        let diagramScale = 1;
+
+        function zoomDiagram(factor) {
+            const container = document.querySelector('.diagram-content');
+            const svg = container ? container.querySelector('svg') : null;
+            if (!svg) return;
+
+            if (factor === 'reset') {
+                diagramScale = 1;
+            } else {
+                diagramScale = Math.max(0.25, Math.min(3, diagramScale * factor));
+            }
+
+            svg.style.transform = `scale(${diagramScale})`;
+            svg.style.transformOrigin = 'top left';
+
+            // Update zoom level display
+            const zoomLevel = document.getElementById('zoom-level');
+            if (zoomLevel) {
+                zoomLevel.textContent = Math.round(diagramScale * 100) + '%';
+            }
         }
+
+        function downloadDiagram() {
+            const svg = document.querySelector('.diagram-content svg');
+            if (!svg) return;
+
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const blob = new Blob([svgData], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'diagram.svg';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function toggleFullscreen() {
+            const container = document.querySelector('.diagram-container');
+            if (!container) return;
+
+            if (!document.fullscreenElement) {
+                container.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Clear search
+        function clearSearch() {
+            const searchBox = document.getElementById('search');
+            if (searchBox) {
+                searchBox.value = '';
+                searchBox.focus();
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Focus search with '/'
+            if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+                const searchBox = document.getElementById('search');
+                if (searchBox && document.activeElement !== searchBox) {
+                    e.preventDefault();
+                    searchBox.focus();
+                }
+            }
+        });
     </script>
 </head>
-<body class="bg-gray-100">
-    <div class="sidebar">
-        <input type="text" id="search" placeholder="Search documentation..."
-               class="search-box" onkeyup="search()">
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Mobile header -->
+    <header class="mobile-header">
+        <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle navigation menu">
+            <i class="fas fa-bars"></i>
+            <span>Menu</span>
+        </button>
+        <span style="font-weight: 500; font-size: 14px;">{{ title }}</span>
+    </header>
+
+    <!-- Sidebar overlay for mobile -->
+    <div class="sidebar-overlay" aria-hidden="true"></div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" aria-label="Main navigation">
+        <div class="sidebar-header">
+            <h1 class="sidebar-title">Documentation</h1>
+        </div>
+
+        <div class="search-container">
+            <i class="fas fa-search search-icon" aria-hidden="true"></i>
+            <input type="search"
+                   id="search"
+                   class="search-box"
+                   placeholder="Search... (press /)"
+                   aria-label="Search documentation">
+            <button class="search-clear" onclick="clearSearch()" aria-label="Clear search">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
         <div id="navigation">
             {{ navigation | safe }}
         </div>
-    </div>
-    <div class="main-content">
+    </nav>
+
+    <!-- Main content -->
+    <main id="main-content" class="main-content">
         {% block content %}{% endblock %}
-    </div>
+    </main>
 </body>
 </html>

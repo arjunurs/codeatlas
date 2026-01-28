@@ -1,36 +1,55 @@
-<nav>
+<nav aria-label="Documentation navigation">
     <div class="nav-section">
-        <a href="{{ base_url }}index.html" class="nav-item {% if active == 'index' %}active{% endif %}">
-            <i class="fas fa-home mr-2"></i> Home
+        <a href="{{ base_url }}index.html"
+           class="nav-item {% if active == 'index' %}active{% endif %}"
+           {% if active == 'index' %}aria-current="page"{% endif %}>
+            <i class="fas fa-home" aria-hidden="true"></i>
+            <span>Home</span>
         </a>
     </div>
 
     <div class="nav-section">
-        <h3 class="font-semibold">Documentation</h3>
+        <h2 class="nav-section-title">Documentation</h2>
         {% for section in sections %}
         <a href="{{ base_url }}sections/{{ section | lower | replace(' ', '_') }}.html"
-           class="nav-item {% if active == section %}active{% endif %}">
-            {{ section }}
+           class="nav-item {% if active == section %}active{% endif %}"
+           {% if active == section %}aria-current="page"{% endif %}>
+            <span>{{ section }}</span>
         </a>
         {% endfor %}
     </div>
 
     <div class="nav-section">
-        <h3 class="font-semibold">Diagrams</h3>
-        <a href="{{ base_url }}diagrams/architecture.html" class="nav-item {% if active == 'architecture' %}active{% endif %}">
-            <i class="fas fa-project-diagram mr-2"></i> System Architecture
+        <h2 class="nav-section-title">Diagrams</h2>
+        <a href="{{ base_url }}diagrams/architecture.html"
+           class="nav-item {% if active == 'architecture' %}active{% endif %}"
+           {% if active == 'architecture' %}aria-current="page"{% endif %}>
+            <i class="fas fa-project-diagram" aria-hidden="true"></i>
+            <span>Architecture</span>
         </a>
-        <a href="{{ base_url }}diagrams/dependencies.html" class="nav-item {% if active == 'dependencies' %}active{% endif %}">
-            <i class="fas fa-cubes mr-2"></i> Package Dependencies
+        <a href="{{ base_url }}diagrams/dependencies.html"
+           class="nav-item {% if active == 'dependencies_diagram' %}active{% endif %}"
+           {% if active == 'dependencies_diagram' %}aria-current="page"{% endif %}>
+            <i class="fas fa-cubes" aria-hidden="true"></i>
+            <span>Dependencies</span>
         </a>
-        <a href="{{ base_url }}diagrams/classes.html" class="nav-item {% if active == 'classes' %}active{% endif %}">
-            <i class="fas fa-sitemap mr-2"></i> Class Diagram
+        <a href="{{ base_url }}diagrams/classes.html"
+           class="nav-item {% if active == 'classes' %}active{% endif %}"
+           {% if active == 'classes' %}aria-current="page"{% endif %}>
+            <i class="fas fa-sitemap" aria-hidden="true"></i>
+            <span>Classes</span>
         </a>
-        <a href="{{ base_url }}diagrams/sequence.html" class="nav-item {% if active == 'sequence' %}active{% endif %}">
-            <i class="fas fa-exchange-alt mr-2"></i> Sequence Diagram
+        <a href="{{ base_url }}diagrams/sequence.html"
+           class="nav-item {% if active == 'sequence' %}active{% endif %}"
+           {% if active == 'sequence' %}aria-current="page"{% endif %}>
+            <i class="fas fa-exchange-alt" aria-hidden="true"></i>
+            <span>Sequence</span>
         </a>
-        <a href="{{ base_url }}diagrams/call_graph.html" class="nav-item {% if active == 'call_graph' %}active{% endif %}">
-            <i class="fas fa-code-branch mr-2"></i> Call Graph
+        <a href="{{ base_url }}diagrams/call_graph.html"
+           class="nav-item {% if active == 'call_graph' %}active{% endif %}"
+           {% if active == 'call_graph' %}aria-current="page"{% endif %}>
+            <i class="fas fa-code-branch" aria-hidden="true"></i>
+            <span>Call Graph</span>
         </a>
     </div>
 </nav>

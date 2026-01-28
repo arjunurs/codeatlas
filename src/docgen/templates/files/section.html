@@ -1,17 +1,25 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-lg">
-    <h1 class="text-4xl font-bold mb-8">{{ section.title }}</h1>
-    <div class="prose max-w-none searchable space-y-6" data-title="{{ section.title }}" data-url="{{ url }}">
+<!-- Breadcrumbs -->
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+    <a href="{{ base_url }}index.html">Home</a>
+    <span class="separator" aria-hidden="true">›</span>
+    <span class="current">{{ section.title }}</span>
+</nav>
+
+<article class="content-card">
+    <h1 style="font-size: 28px; font-weight: 600; color: #111827; margin: 0 0 24px 0; line-height: 1.3;">
+        {{ section.title }}
+    </h1>
+
+    <div class="prose searchable" data-title="{{ section.title }}" data-url="{{ base_url }}sections/{{ section.title | lower | replace(' ', '_') }}.html">
         {% set paragraphs = section.content.split('\n\n') %}
         {% set in_code_block = false %}
         {% set in_list = false %}
         {% set list_level = 0 %}
-        {% set current_list = [] %}
 
         {% for paragraph in paragraphs %}
             {% set lines = paragraph.split('\n') %}
-            {% set processed_lines = [] %}
 
             {% for line in lines %}
                 {% set line = line.strip() %}
@@ -29,15 +37,15 @@
                         {% endif %}
                         {% set header_level = line.count('#') %}
                         {% set header_text = line.lstrip('#').strip() %}
-                        <h{{ header_level }} class="text-{{ 4 - header_level }}xl font-bold mt-8 mb-4">{{ header_text }}</h{{ header_level }}>
+                        <h{{ header_level }} class="section-heading">{{ header_text }}</h{{ header_level }}>
 
                     {# Handle code blocks #}
                     {% elif line.startswith('```') %}
                         {% if not in_code_block %}
                             {% if line.startswith('```python') %}
-                                <pre class="bg-gray-50 rounded-lg p-4 overflow-x-auto my-4"><code class="language-python">
+                                <pre class="code-block"><code class="language-python">
                             {% else %}
-                                <pre class="bg-gray-50 rounded-lg p-4 overflow-x-auto my-4"><code>
+                                <pre class="code-block"><code>
                             {% endif %}
                             {% set in_code_block = true %}
                         {% else %}
@@ -48,18 +56,8 @@
                     {# Handle bullet points #}
                     {% elif line.startswith(('- ', '* ')) %}
                         {% if not in_list %}
-                            <ul class="list-disc pl-6 space-y-2 my-4">
+                            <ul class="content-list">
                             {% set in_list = true %}
-                        {% endif %}
-                        {% set indent_level = (line.index('-') if '-' in line else line.index('*')) // 2 %}
-                        {% if indent_level > list_level %}
-                            <ul class="list-disc pl-6 space-y-2">
-                            {% set list_level = indent_level %}
-                        {% elif indent_level < list_level %}
-                            {% for _ in range(list_level - indent_level) %}
-                                </ul>
-                            {% endfor %}
-                            {% set list_level = indent_level %}
                         {% endif %}
                         {% set content = line.lstrip('- *').strip() %}
                         {# Process inline code in list items #}
@@ -69,17 +67,15 @@
                             {% if i % 2 == 0 %}
                                 {% set _ = processed_content.append(parts[i]) %}
                             {% else %}
-                                {% set _ = processed_content.append('<code class="bg-gray-100 rounded px-1 font-mono text-sm">' ~ parts[i] ~ '</code>') %}
+                                {% set _ = processed_content.append('<code class="inline-code">' ~ parts[i] ~ '</code>') %}
                             {% endif %}
                         {% endfor %}
-                        <li class="text-gray-800">{{ processed_content|join('')|safe }}</li>
+                        <li>{{ processed_content|join('')|safe }}</li>
 
                     {# Handle regular paragraphs #}
                     {% else %}
                         {% if in_list %}
-                            {% for _ in range(list_level + 1) %}
-                                </ul>
-                            {% endfor %}
+                            </ul>
                             {% set in_list = false %}
                             {% set list_level = 0 %}
                         {% endif %}
@@ -93,10 +89,10 @@
                                 {% if i % 2 == 0 %}
                                     {% set _ = processed_text.append(parts[i]) %}
                                 {% else %}
-                                    {% set _ = processed_text.append('<code class="bg-gray-100 rounded px-1 font-mono text-sm">' ~ parts[i] ~ '</code>') %}
+                                    {% set _ = processed_text.append('<code class="inline-code">' ~ parts[i] ~ '</code>') %}
                                 {% endif %}
                             {% endfor %}
-                            <p class="text-gray-800 leading-relaxed mb-4">{{ processed_text|join('')|safe }}</p>
+                            <p>{{ processed_text|join('')|safe }}</p>
                         {% endif %}
                     {% endif %}
                 {% endif %}
@@ -105,79 +101,89 @@
 
         {# Close any open tags #}
         {% if in_list %}
-            {% for _ in range(list_level + 1) %}
-                </ul>
-            {% endfor %}
+            </ul>
         {% endif %}
         {% if in_code_block %}
             </code></pre>
         {% endif %}
     </div>
-</div>
+</article>
+
+<!-- Footer navigation -->
+{% if prev_section or next_section %}
+<nav class="footer-nav" aria-label="Section navigation">
+    {% if prev_section %}
+    <a href="{{ base_url }}sections/{{ prev_section | lower | replace(' ', '_') }}.html" class="footer-nav-link prev">
+        <span class="footer-nav-label">← Previous</span>
+        <span class="footer-nav-title">{{ prev_section }}</span>
+    </a>
+    {% else %}
+    <div></div>
+    {% endif %}
+
+    {% if next_section %}
+    <a href="{{ base_url }}sections/{{ next_section | lower | replace(' ', '_') }}.html" class="footer-nav-link next">
+        <span class="footer-nav-label">Next →</span>
+        <span class="footer-nav-title">{{ next_section }}</span>
+    </a>
+    {% endif %}
+</nav>
+{% endif %}
 
 <style>
 .prose {
-    font-size: 1.1rem;
+    font-size: 15px;
     line-height: 1.75;
-    color: #1a202c;
+    color: #374151;
 }
 .prose p {
-    margin-bottom: 1.5rem;
+    margin: 0 0 16px 0;
 }
-.prose h2 {
-    font-size: 1.875rem;
-    line-height: 2.25rem;
-    font-weight: 700;
-    color: #1a202c;
-    border-bottom: 1px solid #e2e8f0;
-    padding-bottom: 0.5rem;
-    margin-top: 2rem;
-    margin-bottom: 1rem;
-}
-.prose h3 {
-    font-size: 1.5rem;
-    line-height: 2rem;
+.prose .section-heading {
     font-weight: 600;
-    color: #1a202c;
-    margin-top: 1.5rem;
-    margin-bottom: 0.75rem;
+    color: #111827;
+    margin: 32px 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
 }
-.prose ul {
+.prose h2 { font-size: 22px; }
+.prose h3 { font-size: 18px; border-bottom: none; }
+.prose h4 { font-size: 16px; border-bottom: none; }
+
+.prose .content-list {
     list-style-type: disc;
-    padding-left: 1.5rem;
-    margin: 1.5rem 0;
+    padding-left: 24px;
+    margin: 16px 0;
 }
-.prose ul ul {
-    margin: 0.5rem 0;
+.prose .content-list li {
+    margin: 8px 0;
+    padding-left: 4px;
 }
-.prose li {
-    margin: 0.5rem 0;
-    padding-left: 0.5rem;
-}
-.prose code {
-    color: #1a202c;
-    background-color: #f3f4f6;
-    padding: 0.2rem 0.4rem;
-    border-radius: 0.25rem;
+
+.prose .inline-code {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 0.875em;
-    white-space: pre-wrap;
-    word-wrap: break-word;
+    font-size: 0.9em;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #1f2937;
 }
-.prose pre {
-    margin: 1.5rem 0;
-    background-color: #f3f4f6;
-    padding: 1rem;
-    border-radius: 0.5rem;
+
+.prose .code-block {
+    margin: 16px 0;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 16px;
     overflow-x: auto;
 }
-.prose pre code {
-    background-color: transparent;
+.prose .code-block code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #1f2937;
+    background: transparent;
     padding: 0;
-    color: inherit;
-    font-size: 0.875em;
-    line-height: 1.7142857;
-    white-space: pre;
 }
 </style>
 {% endblock %}
