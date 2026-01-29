@@ -248,8 +248,6 @@
         /* Diagram container */
         .diagram-container {
             width: 100%;
-            min-height: 500px;
-            max-height: 80vh;
             overflow: auto;
             border: 1px solid #e5e7eb;
             border-radius: 6px;
@@ -293,15 +291,16 @@
 
         .diagram-content {
             padding: 16px;
-            overflow: auto;
+            display: inline-block;
+            min-width: 100%;
         }
 
         .mermaid {
-            min-height: 200px;
+            display: inline-block;
         }
 
         .mermaid svg {
-            height: auto;
+            display: block;
         }
 
         /* Footer navigation */
@@ -462,44 +461,49 @@
 
         // Diagram zoom functionality
         let diagramScale = 1;
+        let originalSvgWidth = 0;
+        let originalSvgHeight = 0;
 
         function zoomDiagram(factor) {
-            const container = document.querySelector('.diagram-content');
-            const svg = container ? container.querySelector('svg') : null;
+            const content = document.querySelector('.diagram-content');
+            const svg = content ? content.querySelector('svg') : null;
             if (!svg) return;
+
+            // Store original dimensions on first call
+            if (!originalSvgWidth || !originalSvgHeight) {
+                const rect = svg.getBoundingClientRect();
+                originalSvgWidth = rect.width;
+                originalSvgHeight = rect.height;
+            }
 
             if (factor === 'reset') {
                 diagramScale = 1;
                 svg.style.transform = '';
-                svg.style.maxWidth = '100%';
-                svg.style.height = 'auto';
+                content.style.width = '';
+                content.style.height = '';
             } else if (factor === 'fit') {
-                // Calculate scale to fit container
+                // Calculate scale to fit the diagram container
+                const container = document.querySelector('.diagram-container');
                 const containerRect = container.getBoundingClientRect();
-                const svgRect = svg.getBoundingClientRect();
-                const currentScale = diagramScale || 1;
-
-                // Get actual SVG dimensions (accounting for current transform)
-                const actualWidth = svgRect.width / currentScale;
-                const actualHeight = svgRect.height / currentScale;
-
-                // Calculate scale to fit with some padding
-                const padding = 32;
+                const padding = 48; // Account for content padding
                 const availableWidth = containerRect.width - padding;
                 const availableHeight = containerRect.height - padding;
 
-                const scaleX = availableWidth / actualWidth;
-                const scaleY = availableHeight / actualHeight;
-                diagramScale = Math.min(scaleX, scaleY, 1); // Don't scale up, only down
+                const scaleX = availableWidth / originalSvgWidth;
+                const scaleY = availableHeight / originalSvgHeight;
+                diagramScale = Math.min(scaleX, scaleY, 1);
 
-                svg.style.maxWidth = 'none';
                 svg.style.transform = `scale(${diagramScale})`;
                 svg.style.transformOrigin = 'top left';
+                content.style.width = (originalSvgWidth * diagramScale) + 'px';
+                content.style.height = (originalSvgHeight * diagramScale) + 'px';
             } else {
                 diagramScale = Math.max(0.1, Math.min(3, diagramScale * factor));
-                svg.style.maxWidth = 'none';
                 svg.style.transform = `scale(${diagramScale})`;
                 svg.style.transformOrigin = 'top left';
+                // Adjust container size to match scaled SVG
+                content.style.width = (originalSvgWidth * diagramScale) + 'px';
+                content.style.height = (originalSvgHeight * diagramScale) + 'px';
             }
 
             // Update zoom level display
