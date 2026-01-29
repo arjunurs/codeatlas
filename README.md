@@ -171,61 +171,52 @@ The generated documentation includes:
   - Data Flow
   - Integration Points
 
+## Documentation
+
+### For Users
+
+- **[README](README.md)** - You're reading it! Installation and usage guide
+
+### For Contributors
+
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
+- **[Pre-Commit Hooks Setup](docs/development/pre-commit.md)** - Detailed pre-commit configuration
+- **[Implementation Notes](docs/development/implementation.md)** - Implementation details and decisions
+
+### Features & Design
+
+- **[Diagrams-Only Mode](docs/features/diagrams-only.md)** - Generate diagrams without API costs
+- **[Cost Optimization](docs/design/cost-optimization.md)** - Caching and cost reduction strategies
+
 ## Development
 
-To set up the development environment:
+### Quick Start
 
-1. Clone the repository
-2. Install dependencies with uv:
-   ```bash
-   uv sync
-   ```
-3. Install pre-commit hooks:
-   ```bash
-   pre-commit install
-   ```
-4. Run tests:
-   ```bash
-   uv run pytest tests/ -v
-   ```
-5. Format, lint, and type check:
-   ```bash
-   uv run ruff check src/ tests/ --fix
-   uv run ruff format src/ tests/
-   uv run ty check
+```bash
+# Clone and setup
+git clone https://github.com/yourusername/CodeDocumentationGenerator.git
+cd CodeDocumentationGenerator
+uv sync
 
-   # Or run all checks via pre-commit:
-   pre-commit run --all-files
-   ```
+# Install pre-commit hooks
+uv run pre-commit install
 
-### Pre-Commit Workflow
+# Run tests
+uv run pytest tests/ -v
+```
 
-**For every change**, follow this workflow:
+### Development Workflow
 
-1. **Run Code Simplifier** - Simplify and clean up your changes
-2. **Commit Changes** - Pre-commit hooks run automatically (lint, format, type check)
-   ```bash
-   git add .
-   git commit -m "descriptive message"
-   # Hooks run automatically - complete in 0.25s
-   ```
-3. **Run Tests Before Pushing** - Ensure nothing breaks
-   ```bash
-   uv run pytest tests/ -v
-   # All 196 unit + 11 integration tests must pass
-   ```
-4. **Push** - When tests pass
-   ```bash
-   git push
-   ```
+1. **Make changes** and run code simplifier
+2. **Commit** - Pre-commit hooks run automatically (0.25s)
+3. **Test** - Run `uv run pytest tests/ -v` before pushing
+4. **Push** - When all tests pass
 
-**Why tests aren't in pre-commit:** Tests run manually before push (not on every commit) to keep commits fast while maintaining quality. Pre-commit hooks focus on quick checks (lint, format, type) that complete in 0.25 seconds.
-
-This workflow ensures:
-- Fast commits (hooks complete in 0.25s)
-- Code quality maintained automatically
-- No broken code pushed to repository
-- Flexibility during rapid development
+**See [CONTRIBUTING.md](CONTRIBUTING.md) for complete developer guide**, including:
+- Detailed setup instructions
+- Code style requirements
+- Testing guidelines
+- Pull request process
 
 ## Contributing
 
