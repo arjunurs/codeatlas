@@ -297,7 +297,11 @@
         }
 
         .mermaid {
-            min-height: 400px;
+            min-height: 200px;
+        }
+
+        .mermaid svg {
+            height: auto;
         }
 
         /* Footer navigation */
@@ -466,12 +470,37 @@
 
             if (factor === 'reset') {
                 diagramScale = 1;
-            } else {
-                diagramScale = Math.max(0.25, Math.min(3, diagramScale * factor));
-            }
+                svg.style.transform = '';
+                svg.style.maxWidth = '100%';
+                svg.style.height = 'auto';
+            } else if (factor === 'fit') {
+                // Calculate scale to fit container
+                const containerRect = container.getBoundingClientRect();
+                const svgRect = svg.getBoundingClientRect();
+                const currentScale = diagramScale || 1;
 
-            svg.style.transform = `scale(${diagramScale})`;
-            svg.style.transformOrigin = 'top left';
+                // Get actual SVG dimensions (accounting for current transform)
+                const actualWidth = svgRect.width / currentScale;
+                const actualHeight = svgRect.height / currentScale;
+
+                // Calculate scale to fit with some padding
+                const padding = 32;
+                const availableWidth = containerRect.width - padding;
+                const availableHeight = containerRect.height - padding;
+
+                const scaleX = availableWidth / actualWidth;
+                const scaleY = availableHeight / actualHeight;
+                diagramScale = Math.min(scaleX, scaleY, 1); // Don't scale up, only down
+
+                svg.style.maxWidth = 'none';
+                svg.style.transform = `scale(${diagramScale})`;
+                svg.style.transformOrigin = 'top left';
+            } else {
+                diagramScale = Math.max(0.1, Math.min(3, diagramScale * factor));
+                svg.style.maxWidth = 'none';
+                svg.style.transform = `scale(${diagramScale})`;
+                svg.style.transformOrigin = 'top left';
+            }
 
             // Update zoom level display
             const zoomLevel = document.getElementById('zoom-level');
@@ -479,6 +508,9 @@
                 zoomLevel.textContent = Math.round(diagramScale * 100) + '%';
             }
         }
+
+        // Note: Diagrams render at natural size for best readability
+        // Users can click "Fit" button to fit to panel if needed
 
         function downloadDiagram() {
             const svg = document.querySelector('.diagram-content svg');
