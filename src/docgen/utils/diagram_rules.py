@@ -22,7 +22,9 @@ class ValidationRule(Protocol):
 
     rule_name: str
 
-    def validate(self, diagram_content: str, diagram_type: DiagramType) -> list[ValidationError]:
+    def validate(
+        self, diagram_content: str, diagram_type: DiagramType
+    ) -> list[ValidationError]:
         """Validate diagram content.
 
         Args:
@@ -40,7 +42,9 @@ class SyntaxHeaderRule:
 
     rule_name = "syntax_header"
 
-    def validate(self, diagram_content: str, diagram_type: DiagramType) -> list[ValidationError]:
+    def validate(
+        self, diagram_content: str, diagram_type: DiagramType
+    ) -> list[ValidationError]:
         """Check if diagram has correct header."""
         errors = []
         lines = diagram_content.strip().split("\n")
@@ -88,7 +92,9 @@ class QuoteEscapingRule:
 
     rule_name = "quote_escaping"
 
-    def validate(self, diagram_content: str, diagram_type: DiagramType) -> list[ValidationError]:
+    def validate(
+        self, diagram_content: str, diagram_type: DiagramType
+    ) -> list[ValidationError]:
         """Check for unescaped quotes in labels."""
         errors = []
         lines = diagram_content.split("\n")
@@ -126,13 +132,26 @@ class SpecialCharactersRule:
     # Special characters that need escaping or quoting in Mermaid
     SPECIAL_CHARS = set("[];{}|:")
 
-    def validate(self, diagram_content: str, diagram_type: DiagramType) -> list[ValidationError]:
+    def validate(
+        self, diagram_content: str, diagram_type: DiagramType
+    ) -> list[ValidationError]:
         """Check for unhandled special characters."""
         errors = []
         lines = diagram_content.split("\n")
 
         # Known valid Mermaid operators that contain special chars
-        valid_operators = ["--|>", "--*", "--o", "-->", "-.->", "==>", "->>", "-->>", "<<--", "<--"]
+        valid_operators = [
+            "--|>",
+            "--*",
+            "--o",
+            "-->",
+            "-.->",
+            "==>",
+            "->>",
+            "-->>",
+            "<<--",
+            "<--",
+        ]
 
         # For sequence diagrams, : is valid syntax in messages
         is_sequence_diagram = diagram_type == DiagramType.SEQUENCE
@@ -145,7 +164,10 @@ class SpecialCharactersRule:
                 continue
 
             # Skip header lines
-            if any(line.strip().startswith(h) for h in ["graph", "flowchart", "classDiagram", "sequenceDiagram"]):
+            if any(
+                line.strip().startswith(h)
+                for h in ["graph", "flowchart", "classDiagram", "sequenceDiagram"]
+            ):
                 continue
 
             # Skip class body delimiters in class diagrams
@@ -154,14 +176,14 @@ class SpecialCharactersRule:
                 if line.strip() in ["{", "}"]:
                     continue
                 # Skip "class Name {" lines
-                if re.match(r'\s*class\s+\w+\s*\{', line):
+                if re.match(r"\s*class\s+\w+\s*\{", line):
                     continue
 
             # Check if the line has special chars outside of quoted/bracketed sections
             # Remove quoted and bracketed sections first
-            temp_line = re.sub(r'\[[^\]]*\]', '', line)  # Remove [...] sections
-            temp_line = re.sub(r'"[^"]*"', '', temp_line)  # Remove "..." sections
-            temp_line = re.sub(r"'[^']*'", '', temp_line)  # Remove '...' sections
+            temp_line = re.sub(r"\[[^\]]*\]", "", line)  # Remove [...] sections
+            temp_line = re.sub(r'"[^"]*"', "", temp_line)  # Remove "..." sections
+            temp_line = re.sub(r"'[^']*'", "", temp_line)  # Remove '...' sections
 
             # Remove valid Mermaid operators
             for op in valid_operators:
@@ -170,12 +192,14 @@ class SpecialCharactersRule:
             # For sequence diagrams, remove message syntax (: is valid)
             if is_sequence_diagram:
                 # Remove ": message" pattern from sequence diagram arrows
-                temp_line = re.sub(r':\s*\w+\(\)', '', temp_line)  # Remove ": call()" or ": return"
+                temp_line = re.sub(
+                    r":\s*\w+\(\)", "", temp_line
+                )  # Remove ": call()" or ": return"
 
             # Now check for special characters in the remaining text
             for char in self.SPECIAL_CHARS:
                 # Skip : check for sequence diagrams (already handled)
-                if is_sequence_diagram and char == ':':
+                if is_sequence_diagram and char == ":":
                     continue
 
                 if char in temp_line:
@@ -186,7 +210,9 @@ class SpecialCharactersRule:
                             line_number=line_num,
                             line_content=line.strip(),
                             rule_name=self.rule_name,
-                            suggestion=f"Wrap text containing '{char}' in quotes or brackets",
+                            suggestion=(
+                                f"Wrap text containing '{char}' in quotes or brackets"
+                            ),
                         )
                     )
                     break  # Only report once per line
@@ -199,7 +225,9 @@ class NodeIdFormatRule:
 
     rule_name = "node_id_format"
 
-    def validate(self, diagram_content: str, diagram_type: DiagramType) -> list[ValidationError]:
+    def validate(
+        self, diagram_content: str, diagram_type: DiagramType
+    ) -> list[ValidationError]:
         """Check if node IDs follow valid format."""
         errors = []
 
@@ -215,7 +243,7 @@ class NodeIdFormatRule:
 
         # Pattern to match node IDs at the start of nodes or edges
         # Matches: "nodeId[label]", "nodeId --> ", etc.
-        node_id_pattern = re.compile(r'^\s*(\w+)[\[\s]')
+        node_id_pattern = re.compile(r"^\s*(\w+)[\[\s]")
 
         for line_num, line in enumerate(lines, 1):
             # Skip header, comments, and empty lines
@@ -238,7 +266,9 @@ class NodeIdFormatRule:
                             line_number=line_num,
                             line_content=line.strip(),
                             rule_name=self.rule_name,
-                            suggestion="Node IDs must start with a letter or underscore",
+                            suggestion=(
+                                "Node IDs must start with a letter or underscore"
+                            ),
                         )
                     )
 
@@ -250,10 +280,14 @@ class EmptyDiagramRule:
 
     rule_name = "empty_diagram"
 
-    def validate(self, diagram_content: str, diagram_type: DiagramType) -> list[ValidationError]:
+    def validate(
+        self, diagram_content: str, diagram_type: DiagramType
+    ) -> list[ValidationError]:
         """Check if diagram has meaningful content."""
         errors = []
-        lines = [line.strip() for line in diagram_content.strip().split("\n") if line.strip()]
+        lines = [
+            line.strip() for line in diagram_content.strip().split("\n") if line.strip()
+        ]
 
         # Remove comments
         lines = [line for line in lines if not line.startswith("%%")]

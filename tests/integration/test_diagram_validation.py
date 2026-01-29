@@ -8,7 +8,7 @@ import pytest
 from docgen.core.diagrams import DiagramGenerator
 from docgen.exceptions.errors import DiagramGenerationError
 from docgen.models.code_entity import CodeEntity
-from docgen.models.diagram_validation import DiagramType, ValidationConfig
+from docgen.models.diagram_validation import ValidationConfig
 from docgen.models.file_analysis import FileAnalysis
 
 

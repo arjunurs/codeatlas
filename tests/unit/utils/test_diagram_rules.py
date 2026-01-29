@@ -1,7 +1,5 @@
 """Tests for diagram validation rules."""
 
-import pytest
-
 from docgen.models.diagram_validation import DiagramType, ValidationSeverity
 from docgen.utils.diagram_rules import (
     EmptyDiagramRule,

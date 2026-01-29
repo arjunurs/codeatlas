@@ -11,7 +11,6 @@ from docgen.exceptions.errors import DiagramValidationError
 from docgen.models.diagram_validation import (
     DiagramType,
     ValidationConfig,
-    ValidationError,
     ValidationResult,
 )
 from docgen.utils.diagram_rules import COMMON_RULES, ValidationRule
@@ -67,7 +66,8 @@ class BaseValidator:
 
         Args:
             diagram_content: The diagram to validate
-            raise_on_error: Whether to raise DiagramValidationError on validation failure
+            raise_on_error: Whether to raise DiagramValidationError on
+                validation failure
 
         Returns:
             ValidationResult with all issues found
@@ -175,10 +175,12 @@ class DiagramValidator:
         """
         validator = self.validators.get(diagram_type)
         if not validator:
-            type_str = diagram_type.value if isinstance(diagram_type, DiagramType) else str(diagram_type)
-            raise KeyError(
-                f"No validator found for diagram type: {type_str}"
+            type_str = (
+                diagram_type.value
+                if isinstance(diagram_type, DiagramType)
+                else str(diagram_type)
             )
+            raise KeyError(f"No validator found for diagram type: {type_str}")
 
         return validator.validate(diagram_content, raise_on_error=raise_on_error)
 
@@ -198,10 +200,13 @@ class DiagramValidator:
             ValidationResult with all issues found
 
         Raises:
-            DiagramValidationError: If diagram type cannot be detected or validation fails
+            DiagramValidationError: If diagram type cannot be detected or
+                validation fails
         """
         diagram_type = self._detect_diagram_type(diagram_content)
-        return self.validate(diagram_content, diagram_type, raise_on_error=raise_on_error)
+        return self.validate(
+            diagram_content, diagram_type, raise_on_error=raise_on_error
+        )
 
     def _detect_diagram_type(self, diagram_content: str) -> DiagramType:
         """Detect diagram type from content.
