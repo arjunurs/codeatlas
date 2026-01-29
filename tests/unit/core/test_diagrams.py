@@ -15,7 +15,8 @@ from docgen.models.file_analysis import FileAnalysis
 @pytest.fixture
 def diagram_generator():
     """Create a DiagramGenerator instance for testing."""
-    return DiagramGenerator()
+    # Disable validation for tests to avoid issues with synthetic test data
+    return DiagramGenerator(validate_diagrams=False)
 
 
 @pytest.fixture

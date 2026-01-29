@@ -23,6 +23,12 @@ class DiagramGenerationError(DocumentationError):
     pass
 
 
+class DiagramValidationError(DiagramGenerationError):
+    """Raised when diagram validation fails."""
+
+    pass
+
+
 class ApiKeyError(DocumentationError):
     """Raised when there are issues with the API key configuration."""
 

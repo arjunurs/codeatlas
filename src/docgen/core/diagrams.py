@@ -8,6 +8,7 @@ import logging
 import os
 
 from ..exceptions.errors import DiagramGenerationError
+from ..models.diagram_validation import DiagramType, ValidationConfig
 from ..models.file_analysis import FileAnalysis
 
 logger = logging.getLogger(__name__)
@@ -23,13 +24,68 @@ class DiagramGenerator:
     - Call graph diagrams
     """
 
-    def __init__(self, max_nodes: int = 50):
+    def __init__(
+        self,
+        max_nodes: int = 50,
+        *,
+        validate_diagrams: bool = True,
+        validation_config: ValidationConfig | None = None,
+    ):
         """Initialize the diagram generator.
 
         Args:
             max_nodes: Maximum number of nodes to show in diagrams
+            validate_diagrams: Whether to validate generated diagrams
+            validation_config: Optional validation configuration
         """
         self.max_nodes = max_nodes
+        self.validate_diagrams = validate_diagrams
+        self.validation_config = validation_config or ValidationConfig()
+        self.validator = None
+
+        if self.validate_diagrams:
+            # Import here to avoid circular dependency
+            from ..utils.diagram_validator import DiagramValidator
+
+            self.validator = DiagramValidator(self.validation_config)
+
+    def _validate_diagram(
+        self,
+        diagram_content: str,
+        diagram_type: DiagramType,
+    ) -> None:
+        """Validate a generated diagram.
+
+        Args:
+            diagram_content: The diagram content to validate
+            diagram_type: The type of diagram
+
+        Raises:
+            DiagramGenerationError: If validation fails in strict mode
+        """
+        if not self.validate_diagrams or not self.validator:
+            return
+
+        try:
+            result = self.validator.validate(
+                diagram_content,
+                diagram_type,
+                raise_on_error=True,  # Fail fast on errors
+            )
+
+            if result.has_warnings:
+                logger.warning(
+                    f"{diagram_type.value} diagram has "
+                    f"{len(result.warnings)} warning(s)"
+                )
+                for warning in result.warnings:
+                    logger.warning(f"  {warning}")
+
+        except Exception as e:
+            logger.error(f"Diagram validation failed: {e}")
+            raise DiagramGenerationError(
+                f"Generated {diagram_type.value} diagram failed validation: {e}"
+            ) from e
 
     @staticmethod
     def _clean_name(name: str) -> str:
@@ -90,9 +146,8 @@ class DiagramGenerator:
         """
         if nodes_added >= self.max_nodes:
             diagram.append("")
-            diagram.append(
-                f'    note["Diagram truncated: showing top {self.max_nodes} {entity_type}"]'
-            )
+            note_text = f"Diagram truncated: showing top {self.max_nodes} {entity_type}"
+            diagram.append(f'    note["{note_text}"]')
 
     def generate_class_diagram(self, analyses: list[FileAnalysis]) -> str:
         """Generate a class diagram from file analyses.
@@ -150,17 +205,23 @@ class DiagramGenerator:
             if nodes_added > 0:
                 diagram_lines.append("")
 
-            # Add inheritance relationships - include all parent classes even if not in diagram
+            # Add inheritance relationships
+            # Include all parent classes even if not in diagram
             for clean_name, cls in classes.items():
                 if cls.parent_class:
                     clean_parent = self._clean_name(cls.parent_class)
-                    # Add inheritance relationship regardless of whether parent is in diagram
+                    # Add relationship regardless of whether parent is in diagram
                     diagram_lines.append(f"    {clean_name} --|> {clean_parent}")
 
             # Add truncation note if needed
             self._append_truncation_note(diagram_lines, nodes_added, "classes")
 
-            return "\n".join(diagram_lines)
+            diagram = "\n".join(diagram_lines)
+
+            # Validate before returning
+            self._validate_diagram(diagram, DiagramType.CLASS)
+
+            return diagram
         except Exception as e:
             logger.debug(f"Error in class diagram: {str(e)}")
             raise DiagramGenerationError(f"Failed to generate class diagram: {str(e)}")
@@ -175,7 +236,8 @@ class DiagramGenerator:
             Mermaid sequence diagram source
 
         Raises:
-            DiagramGenerationError: If no function calls found or diagram generation fails
+            DiagramGenerationError: If no function calls found or generation
+                fails
         """
         if not call_graph:
             raise DiagramGenerationError("Empty call graph")
@@ -188,10 +250,6 @@ class DiagramGenerator:
                 continue
 
             if nodes_added >= self.max_nodes:
-                diagram.append("")  # Add blank line for readability
-                diagram.append(
-                    f"    Note over participant1: Diagram truncated at {self.max_nodes} nodes"
-                )
                 break
 
             for callee in callees:
@@ -201,10 +259,19 @@ class DiagramGenerator:
                 diagram.append(f"    {clean_callee}-->>-{clean_caller}: return")
                 nodes_added += 1
 
+        # Add truncation note if diagram was truncated
+        if nodes_added >= self.max_nodes:
+            self._append_truncation_note(diagram, nodes_added, "interactions")
+
         if nodes_added == 0:
             raise DiagramGenerationError("No function calls found in call graph")
 
-        return "\n".join(diagram)
+        diagram_content = "\n".join(diagram)
+
+        # Validate before returning
+        self._validate_diagram(diagram_content, DiagramType.SEQUENCE)
+
+        return diagram_content
 
     def generate_dependency_diagram(self, dependencies: dict[str, set[str]]) -> str:
         """Generate a dependency diagram from package dependencies.
@@ -255,7 +322,12 @@ class DiagramGenerator:
         if nodes_added == 0:
             raise DiagramGenerationError("No dependencies found in packages")
 
-        return "\n".join(diagram)
+        diagram_content = "\n".join(diagram)
+
+        # Validate before returning
+        self._validate_diagram(diagram_content, DiagramType.DEPENDENCY)
+
+        return diagram_content
 
     def generate_call_graph_diagram(self, call_graph: dict[str, set[str]]) -> str:
         """Generate a call graph diagram showing function calls.
@@ -299,7 +371,12 @@ class DiagramGenerator:
 
             self._append_truncation_note(diagram, nodes_added)
 
-            return "\n".join(diagram)
+            diagram_content = "\n".join(diagram)
+
+            # Validate before returning
+            self._validate_diagram(diagram_content, DiagramType.CALL_GRAPH)
+
+            return diagram_content
         except Exception as e:
             logger.debug(f"Error in call graph diagram: {str(e)}")
             raise DiagramGenerationError(
@@ -362,7 +439,12 @@ class DiagramGenerator:
             # Add node limit note if needed
             self._append_truncation_note(diagram, nodes_added)
 
-            return "\n".join(diagram)
+            diagram_content = "\n".join(diagram)
+
+            # Validate before returning
+            self._validate_diagram(diagram_content, DiagramType.ARCHITECTURE)
+
+            return diagram_content
         except Exception as e:
             logger.debug(f"Error in architecture diagram: {str(e)}")
             raise DiagramGenerationError(

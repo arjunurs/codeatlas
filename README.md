@@ -4,15 +4,19 @@ A powerful tool for automatically generating comprehensive documentation for Pyt
 
 ## Features
 
-- Automatic code analysis and documentation generation
-- Interactive system architecture diagrams
-- Package dependency visualization
-- Function call graphs
-- Class diagrams with inheritance relationships
-- Sequence diagrams showing component interactions
-- Rich HTML output with interactive features
-- Comprehensive API documentation
-- Integration with both Anthropic and OpenAI LLMs
+- **Automatic code analysis** with AST parsing and entity extraction
+- **Enhanced documentation** with LLM-powered insights and explanations
+- **5 core documentation sections** (Overview, Dependencies, Key Classes, Data Flow, Integration Points)
+- **3 optional sections** for deeper analysis:
+  - Migration Guidance (deprecated patterns, security issues, modern alternatives)
+  - Code Quality Insights (architectural patterns, trade-offs, improvement suggestions)
+  - Cross-Reference Documentation (where components are defined and used)
+- **Interactive system diagrams**: architecture, class, sequence, call graph, dependencies
+- **Diagram validation** with 15+ rules to catch syntax errors before HTML generation
+- **Advanced caching** for incremental updates and cost savings
+- **Configurable RAG retrieval** (similarity search, MMR diversity, score thresholds)
+- **Rich HTML output** with search and navigation
+- **Integration** with Anthropic Claude and OpenAI
 
 ## Installation
 
@@ -106,10 +110,22 @@ Generation Options:
   --exclude PATTERN     Exclude files matching glob (repeatable)
   --no-diagrams         Skip diagram generation
   --diagrams-only       Generate ONLY diagrams (no LLM calls, no API costs)
-  --sections LIST       Generate only: overview,dependencies,classes,dataflow,integration
+  --sections LIST       Sections to generate (comma-separated):
+                        Core: overview,dependencies,classes,dataflow,integration
+                        Optional: migration_guidance,code_quality,cross_reference
   --diagrams LIST       Generate only: architecture,class,sequence,callgraph,dependency
   --dry-run             Analyze without LLM calls
   --max-files N         Limit files to analyze
+
+RAG Retrieval Options:
+  --retriever-k N       Number of documents to retrieve (default: 10)
+  --retriever-search-type {similarity,mmr}
+                        Retrieval method: similarity (default) or mmr (diversity)
+  --retriever-score-threshold FLOAT
+                        Minimum similarity score (0.0-1.0, optional)
+  --retriever-fetch-k N Documents to fetch before MMR reranking (default: 20)
+  --retriever-lambda-mult FLOAT
+                        MMR diversity: 0=max diversity, 1=max relevance (default: 0.5)
 ```
 
 ## Advanced Usage
@@ -129,6 +145,12 @@ docgen --source ./src --exclude "__pycache__" --exclude "*.pyc" --exclude "migra
 ```bash
 # Only generate overview and dependencies sections
 docgen --source ./src --sections overview,dependencies
+
+# Generate with optional sections
+docgen --source ./src --sections "overview,dependencies,migration_guidance"
+
+# Generate code quality analysis
+docgen --source ./src --sections "overview,code_quality,cross_reference"
 
 # Only generate architecture and class diagrams
 docgen --source ./src --diagrams architecture,class
@@ -156,6 +178,19 @@ docgen --source ./src --diagrams-only --diagrams architecture,class
 ```bash
 # Analyze only the first 50 files (useful for large codebases)
 docgen --source ./src --max-files 50
+```
+
+### Configure RAG retrieval
+
+```bash
+# Use MMR (Maximal Marginal Relevance) for diverse context
+docgen --source ./src --retriever-search-type mmr --retriever-k 15
+
+# Fine-tune MMR diversity (0=max diversity, 1=max relevance)
+docgen --source ./src --retriever-search-type mmr --retriever-lambda-mult 0.7
+
+# Set minimum similarity threshold
+docgen --source ./src --retriever-score-threshold 0.75
 ```
 
 ## Documentation Features

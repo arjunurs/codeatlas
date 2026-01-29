@@ -38,7 +38,11 @@ from ..exceptions.errors import (
     VectorStoreError,
 )
 from ..models.file_analysis import FileAnalysis
-from ..prompts.sections import SECTION_ORDER, get_section_prompt
+from ..prompts.sections import (
+    SECTION_ORDER,
+    get_all_available_sections,
+    get_section_prompt,
+)
 from ..providers.anthropic import AnthropicProvider
 from ..providers.base import EmbeddingProvider, LLMProvider
 from ..providers.openai import OpenAIEmbeddingProvider
@@ -718,7 +722,13 @@ Answer:"""
         logger.info("Generating documentation content...")
 
         # Filter sections if specific ones are selected
-        sections_to_generate = self._filter_sections(SECTION_ORDER)
+        # When user specifies sections, they can choose from all available sections (core + optional)
+        # When no sections specified, use only core sections (SECTION_ORDER)
+        if self.selected_sections:
+            all_sections = get_all_available_sections()
+            sections_to_generate = self._filter_sections(all_sections)
+        else:
+            sections_to_generate = SECTION_ORDER
         if self.selected_sections:
             logger.info(f"Generating selected sections: {sections_to_generate}")
 
@@ -897,14 +907,31 @@ Answer:"""
 
         def matches_selection(section: str) -> bool:
             """Check if section matches any user selection."""
+            # Normalize both the section name and user inputs
             normalized = section.lower().replace(" ", "_").replace("_and_", "_")
             section_lower = section.lower()
-            return (
-                section in self.selected_sections
-                or section_lower in selected_lower
-                or normalized in selected_lower
-                or any(section_lower.startswith(sel) for sel in selected_lower)
-            )
+
+            for sel in selected_lower:
+                # Normalize user selection the same way (remove all special chars)
+                sel_normalized = sel.replace("_", "").replace("-", "")
+                section_normalized = normalized.replace("_", "").replace("-", "")
+
+                # Check various matching strategies
+                if (
+                    section in self.selected_sections
+                    or section_lower == sel
+                    or normalized == sel
+                    or sel_normalized == section_normalized
+                    or section_lower.startswith(sel)
+                    or sel in section_lower
+                    or section_normalized.startswith(
+                        sel_normalized
+                    )  # prefix match on normalized
+                    or sel_normalized in section_normalized
+                ):  # user input contained in section
+                    return True
+
+            return False
 
         return [s for s in available_sections if matches_selection(s)]
 
