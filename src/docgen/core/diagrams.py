@@ -6,6 +6,7 @@ for code documentation.
 
 import logging
 import os
+import re
 
 from ..exceptions.errors import DiagramGenerationError
 from ..models.diagram_validation import DiagramType, ValidationConfig
@@ -87,6 +88,32 @@ class DiagramGenerator:
                 f"Generated {diagram_type.value} diagram failed validation: {e}"
             ) from e
 
+    # Mermaid reserved keywords that cannot be used as node IDs
+    MERMAID_RESERVED_WORDS = frozenset(
+        {
+            "click",
+            "call",
+            "graph",
+            "subgraph",
+            "end",
+            "style",
+            "linkStyle",
+            "classDef",
+            "class",
+            "direction",
+            "participant",
+            "actor",
+            "note",
+            "loop",
+            "alt",
+            "else",
+            "opt",
+            "par",
+            "critical",
+            "break",
+        }
+    )
+
     @staticmethod
     def _clean_name(name: str) -> str:
         """Clean a name for use in Mermaid diagram node IDs.
@@ -101,11 +128,17 @@ class DiagramGenerator:
         clean = (
             name.replace("-", "_").replace(".", "_").replace("/", "_").replace("@", "")
         )
+        # Collapse multiple consecutive underscores into single underscore
+        # (e.g., "version___version" -> "version_version")
+        clean = re.sub(r"_+", "_", clean)
         # Strip leading/trailing underscores (Mermaid can misinterpret these)
         clean = clean.strip("_")
         # Ensure ID doesn't start with a digit
         if clean and clean[0].isdigit():
             clean = "n" + clean
+        # Handle Mermaid reserved keywords by adding suffix
+        if clean.lower() in DiagramGenerator.MERMAID_RESERVED_WORDS:
+            clean = clean + "_node"
         # Handle empty result
         if not clean:
             clean = "node"
@@ -135,7 +168,11 @@ class DiagramGenerator:
         return True
 
     def _append_truncation_note(
-        self, diagram: list[str], nodes_added: int, entity_type: str = "nodes"
+        self,
+        diagram: list[str],
+        nodes_added: int,
+        entity_type: str = "nodes",
+        diagram_type: str = "flowchart",
     ) -> None:
         """Append a truncation note if node limit was reached.
 
@@ -143,11 +180,21 @@ class DiagramGenerator:
             diagram: List of diagram lines
             nodes_added: Number of nodes added
             entity_type: Type of entities (nodes, classes, etc.)
+            diagram_type: Type of diagram (flowchart, sequence, class)
         """
         if nodes_added >= self.max_nodes:
             diagram.append("")
             note_text = f"Diagram truncated: showing top {self.max_nodes} {entity_type}"
-            diagram.append(f'    note["{note_text}"]')
+            if diagram_type == "sequence":
+                # Sequence diagrams don't support arbitrary nodes, skip truncation note
+                # (the note syntax requires a participant reference)
+                pass
+            elif diagram_type == "class":
+                # Class diagrams don't support node definitions either
+                pass
+            else:
+                # Flowchart/graph diagrams support node definitions
+                diagram.append(f'    truncation_notice["{note_text}"]')
 
     def generate_class_diagram(self, analyses: list[FileAnalysis]) -> str:
         """Generate a class diagram from file analyses.
@@ -213,8 +260,10 @@ class DiagramGenerator:
                     # Add relationship regardless of whether parent is in diagram
                     diagram_lines.append(f"    {clean_name} --|> {clean_parent}")
 
-            # Add truncation note if needed
-            self._append_truncation_note(diagram_lines, nodes_added, "classes")
+            # Add truncation note if needed (skipped for class diagrams)
+            self._append_truncation_note(
+                diagram_lines, nodes_added, "classes", diagram_type="class"
+            )
 
             diagram = "\n".join(diagram_lines)
 
@@ -259,9 +308,10 @@ class DiagramGenerator:
                 diagram.append(f"    {clean_callee}-->>-{clean_caller}: return")
                 nodes_added += 1
 
-        # Add truncation note if diagram was truncated
-        if nodes_added >= self.max_nodes:
-            self._append_truncation_note(diagram, nodes_added, "interactions")
+        # Add truncation note if diagram was truncated (skipped for sequence diagrams)
+        self._append_truncation_note(
+            diagram, nodes_added, "interactions", diagram_type="sequence"
+        )
 
         if nodes_added == 0:
             raise DiagramGenerationError("No function calls found in call graph")
