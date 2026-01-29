@@ -200,25 +200,32 @@ To set up the development environment:
 
 ### Pre-Commit Workflow
 
-**Before making any commit**, follow this workflow to ensure code quality:
+**For every change**, follow this workflow:
 
 1. **Run Code Simplifier** - Simplify and clean up your changes
-2. **Run Pre-Commit Hooks** - Lint, format, and type check (runs automatically on commit)
+2. **Commit Changes** - Pre-commit hooks run automatically (lint, format, type check)
    ```bash
-   pre-commit run --all-files
+   git add .
+   git commit -m "descriptive message"
+   # Hooks run automatically - complete in 0.25s
    ```
-3. **Run All Tests** - Ensure nothing breaks
+3. **Run Tests Before Pushing** - Ensure nothing breaks
    ```bash
    uv run pytest tests/ -v
+   # All 196 unit + 11 integration tests must pass
    ```
-4. **Verify** - All 196 unit tests should pass with 75%+ coverage
-5. **Commit** - Hooks run automatically on `git commit`
+4. **Push** - When tests pass
+   ```bash
+   git push
+   ```
 
-This practice ensures:
-- Code remains clean and maintainable
-- No regressions are introduced
-- Consistent code quality across the project
-- Automatic quality checks before each commit
+**Why tests aren't in pre-commit:** Tests run manually before push (not on every commit) to keep commits fast while maintaining quality. Pre-commit hooks focus on quick checks (lint, format, type) that complete in 0.25 seconds.
+
+This workflow ensures:
+- Fast commits (hooks complete in 0.25s)
+- Code quality maintained automatically
+- No broken code pushed to repository
+- Flexibility during rapid development
 
 ## Contributing
 

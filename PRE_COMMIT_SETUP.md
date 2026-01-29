@@ -334,10 +334,51 @@ Once [astral-sh/ruff-pre-commit#269](https://github.com/astral-sh/ruff-pre-commi
 - **Ruff Pre-commit**: https://github.com/astral-sh/ruff-pre-commit
 - **Ty Pre-commit Issue**: https://github.com/astral-sh/ruff-pre-commit/issues/269
 
+## Why Tests Are Not in Pre-Commit Hooks
+
+**Decision:** Tests run **manually** before push, not automatically on commit.
+
+**Rationale:**
+
+1. **Performance:** Pre-commit hooks should be fast (< 10 seconds rule)
+   - Current hooks: 0.25s ✅
+   - With tests: 1-2s (unit) + more (integration)
+
+2. **Workflow:** Allows rapid iteration during development
+   - Commit frequently without waiting for tests
+   - Run tests when ready to push
+
+3. **Flexibility:** Tests can be slow or require setup
+   - Integration tests may need external resources
+   - Not every commit needs to pass tests (work-in-progress)
+
+4. **Best Practice:** Industry standard approach
+   - Pre-commit = fast quality checks (lint, format, type)
+   - Manual/CI = comprehensive testing
+
+**Recommended Workflow:**
+```bash
+# 1. Commit (hooks run automatically - 0.25s)
+git commit -m "message"
+
+# 2. Test before pushing
+uv run pytest tests/ -v
+
+# 3. Push when tests pass
+git push
+```
+
+**Alternative:** You can add tests to pre-push hooks instead:
+```bash
+# Tests run on push, not commit (slower, but thorough)
+uv run pre-commit install --hook-type pre-push
+```
+
 ## Questions?
 
 - **"Why not use mypy?"** - Ty is 100x faster and from the same team that made ruff/uv
 - **"Why not use black?"** - Ruff format is 20x faster and compatible with black
+- **"Why no tests in pre-commit?"** - Keep commits fast (0.25s), run tests before push manually
 - **"Can I skip hooks?"** - Yes with `--no-verify`, but strongly discouraged
 - **"Do hooks run on CI?"** - Optional, but recommended for consistent enforcement
 - **"Are hooks required?"** - Highly recommended. They catch issues immediately.
