@@ -1,7 +1,9 @@
 """Unit tests for the CodeEntity model."""
 
 import pytest
+
 from docgen.models.code_entity import CodeEntity
+
 
 def test_code_entity_creation():
     """Test successful creation of code entities."""
@@ -12,7 +14,7 @@ def test_code_entity_creation():
         docstring="Test function",
         start_line=1,
         end_line=2,
-        source="def test_func():\n    pass"
+        source="def test_func():\n    pass",
     )
     assert func_entity.name == "test_func"
     assert func_entity.type == "function"
@@ -31,7 +33,7 @@ def test_code_entity_creation():
         start_line=1,
         end_line=5,
         source="class TestClass:\n    def method1(self):\n        pass\n    def method2(self):\n        pass",
-        parent_class="BaseClass"
+        parent_class="BaseClass",
     )
     assert class_entity.name == "TestClass"
     assert class_entity.type == "class"
@@ -40,6 +42,7 @@ def test_code_entity_creation():
     assert class_entity.start_line == 1
     assert class_entity.end_line == 5
     assert class_entity.parent_class == "BaseClass"
+
 
 def test_code_entity_validation():
     """Test validation of code entity attributes."""
@@ -51,18 +54,20 @@ def test_code_entity_validation():
             docstring="Test function",
             start_line=1,
             end_line=2,
-            source="def test_func():\n    pass"
+            source="def test_func():\n    pass",
         )
 
     # Test invalid type
-    with pytest.raises(ValueError, match="Entity type must be either 'class' or 'function'"):
+    with pytest.raises(
+        ValueError, match="Entity type must be either 'class' or 'function'"
+    ):
         CodeEntity(
             name="test_func",
             type="invalid",
             docstring="Test function",
             start_line=1,
             end_line=2,
-            source="def test_func():\n    pass"
+            source="def test_func():\n    pass",
         )
 
     # Test function with methods
@@ -74,18 +79,20 @@ def test_code_entity_validation():
             methods=["method1"],
             start_line=1,
             end_line=2,
-            source="def test_func():\n    pass"
+            source="def test_func():\n    pass",
         )
 
     # Test invalid line numbers
-    with pytest.raises(ValueError, match="Start line number must be a positive integer"):
+    with pytest.raises(
+        ValueError, match="Start line number must be a positive integer"
+    ):
         CodeEntity(
             name="test_func",
             type="function",
             docstring="Test function",
             start_line=0,
             end_line=2,
-            source="def test_func():\n    pass"
+            source="def test_func():\n    pass",
         )
 
     with pytest.raises(ValueError, match="End line cannot be before start line"):
@@ -95,8 +102,9 @@ def test_code_entity_validation():
             docstring="Test function",
             start_line=2,
             end_line=1,
-            source="def test_func():\n    pass"
+            source="def test_func():\n    pass",
         )
+
 
 def test_code_entity_function():
     """Test creating a function entity."""
@@ -106,13 +114,13 @@ def test_code_entity_function():
         docstring="A test function",
         start_line=5,
         end_line=6,
-        source="def test_function():\n    pass"
+        source="def test_function():\n    pass",
     )
-    
+
     assert entity.name == "test_function"
     assert entity.type == "function"
     assert not entity.methods  # Should be None for functions
     assert entity.parent_class is None
     assert entity.start_line == 5
     assert entity.end_line == 6
-    assert entity.source == "def test_function():\n    pass" 
+    assert entity.source == "def test_function():\n    pass"

@@ -1,10 +1,11 @@
 """Unit tests for OpenAI providers."""
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-from docgen.providers.openai import OpenAIProvider, OpenAIEmbeddingProvider
-from docgen.exceptions.errors import LLMError, EmbeddingError
+import pytest
+
+from docgen.exceptions.errors import EmbeddingError, LLMError
+from docgen.providers.openai import OpenAIEmbeddingProvider, OpenAIProvider
 
 
 class TestOpenAIProvider:
@@ -12,26 +13,28 @@ class TestOpenAIProvider:
 
     def test_default_model(self):
         """Test that default model is used when not specified."""
-        with patch('docgen.providers.openai.ChatOpenAI') as mock_chat:
+        with patch("docgen.providers.openai.ChatOpenAI"):
             provider = OpenAIProvider(api_key="test-key")
             assert provider.model_name == OpenAIProvider.DEFAULT_MODEL
 
     def test_custom_model(self):
         """Test that custom model is used when specified."""
-        with patch('docgen.providers.openai.ChatOpenAI') as mock_chat:
+        with patch("docgen.providers.openai.ChatOpenAI"):
             provider = OpenAIProvider(api_key="test-key", model="gpt-4-turbo")
             assert provider.model_name == "gpt-4-turbo"
 
     def test_custom_temperature(self):
         """Test that custom temperature is used."""
-        with patch('docgen.providers.openai.ChatOpenAI') as mock_chat:
+        with patch("docgen.providers.openai.ChatOpenAI"):
             provider = OpenAIProvider(api_key="test-key", temperature=0.8)
             assert provider.temperature == 0.8
 
     def test_create_llm_success(self):
         """Test successful LLM creation."""
         mock_llm = MagicMock()
-        with patch('docgen.providers.openai.ChatOpenAI', return_value=mock_llm) as mock_chat:
+        with patch(
+            "docgen.providers.openai.ChatOpenAI", return_value=mock_llm
+        ) as mock_chat:
             provider = OpenAIProvider(api_key="test-key")
             llm = provider.get_langchain_llm()
 
@@ -44,7 +47,9 @@ class TestOpenAIProvider:
 
     def test_create_llm_failure(self):
         """Test LLM creation failure raises LLMError."""
-        with patch('docgen.providers.openai.ChatOpenAI', side_effect=Exception("API error")):
+        with patch(
+            "docgen.providers.openai.ChatOpenAI", side_effect=Exception("API error")
+        ):
             provider = OpenAIProvider.__new__(OpenAIProvider)
             provider._api_key = "test-key"
             provider._model = "test-model"
@@ -59,7 +64,7 @@ class TestOpenAIProvider:
         mock_llm = MagicMock()
         mock_llm.invoke.return_value = "Generated response"
 
-        with patch('docgen.providers.openai.ChatOpenAI', return_value=mock_llm):
+        with patch("docgen.providers.openai.ChatOpenAI", return_value=mock_llm):
             provider = OpenAIProvider(api_key="test-key")
             result = provider.invoke("Test prompt")
 
@@ -71,7 +76,7 @@ class TestOpenAIProvider:
         mock_llm = MagicMock()
         mock_llm.invoke.side_effect = Exception("API error")
 
-        with patch('docgen.providers.openai.ChatOpenAI', return_value=mock_llm):
+        with patch("docgen.providers.openai.ChatOpenAI", return_value=mock_llm):
             provider = OpenAIProvider(api_key="test-key")
 
             with pytest.raises(LLMError, match="Failed to invoke OpenAI LLM"):
@@ -83,20 +88,24 @@ class TestOpenAIEmbeddingProvider:
 
     def test_default_model(self):
         """Test that default model is used when not specified."""
-        with patch('docgen.providers.openai.OpenAIEmbeddings') as mock_emb:
+        with patch("docgen.providers.openai.OpenAIEmbeddings"):
             provider = OpenAIEmbeddingProvider(api_key="test-key")
             assert provider.model_name == OpenAIEmbeddingProvider.DEFAULT_MODEL
 
     def test_custom_model(self):
         """Test that custom model is used when specified."""
-        with patch('docgen.providers.openai.OpenAIEmbeddings') as mock_emb:
-            provider = OpenAIEmbeddingProvider(api_key="test-key", model="text-embedding-ada-002")
+        with patch("docgen.providers.openai.OpenAIEmbeddings"):
+            provider = OpenAIEmbeddingProvider(
+                api_key="test-key", model="text-embedding-ada-002"
+            )
             assert provider.model_name == "text-embedding-ada-002"
 
     def test_create_embeddings_success(self):
         """Test successful embeddings creation."""
         mock_emb = MagicMock()
-        with patch('docgen.providers.openai.OpenAIEmbeddings', return_value=mock_emb) as mock_class:
+        with patch(
+            "docgen.providers.openai.OpenAIEmbeddings", return_value=mock_emb
+        ) as mock_class:
             provider = OpenAIEmbeddingProvider(api_key="test-key")
             emb = provider.get_langchain_embeddings()
 
@@ -108,13 +117,18 @@ class TestOpenAIEmbeddingProvider:
 
     def test_create_embeddings_failure(self):
         """Test embeddings creation failure raises EmbeddingError."""
-        with patch('docgen.providers.openai.OpenAIEmbeddings', side_effect=Exception("API error")):
+        with patch(
+            "docgen.providers.openai.OpenAIEmbeddings",
+            side_effect=Exception("API error"),
+        ):
             provider = OpenAIEmbeddingProvider.__new__(OpenAIEmbeddingProvider)
             provider._api_key = "test-key"
             provider._model = "test-model"
             provider._embeddings = None
 
-            with pytest.raises(EmbeddingError, match="Failed to create OpenAI embeddings"):
+            with pytest.raises(
+                EmbeddingError, match="Failed to create OpenAI embeddings"
+            ):
                 provider.get_langchain_embeddings()
 
     def test_embed_documents_success(self):
@@ -122,7 +136,7 @@ class TestOpenAIEmbeddingProvider:
         mock_emb = MagicMock()
         mock_emb.embed_documents.return_value = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
 
-        with patch('docgen.providers.openai.OpenAIEmbeddings', return_value=mock_emb):
+        with patch("docgen.providers.openai.OpenAIEmbeddings", return_value=mock_emb):
             provider = OpenAIEmbeddingProvider(api_key="test-key")
             result = provider.embed_documents(["doc1", "doc2"])
 
@@ -134,7 +148,7 @@ class TestOpenAIEmbeddingProvider:
         mock_emb = MagicMock()
         mock_emb.embed_documents.side_effect = Exception("API error")
 
-        with patch('docgen.providers.openai.OpenAIEmbeddings', return_value=mock_emb):
+        with patch("docgen.providers.openai.OpenAIEmbeddings", return_value=mock_emb):
             provider = OpenAIEmbeddingProvider(api_key="test-key")
 
             with pytest.raises(EmbeddingError, match="Failed to embed documents"):
@@ -145,7 +159,7 @@ class TestOpenAIEmbeddingProvider:
         mock_emb = MagicMock()
         mock_emb.embed_query.return_value = [0.1, 0.2, 0.3]
 
-        with patch('docgen.providers.openai.OpenAIEmbeddings', return_value=mock_emb):
+        with patch("docgen.providers.openai.OpenAIEmbeddings", return_value=mock_emb):
             provider = OpenAIEmbeddingProvider(api_key="test-key")
             result = provider.embed_query("test query")
 
@@ -157,7 +171,7 @@ class TestOpenAIEmbeddingProvider:
         mock_emb = MagicMock()
         mock_emb.embed_query.side_effect = Exception("API error")
 
-        with patch('docgen.providers.openai.OpenAIEmbeddings', return_value=mock_emb):
+        with patch("docgen.providers.openai.OpenAIEmbeddings", return_value=mock_emb):
             provider = OpenAIEmbeddingProvider(api_key="test-key")
 
             with pytest.raises(EmbeddingError, match="Failed to embed query"):

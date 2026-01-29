@@ -1,9 +1,10 @@
 """Unit tests for the FileAnalysis model."""
 
-import os
 import pytest
-from docgen.models.file_analysis import FileAnalysis
+
 from docgen.models.code_entity import CodeEntity
+from docgen.models.file_analysis import FileAnalysis
+
 
 @pytest.fixture
 def sample_code_entity():
@@ -15,8 +16,9 @@ def sample_code_entity():
         methods=["test_method"],
         start_line=1,
         end_line=3,
-        source="class TestClass:\n    def test_method(self):\n        pass"
+        source="class TestClass:\n    def test_method(self):\n        pass",
     )
+
 
 def test_file_analysis_creation(sample_code_entity):
     """Test creating a valid FileAnalysis instance.
@@ -28,7 +30,7 @@ def test_file_analysis_creation(sample_code_entity):
         file_path="/path/to/test.py",
         entities=[sample_code_entity],
         imports=["os", "sys"],
-        content="print('hello')"
+        content="print('hello')",
     )
 
     assert analysis.file_path == "/path/to/test.py"
@@ -38,40 +40,33 @@ def test_file_analysis_creation(sample_code_entity):
     assert analysis.content == "print('hello')"
     assert analysis.error is None
 
+
 def test_file_analysis_nonexistent_file(sample_code_entity):
     """Test validation of nonexistent file path."""
     with pytest.raises(ValueError, match="File path cannot be empty"):
-        FileAnalysis(
-            file_path="",
-            entities=[],
-            imports=[],
-            content="test content"
-        )
+        FileAnalysis(file_path="", entities=[], imports=[], content="test content")
+
 
 def test_file_analysis_empty_content():
     """Test validation of empty file content."""
-    with pytest.raises(ValueError, match="Content cannot be empty except for __init__.py files"):
-        FileAnalysis(
-            file_path="/path/to/test.py",
-            entities=[],
-            imports=[],
-            content=""
-        )
+    with pytest.raises(
+        ValueError, match="Content cannot be empty except for __init__.py files"
+    ):
+        FileAnalysis(file_path="/path/to/test.py", entities=[], imports=[], content="")
+
 
 def test_file_analysis_empty_init_file():
     """Test that empty __init__.py files are allowed."""
     # Empty __init__.py files should pass validation without _skip_validation
     analysis = FileAnalysis(
-        file_path="/path/to/__init__.py",
-        entities=[],
-        imports=[],
-        content=""
+        file_path="/path/to/__init__.py", entities=[], imports=[], content=""
     )
 
     assert analysis.file_path == "/path/to/__init__.py"
     assert not analysis.entities
     assert not analysis.imports
     assert not analysis.content
+
 
 def test_file_analysis_skip_validation(sample_code_entity):
     """Test skipping file validation for testing purposes."""
@@ -81,8 +76,8 @@ def test_file_analysis_skip_validation(sample_code_entity):
         entities=[sample_code_entity],
         imports=[],
         content="test",
-        _skip_validation=True
+        _skip_validation=True,
     )
-    
+
     assert analysis.file_path == "/nonexistent/file.py"
-    assert len(analysis.entities) == 1 
+    assert len(analysis.entities) == 1

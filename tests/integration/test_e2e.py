@@ -5,15 +5,15 @@ to final documentation output, testing the integration between all
 components.
 """
 
-import os
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from docgen.core.generator import CodeDocumentationGenerator
+import pytest
+
 from docgen.core.analyzer import CodeAnalyzer
+from docgen.core.generator import CodeDocumentationGenerator
+from docgen.exceptions.errors import ApiKeyError, DocumentationError
 from docgen.templates.html import get_template_manager
-from docgen.exceptions.errors import DocumentationError, ApiKeyError
 
 
 class TestFullWorkflow:
@@ -36,16 +36,25 @@ class TestFullWorkflow:
         """
         # Create a mock RAG chain that returns strings directly (as LCEL chains do after StrOutputParser)
         mock_rag_chain = MagicMock()
-        mock_rag_chain.invoke.return_value = "# Generated Content\n\nThis is documentation."
+        mock_rag_chain.invoke.return_value = (
+            "# Generated Content\n\nThis is documentation."
+        )
 
         mock_vector_store = MagicMock()
         mock_vector_store.delete_collection = MagicMock()
 
-        with patch('docgen.providers.anthropic.ChatAnthropic', return_value=mock_llm), \
-             patch('docgen.providers.openai.OpenAIEmbeddings', return_value=mock_embeddings), \
-             patch('docgen.core.generator.Chroma') as mock_chroma, \
-             patch.object(CodeDocumentationGenerator, '_create_vector_store_and_rag_chain', return_value=mock_rag_chain):
-
+        with (
+            patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm),
+            patch(
+                "docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings
+            ),
+            patch("docgen.core.generator.Chroma") as mock_chroma,
+            patch.object(
+                CodeDocumentationGenerator,
+                "_create_vector_store_and_rag_chain",
+                return_value=mock_rag_chain,
+            ),
+        ):
             mock_chroma.from_documents.return_value = mock_vector_store
 
             # Create generator and run
@@ -55,10 +64,7 @@ class TestFullWorkflow:
             )
             generator._vector_store = mock_vector_store
 
-            generator.generate_documentation(
-                str(temp_source_dir),
-                str(temp_output_dir)
-            )
+            generator.generate_documentation(str(temp_source_dir), str(temp_output_dir))
 
             # Verify output structure
             assert (temp_output_dir / "index.html").exists()
@@ -94,21 +100,28 @@ class TestFullWorkflow:
         mock_vector_store = MagicMock()
         mock_vector_store.delete_collection = MagicMock()
 
-        with patch('docgen.providers.anthropic.ChatAnthropic', return_value=mock_llm), \
-             patch('docgen.providers.openai.OpenAIEmbeddings', return_value=mock_embeddings), \
-             patch('docgen.core.generator.Chroma') as mock_chroma, \
-             patch.object(CodeDocumentationGenerator, '_create_vector_store_and_rag_chain', return_value=mock_rag_chain):
-
+        with (
+            patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm),
+            patch(
+                "docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings
+            ),
+            patch("docgen.core.generator.Chroma") as mock_chroma,
+            patch.object(
+                CodeDocumentationGenerator,
+                "_create_vector_store_and_rag_chain",
+                return_value=mock_rag_chain,
+            ),
+        ):
             mock_chroma.from_documents.return_value = mock_vector_store
 
             with CodeDocumentationGenerator(
                 anthropic_api_key="test-key",
                 openai_api_key="test-key",
+                cache_enabled=False,  # Disable caching so cleanup deletes the collection
             ) as generator:
                 generator._vector_store = mock_vector_store
                 generator.generate_documentation(
-                    str(temp_source_dir),
-                    str(temp_output_dir)
+                    str(temp_source_dir), str(temp_output_dir)
                 )
 
             # After context exit, cleanup should have been called
@@ -126,9 +139,12 @@ class TestErrorHandling:
         mock_embeddings,
     ):
         """Test that empty source directory raises appropriate error."""
-        with patch('docgen.providers.anthropic.ChatAnthropic', return_value=mock_llm), \
-             patch('docgen.providers.openai.OpenAIEmbeddings', return_value=mock_embeddings):
-
+        with (
+            patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm),
+            patch(
+                "docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings
+            ),
+        ):
             generator = CodeDocumentationGenerator(
                 anthropic_api_key="test-key",
                 openai_api_key="test-key",
@@ -136,8 +152,7 @@ class TestErrorHandling:
 
             with pytest.raises(DocumentationError, match="No Python files found"):
                 generator.generate_documentation(
-                    str(empty_source_dir),
-                    str(temp_output_dir)
+                    str(empty_source_dir), str(temp_output_dir)
                 )
 
     def test_invalid_source_directory(
@@ -147,9 +162,12 @@ class TestErrorHandling:
         mock_embeddings,
     ):
         """Test that invalid source directory raises ValueError."""
-        with patch('docgen.providers.anthropic.ChatAnthropic', return_value=mock_llm), \
-             patch('docgen.providers.openai.OpenAIEmbeddings', return_value=mock_embeddings):
-
+        with (
+            patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm),
+            patch(
+                "docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings
+            ),
+        ):
             generator = CodeDocumentationGenerator(
                 anthropic_api_key="test-key",
                 openai_api_key="test-key",
@@ -157,8 +175,7 @@ class TestErrorHandling:
 
             with pytest.raises(ValueError, match="Invalid source directory"):
                 generator.generate_documentation(
-                    "/nonexistent/path",
-                    str(temp_output_dir)
+                    "/nonexistent/path", str(temp_output_dir)
                 )
 
     def test_missing_api_keys(self):
@@ -171,13 +188,17 @@ class TestErrorHandling:
 
     def test_partial_api_keys(self):
         """Test that partial API keys raise appropriate error."""
-        with pytest.raises(ApiKeyError, match="Both Anthropic and OpenAI API keys are required"):
+        with pytest.raises(
+            ApiKeyError, match="Both Anthropic and OpenAI API keys are required"
+        ):
             CodeDocumentationGenerator(
                 anthropic_api_key="test-key",
                 openai_api_key=None,
             )
 
-        with pytest.raises(ApiKeyError, match="Both Anthropic and OpenAI API keys are required"):
+        with pytest.raises(
+            ApiKeyError, match="Both Anthropic and OpenAI API keys are required"
+        ):
             CodeDocumentationGenerator(
                 anthropic_api_key=None,
                 openai_api_key="test-key",
@@ -236,9 +257,7 @@ class TestTemplateRendering:
 
         # Test navigation rendering
         nav_html = manager.templates["navigation"].render(
-            active="Overview",
-            sections=["Overview", "Dependencies"],
-            base_url="./"
+            active="Overview", sections=["Overview", "Dependencies"], base_url="./"
         )
         assert "Overview" in nav_html
         assert "Dependencies" in nav_html
@@ -257,7 +276,9 @@ class TestTemplateRendering:
             "diagram_code": "graph TD\n    A --> B",
             "navigation": nav_html,
         }
-        manager.render_template("diagrams", context, str(temp_output_dir), "diagrams/test.html")
+        manager.render_template(
+            "diagrams", context, str(temp_output_dir), "diagrams/test.html"
+        )
         assert (temp_output_dir / "diagrams" / "test.html").exists()
 
 
@@ -269,9 +290,12 @@ class TestProviderIntegration:
         from docgen.providers.anthropic import AnthropicProvider
         from docgen.providers.openai import OpenAIEmbeddingProvider
 
-        with patch('docgen.providers.anthropic.ChatAnthropic', return_value=mock_llm), \
-             patch('docgen.providers.openai.OpenAIEmbeddings', return_value=mock_embeddings):
-
+        with (
+            patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm),
+            patch(
+                "docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings
+            ),
+        ):
             llm_provider = AnthropicProvider(api_key="test-key")
             embedding_provider = OpenAIEmbeddingProvider(api_key="test-key")
 
@@ -287,7 +311,7 @@ class TestProviderIntegration:
         """Test that mixing providers and API keys raises appropriate error."""
         from docgen.providers.anthropic import AnthropicProvider
 
-        with patch('docgen.providers.anthropic.ChatAnthropic', return_value=mock_llm):
+        with patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm):
             llm_provider = AnthropicProvider(api_key="test-key")
 
             with pytest.raises(ApiKeyError, match="must be provided together"):

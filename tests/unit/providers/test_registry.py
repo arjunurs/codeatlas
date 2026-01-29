@@ -1,12 +1,13 @@
 """Unit tests for provider registry."""
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-from docgen.providers.registry import ProviderRegistry, get_default_registry
+import pytest
+
 from docgen.providers.anthropic import AnthropicProvider
-from docgen.providers.openai import OpenAIProvider, OpenAIEmbeddingProvider
-from docgen.providers.base import BaseLLMProvider, BaseEmbeddingProvider
+from docgen.providers.base import BaseEmbeddingProvider, BaseLLMProvider
+from docgen.providers.openai import OpenAIEmbeddingProvider, OpenAIProvider
+from docgen.providers.registry import ProviderRegistry, get_default_registry
 
 
 class TestProviderRegistry:
@@ -66,7 +67,7 @@ class TestProviderRegistry:
         """Test creating Anthropic provider."""
         registry = ProviderRegistry()
 
-        with patch('docgen.providers.anthropic.ChatAnthropic'):
+        with patch("docgen.providers.anthropic.ChatAnthropic"):
             provider = registry.create_llm_provider(
                 "anthropic",
                 api_key="test-key",
@@ -82,7 +83,7 @@ class TestProviderRegistry:
         """Test creating OpenAI provider."""
         registry = ProviderRegistry()
 
-        with patch('docgen.providers.openai.ChatOpenAI'):
+        with patch("docgen.providers.openai.ChatOpenAI"):
             provider = registry.create_llm_provider(
                 "openai",
                 api_key="test-key",
@@ -96,7 +97,7 @@ class TestProviderRegistry:
         """Test that provider names are case-insensitive."""
         registry = ProviderRegistry()
 
-        with patch('docgen.providers.anthropic.ChatAnthropic'):
+        with patch("docgen.providers.anthropic.ChatAnthropic"):
             provider1 = registry.create_llm_provider("ANTHROPIC", api_key="test")
             provider2 = registry.create_llm_provider("Anthropic", api_key="test")
             provider3 = registry.create_llm_provider("anthropic", api_key="test")
@@ -116,7 +117,7 @@ class TestProviderRegistry:
         """Test creating OpenAI embedding provider."""
         registry = ProviderRegistry()
 
-        with patch('docgen.providers.openai.OpenAIEmbeddings'):
+        with patch("docgen.providers.openai.OpenAIEmbeddings"):
             provider = registry.create_embedding_provider(
                 "openai",
                 api_key="test-key",
@@ -141,6 +142,7 @@ class TestGetDefaultRegistry:
         """Test that function returns a ProviderRegistry."""
         # Reset the global registry
         import docgen.providers.registry as registry_module
+
         registry_module._default_registry = None
 
         registry = get_default_registry()
@@ -150,6 +152,7 @@ class TestGetDefaultRegistry:
         """Test that function returns the same instance on multiple calls."""
         # Reset the global registry
         import docgen.providers.registry as registry_module
+
         registry_module._default_registry = None
 
         registry1 = get_default_registry()

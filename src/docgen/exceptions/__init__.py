@@ -4,27 +4,27 @@ This module provides custom exceptions used throughout the codebase.
 """
 
 from .errors import (
-    DocumentationError,
+    ApiKeyError,
     CodeParseError,
     DiagramGenerationError,
-    ApiKeyError,
-    VectorStoreError,
-    FileEncodingError,
-    TemplateError,
-    LLMError,
+    DocumentationError,
     EmbeddingError,
+    FileEncodingError,
+    LLMError,
     PathValidationError,
+    TemplateError,
+    VectorStoreError,
 )
 
 __all__ = [
-    'DocumentationError',
-    'CodeParseError',
-    'DiagramGenerationError',
-    'ApiKeyError',
-    'VectorStoreError',
-    'FileEncodingError',
-    'TemplateError',
-    'LLMError',
-    'EmbeddingError',
-    'PathValidationError',
+    "DocumentationError",
+    "CodeParseError",
+    "DiagramGenerationError",
+    "ApiKeyError",
+    "VectorStoreError",
+    "FileEncodingError",
+    "TemplateError",
+    "LLMError",
+    "EmbeddingError",
+    "PathValidationError",
 ]

@@ -10,18 +10,14 @@ Passing secrets on command line exposes them in shell history, `ps` output, and 
 
 import logging
 import os
-from typing import Optional, Tuple
-
 
 from ..exceptions.errors import ApiKeyError
-from .path_validation import validate_env_file_path, PathValidationError
+from .path_validation import PathValidationError, validate_env_file_path
 
 logger = logging.getLogger(__name__)
 
 
-def get_api_keys(
-    custom_env_file: Optional[str] = None
-) -> Tuple[str, str]:
+def get_api_keys(custom_env_file: str | None = None) -> tuple[str, str]:
     """Get API keys from environment variables or .env file.
 
     API keys are retrieved in the following priority order:
@@ -38,11 +34,11 @@ def get_api_keys(
         ApiKeyError: If either API key is missing
     """
     # Try environment variables first
-    final_anthropic_key = os.environ.get('ANTHROPIC_API_KEY')
+    final_anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
     if final_anthropic_key:
         logger.debug("Using Anthropic API key from environment")
 
-    final_openai_key = os.environ.get('OPENAI_API_KEY')
+    final_openai_key = os.environ.get("OPENAI_API_KEY")
     if final_openai_key:
         logger.debug("Using OpenAI API key from environment")
 
@@ -54,12 +50,12 @@ def get_api_keys(
 
             with open(validated_path) as f:
                 for line in f:
-                    if '=' in line:
-                        key, value = line.strip().split('=', 1)
-                        if key == 'ANTHROPIC_API_KEY' and not final_anthropic_key:
+                    if "=" in line:
+                        key, value = line.strip().split("=", 1)
+                        if key == "ANTHROPIC_API_KEY" and not final_anthropic_key:
                             final_anthropic_key = value
                             logger.debug("Using Anthropic API key from custom env file")
-                        elif key == 'OPENAI_API_KEY' and not final_openai_key:
+                        elif key == "OPENAI_API_KEY" and not final_openai_key:
                             final_openai_key = value
                             logger.debug("Using OpenAI API key from custom env file")
         except PathValidationError as e:
@@ -67,11 +63,17 @@ def get_api_keys(
         except FileNotFoundError:
             raise ApiKeyError(f"Custom env file not found: {custom_env_file}")
         except PermissionError:
-            raise ApiKeyError(f"Permission denied reading custom env file: {custom_env_file}")
+            raise ApiKeyError(
+                f"Permission denied reading custom env file: {custom_env_file}"
+            )
         except UnicodeDecodeError as e:
-            raise ApiKeyError(f"Encoding error reading custom env file '{custom_env_file}': {e}") from e
-        except (IOError, OSError) as e:
-            raise ApiKeyError(f"Failed to read custom env file '{custom_env_file}': {e}") from e
+            raise ApiKeyError(
+                f"Encoding error reading custom env file '{custom_env_file}': {e}"
+            ) from e
+        except OSError as e:
+            raise ApiKeyError(
+                f"Failed to read custom env file '{custom_env_file}': {e}"
+            ) from e
 
     # Validate we have both keys
     if not final_anthropic_key:
@@ -79,4 +81,4 @@ def get_api_keys(
     if not final_openai_key:
         raise ApiKeyError("OpenAI API key not found")
 
-    return final_anthropic_key, final_openai_key 
+    return final_anthropic_key, final_openai_key

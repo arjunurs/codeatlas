@@ -2,13 +2,13 @@
 
 import os
 from pathlib import Path
+
 import pytest
 
 from docgen.utils.path_validation import (
-    validate_env_file_path,
-    is_safe_path,
     PathValidationError,
-    ALLOWED_ENV_EXTENSIONS,
+    is_safe_path,
+    validate_env_file_path,
 )
 
 
@@ -121,8 +121,7 @@ class TestValidateEnvFilePath:
 
         # Should succeed with custom_dir in allowed directories
         result = validate_env_file_path(
-            str(env_file),
-            allowed_directories={custom_dir.resolve()}
+            str(env_file), allowed_directories={custom_dir.resolve()}
         )
         assert result == env_file.resolve()
 
@@ -161,7 +160,9 @@ class TestValidateEnvFilePath:
             symlink.symlink_to("/etc")
 
             # Symlink itself is in allowed directory but resolves outside
-            with pytest.raises(PathValidationError, match="outside allowed directories"):
+            with pytest.raises(
+                PathValidationError, match="outside allowed directories"
+            ):
                 validate_env_file_path(str(symlink / "passwd"))
         except OSError:
             pytest.skip("Cannot create symlinks on this system")

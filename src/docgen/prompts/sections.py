@@ -4,13 +4,10 @@ This module defines all the section prompts used in documentation generation,
 providing a single source of truth for prompt content.
 """
 
-from typing import Dict, List
-
 from .templates import PromptTemplate
 
-
 # Order in which sections appear in the documentation
-SECTION_ORDER: List[str] = [
+SECTION_ORDER: list[str] = [
     "Overview",
     "Dependencies",
     "Key Classes and Functions",
@@ -20,7 +17,7 @@ SECTION_ORDER: List[str] = [
 
 
 # Section prompt configurations
-SECTION_PROMPTS: Dict[str, PromptTemplate] = {
+SECTION_PROMPTS: dict[str, PromptTemplate] = {
     "Overview": PromptTemplate(
         title="Overview",
         task="Analyze the codebase and provide a comprehensive overview.",
@@ -98,7 +95,7 @@ def get_section_prompt(section_name: str) -> str:
     return SECTION_PROMPTS[section_name].render()
 
 
-def get_all_section_prompts() -> Dict[str, str]:
+def get_all_section_prompts() -> dict[str, str]:
     """Get all section prompts as rendered strings.
 
     Returns:

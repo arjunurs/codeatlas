@@ -4,14 +4,13 @@ This module provides common fixtures used across multiple test modules,
 including mock LLM components, sample data objects, and temporary directories.
 """
 
-import os
-import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from docgen.models.code_entity import CodeEntity
 from docgen.models.file_analysis import FileAnalysis
-
 
 # =============================================================================
 # Sample Data Fixtures
@@ -55,7 +54,9 @@ def sample_function_entity() -> CodeEntity:
 
 
 @pytest.fixture
-def sample_file_analysis(sample_code_entity: CodeEntity, tmp_path: Path) -> FileAnalysis:
+def sample_file_analysis(
+    sample_code_entity: CodeEntity, tmp_path: Path
+) -> FileAnalysis:
     """Create a sample FileAnalysis for testing.
 
     Args:
@@ -320,14 +321,21 @@ def mock_generator(
     # Configure mock_llm to return content (for LCEL StrOutputParser)
     mock_llm.invoke.return_value = MagicMock(content="Generated content")
 
-    with patch('docgen.core.generator.ChatAnthropic', return_value=mock_llm), \
-         patch('docgen.core.generator.OpenAIEmbeddings', return_value=mock_embeddings), \
-         patch('docgen.core.generator.CodeAnalyzer', return_value=mock_analyzer), \
-         patch('docgen.core.generator.DiagramGenerator', return_value=mock_diagram_generator), \
-         patch('docgen.core.generator.get_template_manager', return_value=mock_template_manager), \
-         patch('docgen.providers.anthropic.ChatAnthropic', return_value=mock_llm), \
-         patch('docgen.providers.openai.OpenAIEmbeddings', return_value=mock_embeddings):
-
+    with (
+        patch("docgen.core.generator.ChatAnthropic", return_value=mock_llm),
+        patch("docgen.core.generator.OpenAIEmbeddings", return_value=mock_embeddings),
+        patch("docgen.core.generator.CodeAnalyzer", return_value=mock_analyzer),
+        patch(
+            "docgen.core.generator.DiagramGenerator",
+            return_value=mock_diagram_generator,
+        ),
+        patch(
+            "docgen.core.generator.get_template_manager",
+            return_value=mock_template_manager,
+        ),
+        patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm),
+        patch("docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings),
+    ):
         generator = CodeDocumentationGenerator(
             anthropic_api_key="test-anthropic-key",
             openai_api_key="test-openai-key",

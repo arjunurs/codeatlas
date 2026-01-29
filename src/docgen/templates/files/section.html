@@ -13,99 +13,7 @@
     </h1>
 
     <div class="prose searchable" data-title="{{ section.title }}" data-url="{{ base_url }}sections/{{ section.title | lower | replace(' ', '_') }}.html">
-        {% set paragraphs = section.content.split('\n\n') %}
-        {% set in_code_block = false %}
-        {% set in_list = false %}
-        {% set list_level = 0 %}
-
-        {% for paragraph in paragraphs %}
-            {% set lines = paragraph.split('\n') %}
-
-            {% for line in lines %}
-                {% set line = line.strip() %}
-                {% if line %}
-                    {# Handle headers #}
-                    {% if line.startswith('##') %}
-                        {% if in_list %}
-                            </ul>
-                            {% set in_list = false %}
-                            {% set list_level = 0 %}
-                        {% endif %}
-                        {% if in_code_block %}
-                            </code></pre>
-                            {% set in_code_block = false %}
-                        {% endif %}
-                        {% set header_level = line.count('#') %}
-                        {% set header_text = line.lstrip('#').strip() %}
-                        <h{{ header_level }} class="section-heading">{{ header_text }}</h{{ header_level }}>
-
-                    {# Handle code blocks #}
-                    {% elif line.startswith('```') %}
-                        {% if not in_code_block %}
-                            {% if line.startswith('```python') %}
-                                <pre class="code-block"><code class="language-python">
-                            {% else %}
-                                <pre class="code-block"><code>
-                            {% endif %}
-                            {% set in_code_block = true %}
-                        {% else %}
-                            </code></pre>
-                            {% set in_code_block = false %}
-                        {% endif %}
-
-                    {# Handle bullet points #}
-                    {% elif line.startswith(('- ', '* ')) %}
-                        {% if not in_list %}
-                            <ul class="content-list">
-                            {% set in_list = true %}
-                        {% endif %}
-                        {% set content = line.lstrip('- *').strip() %}
-                        {# Process inline code in list items #}
-                        {% set processed_content = [] %}
-                        {% set parts = content.split('`') %}
-                        {% for i in range(parts|length) %}
-                            {% if i % 2 == 0 %}
-                                {% set _ = processed_content.append(parts[i]) %}
-                            {% else %}
-                                {% set _ = processed_content.append('<code class="inline-code">' ~ parts[i] ~ '</code>') %}
-                            {% endif %}
-                        {% endfor %}
-                        <li>{{ processed_content|join('')|safe }}</li>
-
-                    {# Handle regular paragraphs #}
-                    {% else %}
-                        {% if in_list %}
-                            </ul>
-                            {% set in_list = false %}
-                            {% set list_level = 0 %}
-                        {% endif %}
-                        {% if in_code_block %}
-                            {{ line }}
-                        {% else %}
-                            {# Process inline code in paragraphs #}
-                            {% set processed_text = [] %}
-                            {% set parts = line.split('`') %}
-                            {% for i in range(parts|length) %}
-                                {% if i % 2 == 0 %}
-                                    {% set _ = processed_text.append(parts[i]) %}
-                                {% else %}
-                                    {% set _ = processed_text.append('<code class="inline-code">' ~ parts[i] ~ '</code>') %}
-                                {% endif %}
-                            {% endfor %}
-                            <p>{{ processed_text|join('')|safe }}</p>
-                        {% endif %}
-                    {% endif %}
-                {% endif %}
-            {% endfor %}
-        {% endfor %}
-
-        {# Close any open tags #}
-        {% if in_list %}
-            </ul>
-        {% endif %}
-        {% if in_code_block %}
-            </code></pre>
-        {% endif %}
+        {{ section.content | safe }}
     </div>
 </article>
 
@@ -139,7 +47,7 @@
 .prose p {
     margin: 0 0 16px 0;
 }
-.prose .section-heading {
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
     font-weight: 600;
     color: #111827;
     margin: 32px 0 12px 0;
@@ -149,18 +57,25 @@
 .prose h2 { font-size: 22px; }
 .prose h3 { font-size: 18px; border-bottom: none; }
 .prose h4 { font-size: 16px; border-bottom: none; }
+.prose h5 { font-size: 14px; border-bottom: none; }
+.prose h6 { font-size: 13px; border-bottom: none; }
 
-.prose .content-list {
-    list-style-type: disc;
+.prose ul, .prose ol {
     padding-left: 24px;
     margin: 16px 0;
 }
-.prose .content-list li {
+.prose ul {
+    list-style-type: disc;
+}
+.prose ol {
+    list-style-type: decimal;
+}
+.prose li {
     margin: 8px 0;
     padding-left: 4px;
 }
 
-.prose .inline-code {
+.prose code {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 0.9em;
     background: #f3f4f6;
@@ -169,7 +84,7 @@
     color: #1f2937;
 }
 
-.prose .code-block {
+.prose pre {
     margin: 16px 0;
     background: #f8fafc;
     border: 1px solid #e5e7eb;
@@ -177,13 +92,59 @@
     padding: 16px;
     overflow-x: auto;
 }
-.prose .code-block code {
+.prose pre code {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 13px;
     line-height: 1.6;
     color: #1f2937;
     background: transparent;
     padding: 0;
+}
+
+.prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+}
+.prose th, .prose td {
+    border: 1px solid #e5e7eb;
+    padding: 8px 12px;
+    text-align: left;
+}
+.prose th {
+    background: #f9fafb;
+    font-weight: 600;
+}
+
+.prose blockquote {
+    border-left: 4px solid #e5e7eb;
+    padding-left: 16px;
+    margin: 16px 0;
+    color: #6b7280;
+    font-style: italic;
+}
+
+.prose strong {
+    font-weight: 600;
+    color: #111827;
+}
+
+.prose em {
+    font-style: italic;
+}
+
+.prose a {
+    color: #2563eb;
+    text-decoration: none;
+}
+.prose a:hover {
+    text-decoration: underline;
+}
+
+.prose hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 24px 0;
 }
 </style>
 {% endblock %}

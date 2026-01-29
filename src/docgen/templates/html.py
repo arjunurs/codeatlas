@@ -8,9 +8,15 @@ and embedded templates for backward compatibility.
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
 
-from jinja2 import Environment, BaseLoader, FileSystemLoader, TemplateNotFound, ChoiceLoader
+from jinja2 import (
+    BaseLoader,
+    ChoiceLoader,
+    Environment,
+    FileSystemLoader,
+    TemplateNotFound,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +24,14 @@ logger = logging.getLogger(__name__)
 class StringTemplateLoader(BaseLoader):
     """Custom template loader that loads templates from strings."""
 
-    def __init__(self, templates: Dict[str, str]):
+    def __init__(self, templates: dict[str, str]):
         self.templates = templates
 
     def get_source(self, environment, template):
         # Remove .html extension if present for lookup
-        lookup_name = template.replace('.html', '') if template.endswith('.html') else template
+        lookup_name = (
+            template.replace(".html", "") if template.endswith(".html") else template
+        )
         if lookup_name in self.templates:
             source = self.templates[lookup_name]
             return source, None, lambda: True
@@ -49,7 +57,7 @@ class TemplateManager:
         templates: Dictionary of loaded template objects
     """
 
-    def __init__(self, template_dir: Optional[str] = None):
+    def __init__(self, template_dir: str | None = None):
         """Initialize the template manager.
 
         Args:
@@ -86,14 +94,18 @@ class TemplateManager:
         loaders.append(StringTemplateLoader(_EMBEDDED_TEMPLATES))
 
         # Create environment with choice loader
-        self.env = Environment(
-            loader=ChoiceLoader(loaders),
-            autoescape=True
-        )
+        self.env = Environment(loader=ChoiceLoader(loaders), autoescape=True)
 
         # Pre-load templates for backward compatibility
         self.templates = {}
-        template_names = ['base', 'index', 'section', 'diagrams', 'search', 'navigation']
+        template_names = [
+            "base",
+            "index",
+            "section",
+            "diagrams",
+            "search",
+            "navigation",
+        ]
         for name in template_names:
             try:
                 # Try .html extension first (file-based)
@@ -112,9 +124,9 @@ class TemplateManager:
     def render_template(
         self,
         template_name: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
         output_dir: str,
-        filename: Optional[str] = None
+        filename: str | None = None,
     ) -> None:
         """Render a template and save it to a file.
 
@@ -136,11 +148,11 @@ class TemplateManager:
             output_path = os.path.join(output_dir, f"{template_name}.html")
 
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(output)
 
 
-def get_template_manager(template_dir: Optional[str] = None) -> TemplateManager:
+def get_template_manager(template_dir: str | None = None) -> TemplateManager:
     """Get a template manager instance.
 
     Args:
@@ -154,7 +166,7 @@ def get_template_manager(template_dir: Optional[str] = None) -> TemplateManager:
 
 # Embedded templates as fallback (minimal versions for backward compatibility)
 _EMBEDDED_TEMPLATES = {
-    'base': '''<!DOCTYPE html>
+    "base": """<!DOCTYPE html>
 <html>
 <head>
     <title>{{ title }}</title>
@@ -182,9 +194,8 @@ _EMBEDDED_TEMPLATES = {
     </div>
     <div class="main-content">{% block content %}{% endblock %}</div>
 </body>
-</html>''',
-
-    'index': '''{% extends "base" %}
+</html>""",
+    "index": """{% extends "base" %}
 {% block content %}
 <h1 class="text-4xl font-bold mb-8">{{ documentation.title }}</h1>
 {% if generation_errors %}
@@ -214,17 +225,15 @@ _EMBEDDED_TEMPLATES = {
     </div>
 </div>
 <footer class="text-center text-gray-500 mt-12">Generated on {{ documentation.generated_date }}</footer>
-{% endblock %}''',
-
-    'section': '''{% extends "base" %}
+{% endblock %}""",
+    "section": """{% extends "base" %}
 {% block content %}
 <div class="bg-white p-6 rounded-lg shadow-lg">
     <h1 class="text-4xl font-bold mb-8">{{ section.title }}</h1>
     <div class="prose max-w-none">{{ section.content | safe }}</div>
 </div>
-{% endblock %}''',
-
-    'diagrams': '''{% extends "base" %}
+{% endblock %}""",
+    "diagrams": """{% extends "base" %}
 {% block content %}
 <div class="bg-white rounded-lg shadow-lg">
     <div class="p-4 border-b"><h1 class="text-2xl font-bold">{{ title }}</h1></div>
@@ -232,17 +241,15 @@ _EMBEDDED_TEMPLATES = {
         <pre class="mermaid">{{ diagram_code | trim }}</pre>
     </div>
 </div>
-{% endblock %}''',
-
-    'search': '''{% extends "base" %}
+{% endblock %}""",
+    "search": """{% extends "base" %}
 {% block content %}
 <div class="bg-white p-6 rounded-lg shadow-lg">
     <h1 class="text-4xl font-bold mb-8">Search Results</h1>
     <div id="search-results"></div>
 </div>
-{% endblock %}''',
-
-    'navigation': '''<nav>
+{% endblock %}""",
+    "navigation": """<nav>
     <div class="mb-4"><a href="{{ base_url }}index.html" class="nav-item {% if active == 'index' %}active{% endif %}"><i class="fas fa-home mr-2"></i> Home</a></div>
     <div class="mb-4">
         <h3 class="font-semibold mb-2 pb-2 border-b">Documentation</h3>
@@ -256,5 +263,5 @@ _EMBEDDED_TEMPLATES = {
         <a href="{{ base_url }}diagrams/sequence.html" class="nav-item {% if active == 'sequence' %}active{% endif %}"><i class="fas fa-exchange-alt mr-2"></i> Sequence</a>
         <a href="{{ base_url }}diagrams/call_graph.html" class="nav-item {% if active == 'call_graph' %}active{% endif %}"><i class="fas fa-code-branch mr-2"></i> Call Graph</a>
     </div>
-</nav>'''
+</nav>""",
 }

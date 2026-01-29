@@ -1,13 +1,14 @@
 """Unit tests for base provider classes."""
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
 from docgen.providers.base import (
-    LLMProvider,
-    EmbeddingProvider,
-    BaseLLMProvider,
     BaseEmbeddingProvider,
+    BaseLLMProvider,
+    EmbeddingProvider,
+    LLMProvider,
 )
 
 

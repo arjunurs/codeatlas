@@ -102,6 +102,7 @@ Output Options:
 Generation Options:
   --exclude PATTERN     Exclude files matching glob (repeatable)
   --no-diagrams         Skip diagram generation
+  --diagrams-only       Generate ONLY diagrams (no LLM calls, no API costs)
   --sections LIST       Generate only: overview,dependencies,classes,dataflow,integration
   --diagrams LIST       Generate only: architecture,class,sequence,callgraph,dependency
   --dry-run             Analyze without LLM calls
@@ -138,6 +139,13 @@ docgen --source ./src --no-diagrams
 ```bash
 # Dry-run mode: analyze code without making LLM calls
 docgen --source ./src --dry-run
+
+# Diagrams-only mode: generate only diagrams (no API costs, no LLM calls)
+# Perfect for visualizing code structure without text documentation
+docgen --source ./src --diagrams-only
+
+# Combine with --diagrams to select specific diagram types
+docgen --source ./src --diagrams-only --diagrams architecture,class
 ```
 
 ### Limit analysis scope
@@ -172,16 +180,45 @@ To set up the development environment:
    ```bash
    uv sync
    ```
-3. Run tests:
+3. Install pre-commit hooks:
+   ```bash
+   pre-commit install
+   ```
+4. Run tests:
    ```bash
    uv run pytest tests/ -v
    ```
-4. Format and lint:
+5. Format, lint, and type check:
    ```bash
-   uv run black src/ tests/
-   uv run ruff src/
-   uv run mypy src/
+   uv run ruff check src/ tests/ --fix
+   uv run ruff format src/ tests/
+   uv run ty check
+
+   # Or run all checks via pre-commit:
+   pre-commit run --all-files
    ```
+
+### Pre-Commit Workflow
+
+**Before making any commit**, follow this workflow to ensure code quality:
+
+1. **Run Code Simplifier** - Simplify and clean up your changes
+2. **Run Pre-Commit Hooks** - Lint, format, and type check (runs automatically on commit)
+   ```bash
+   pre-commit run --all-files
+   ```
+3. **Run All Tests** - Ensure nothing breaks
+   ```bash
+   uv run pytest tests/ -v
+   ```
+4. **Verify** - All 196 unit tests should pass with 75%+ coverage
+5. **Commit** - Hooks run automatically on `git commit`
+
+This practice ensures:
+- Code remains clean and maintainable
+- No regressions are introduced
+- Consistent code quality across the project
+- Automatic quality checks before each commit
 
 ## Contributing
 

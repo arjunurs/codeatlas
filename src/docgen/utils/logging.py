@@ -5,13 +5,10 @@ and output handling.
 """
 
 import logging
-from typing import Optional
 
 
 def setup_logging(
-    verbose: bool = False,
-    quiet: bool = False,
-    log_file: Optional[str] = None
+    verbose: bool = False, quiet: bool = False, log_file: str | None = None
 ) -> None:
     """Set up logging configuration.
 
@@ -28,7 +25,7 @@ def setup_logging(
         level = logging.INFO
 
     root_logger = logging.getLogger()
-    docgen_logger = logging.getLogger('docgen')
+    docgen_logger = logging.getLogger("docgen")
 
     root_logger.setLevel(level)
     docgen_logger.setLevel(level)
@@ -42,7 +39,9 @@ def setup_logging(
     console_handler.setLevel(level)
 
     # Create formatter
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
     docgen_logger.addHandler(console_handler)
@@ -53,4 +52,4 @@ def setup_logging(
         file_handler.setLevel(level)
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
-        docgen_logger.addHandler(file_handler) 
+        docgen_logger.addHandler(file_handler)

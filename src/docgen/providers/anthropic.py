@@ -5,12 +5,11 @@ interface.
 """
 
 import logging
-from typing import Optional
 
 from langchain_anthropic import ChatAnthropic
 
-from .base import BaseLLMProvider, LLMResponse
-from ..exceptions.errors import LLMError, ApiKeyError
+from ..exceptions.errors import ApiKeyError, LLMError
+from .base import BaseLLMProvider, LLMResponse, classify_api_error
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,7 @@ class AnthropicProvider(BaseLLMProvider):
     def __init__(
         self,
         api_key: str,
-        model: Optional[str] = None,
+        model: str | None = None,
         temperature: float = 0.2,
     ) -> None:
         """Initialize the Anthropic provider.
@@ -67,7 +66,11 @@ class AnthropicProvider(BaseLLMProvider):
             raise LLMError(f"Anthropic API incompatibility: {str(e)}") from e
         except Exception as e:
             error_str = str(e).lower()
-            if "api_key" in error_str or "authentication" in error_str or "unauthorized" in error_str:
+            if (
+                "api_key" in error_str
+                or "authentication" in error_str
+                or "unauthorized" in error_str
+            ):
                 raise ApiKeyError(f"Invalid Anthropic API key: {str(e)}") from e
             raise LLMError(f"Failed to create Anthropic LLM: {str(e)}") from e
 
@@ -88,17 +91,17 @@ class AnthropicProvider(BaseLLMProvider):
             llm = self.get_langchain_llm()
             return llm.invoke(prompt)
         except LLMError:
-            # Re-raise our own errors
             raise
         except Exception as e:
-            error_str = str(e).lower()
-            # Check for specific error types
-            if "rate" in error_str and "limit" in error_str:
-                raise LLMError(f"Anthropic rate limit exceeded. Please wait and retry: {str(e)}") from e
-            if "api_key" in error_str or "authentication" in error_str or "401" in error_str:
-                raise ApiKeyError(f"Invalid or expired Anthropic API key: {str(e)}") from e
-            if "timeout" in error_str or "timed out" in error_str:
-                raise LLMError(f"Anthropic request timed out. Please retry: {str(e)}") from e
-            if "connection" in error_str:
-                raise LLMError(f"Connection error to Anthropic API: {str(e)}") from e
-            raise LLMError(f"Failed to invoke Anthropic LLM: {str(e)}") from e
+            error_type = classify_api_error(e)
+            error_messages = {
+                "rate_limit": "Anthropic rate limit exceeded. Please wait and retry",
+                "auth": "Invalid or expired Anthropic API key",
+                "timeout": "Anthropic request timed out. Please retry",
+                "connection": "Connection error to Anthropic API",
+            }
+            if error_type == "auth":
+                raise ApiKeyError(f"{error_messages[error_type]}: {e}") from e
+            if error_type in error_messages:
+                raise LLMError(f"{error_messages[error_type]}: {e}") from e
+            raise LLMError(f"Failed to invoke Anthropic LLM: {e}") from e

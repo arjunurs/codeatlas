@@ -4,19 +4,23 @@ This module contains comprehensive tests for code analysis functionality,
 including file parsing, entity extraction, and dependency analysis.
 """
 
-import os
 import ast
+import os
+from unittest.mock import mock_open, patch
+
 import pytest
-from unittest.mock import patch, mock_open, MagicMock
+
 from docgen.core.analyzer import CodeAnalyzer
+from docgen.exceptions.errors import CodeParseError
 from docgen.models.code_entity import CodeEntity
 from docgen.models.file_analysis import FileAnalysis
-from docgen.exceptions.errors import CodeParseError
+
 
 @pytest.fixture
 def analyzer():
     """Create a CodeAnalyzer instance."""
     return CodeAnalyzer(skip_validation=True)
+
 
 @pytest.fixture
 def sample_python_code():
@@ -37,6 +41,7 @@ def test_function(x: int) -> int:
     return x * 2
 '''
 
+
 def test_analyze_file_success(analyzer, tmp_path, sample_python_code):
     """Test successful file analysis."""
     # Create a temporary Python file
@@ -49,23 +54,25 @@ def test_analyze_file_success(analyzer, tmp_path, sample_python_code):
     # Verify analysis results
     assert analysis.file_path == str(test_file)
     assert len(analysis.entities) == 2  # TestClass and test_function
-    
+
     # Verify class entity
     class_entity = next(e for e in analysis.entities if e.type == "class")
     assert class_entity.name == "TestClass"
     assert class_entity.docstring == "Test class docstring."
     assert class_entity.methods == ["test_method"]
-    
+
     # Verify function entity
     func_entity = next(e for e in analysis.entities if e.type == "function")
     assert func_entity.name == "test_function"
     assert func_entity.docstring == "Test function docstring."
     assert func_entity.methods is None
 
+
 def test_analyze_file_nonexistent(analyzer):
     """Test analyzing a nonexistent file."""
     with pytest.raises(CodeParseError, match="File does not exist"):
         analyzer.analyze_file("nonexistent.py")
+
 
 def test_analyze_file_empty(analyzer, tmp_path):
     """Test analyzing an empty file."""
@@ -75,6 +82,7 @@ def test_analyze_file_empty(analyzer, tmp_path):
     with pytest.raises(CodeParseError, match="File is empty"):
         analyzer.analyze_file(str(empty_file))
 
+
 def test_analyze_file_syntax_error(analyzer, tmp_path):
     """Test analyzing a file with syntax errors."""
     bad_file = tmp_path / "bad.py"
@@ -82,6 +90,7 @@ def test_analyze_file_syntax_error(analyzer, tmp_path):
 
     with pytest.raises(CodeParseError, match="Failed to parse"):
         analyzer.analyze_file(str(bad_file))
+
 
 def test_analyze_directory_success(analyzer, tmp_path, sample_python_code):
     """Test successful directory analysis."""
@@ -99,16 +108,19 @@ def test_analyze_directory_success(analyzer, tmp_path, sample_python_code):
         assert any(e.name == "TestClass" for e in analysis.entities)
         assert any(e.name == "test_function" for e in analysis.entities)
 
+
 def test_analyze_directory_no_files(analyzer, tmp_path):
     """Test analyzing a directory with no Python files."""
     os.makedirs(tmp_path / "empty")
     with pytest.raises(CodeParseError, match="No Python files found"):
         analyzer.analyze_directory(str(tmp_path / "empty"))
 
+
 def test_analyze_directory_nonexistent(analyzer):
     """Test analyzing a nonexistent directory."""
     with pytest.raises(CodeParseError, match="Directory does not exist"):
         analyzer.analyze_directory("nonexistent")
+
 
 def test_extract_entities(analyzer):
     """Test entity extraction from AST."""
@@ -131,18 +143,26 @@ def test_func():
     assert any(e.name == "TestClass" and e.type == "class" for e in entities)
     assert any(e.name == "test_func" and e.type == "function" for e in entities)
 
+
 def test_extract_imports(analyzer):
     """Test import extraction from AST."""
-    code = '''
+    code = """
 import os
 import sys as system
 from typing import List, Optional
 from .utils import helper
-'''
+"""
     tree = ast.parse(code)
     imports = analyzer._extract_imports(tree)
 
-    assert set(imports) == {"os", "sys", "typing.List", "typing.Optional", "utils.helper"}
+    assert set(imports) == {
+        "os",
+        "sys",
+        "typing.List",
+        "typing.Optional",
+        "utils.helper",
+    }
+
 
 def test_analyze_dependencies_success(analyzer):
     """Test successful dependency analysis."""
@@ -158,7 +178,8 @@ numpy>=1.19.2
             assert "requests" in dependencies
             assert "pandas" in dependencies
             assert "numpy" in dependencies
-            mock_file.assert_called_once_with("requirements.txt", "r", encoding="utf-8")
+            mock_file.assert_called_once_with("requirements.txt", encoding="utf-8")
+
 
 def test_analyze_dependencies_no_requirements(analyzer):
     """Test dependency analysis with no requirements.txt."""
@@ -167,6 +188,7 @@ def test_analyze_dependencies_no_requirements(analyzer):
         with pytest.raises(FileNotFoundError):
             analyzer.analyze_dependencies()
 
+
 def test_analyze_dependencies_empty_file(analyzer):
     """Test dependency analysis with empty file."""
     with patch("builtins.open", mock_open(read_data="")) as mock_file:
@@ -174,7 +196,8 @@ def test_analyze_dependencies_empty_file(analyzer):
             mock_exists.return_value = True
             with pytest.raises(ValueError, match="Requirements file is empty"):
                 analyzer.analyze_dependencies("requirements.txt")
-            mock_file.assert_called_once_with("requirements.txt", "r", encoding="utf-8")
+            mock_file.assert_called_once_with("requirements.txt", encoding="utf-8")
+
 
 def test_analyze_function_calls(analyzer, tmp_path):
     """Test function call analysis."""
@@ -213,11 +236,11 @@ def helper():
                 start_line=5,
                 end_line=6,
                 source="def helper():\n    pass",
-            )
+            ),
         ],
         imports=[],
         content=test_code,
-        _skip_validation=True
+        _skip_validation=True,
     )
 
     call_graph = analyzer.analyze_function_calls([analysis])
@@ -231,7 +254,9 @@ def helper():
     assert len(call_graph["helper"]) == 0
 
 
-def test_analyze_directory_with_exclude_patterns(analyzer, tmp_path, sample_python_code):
+def test_analyze_directory_with_exclude_patterns(
+    analyzer, tmp_path, sample_python_code
+):
     """Test directory analysis with exclude patterns."""
     # Create test files
     (tmp_path / "module1.py").write_text(sample_python_code)
@@ -242,8 +267,7 @@ def test_analyze_directory_with_exclude_patterns(analyzer, tmp_path, sample_pyth
 
     # Analyze with exclude patterns
     analyses = analyzer.analyze_directory(
-        str(tmp_path),
-        exclude_patterns=["*_test.py", "__pycache__"]
+        str(tmp_path), exclude_patterns=["*_test.py", "__pycache__"]
     )
 
     # Should only include module1.py and module2.py
@@ -276,10 +300,7 @@ def test_analyze_directory_exclude_by_path(analyzer, tmp_path, sample_python_cod
     (tmp_path / "src" / "module.py").write_text(sample_python_code)
 
     # Exclude tests directory
-    analyses = analyzer.analyze_directory(
-        str(tmp_path),
-        exclude_patterns=["tests/*"]
-    )
+    analyses = analyzer.analyze_directory(str(tmp_path), exclude_patterns=["tests/*"])
 
     filenames = [os.path.basename(a.file_path) for a in analyses]
     assert "module.py" in filenames

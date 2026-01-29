@@ -5,42 +5,49 @@ EmbeddingProvider interfaces.
 """
 
 import logging
-from typing import List, Optional
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-from .base import BaseLLMProvider, BaseEmbeddingProvider, LLMResponse
-from ..exceptions.errors import LLMError, EmbeddingError, ApiKeyError
+from ..exceptions.errors import ApiKeyError, EmbeddingError, LLMError
+from .base import (
+    BaseEmbeddingProvider,
+    BaseLLMProvider,
+    LLMResponse,
+    classify_api_error,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def _classify_openai_error(e: Exception, operation: str) -> Exception:
-    """Classify an OpenAI error into the appropriate exception type.
+def _raise_openai_error(
+    e: Exception, operation: str, error_class: type = LLMError
+) -> None:
+    """Raise appropriate exception for OpenAI errors.
 
     Args:
         e: The original exception
         operation: Description of the operation that failed
+        error_class: Default error class to use (LLMError or EmbeddingError)
 
-    Returns:
-        Appropriately typed exception
+    Raises:
+        ApiKeyError: For authentication or quota issues
+        LLMError/EmbeddingError: For other errors
     """
-    error_str = str(e).lower()
+    error_type = classify_api_error(e)
+    messages = {
+        "rate_limit": f"OpenAI rate limit exceeded during {operation}. Please wait and retry",
+        "auth": "Invalid or expired OpenAI API key",
+        "timeout": f"OpenAI request timed out during {operation}. Please retry",
+        "connection": f"Connection error to OpenAI API during {operation}",
+        "quota": "OpenAI quota exceeded or billing issue",
+        "context_length": f"Input too long for OpenAI model during {operation}",
+    }
 
-    if "rate" in error_str and "limit" in error_str:
-        return LLMError(f"OpenAI rate limit exceeded during {operation}. Please wait and retry: {str(e)}")
-    if "api_key" in error_str or "authentication" in error_str or "401" in error_str or "invalid" in error_str and "key" in error_str:
-        return ApiKeyError(f"Invalid or expired OpenAI API key: {str(e)}")
-    if "timeout" in error_str or "timed out" in error_str:
-        return LLMError(f"OpenAI request timed out during {operation}. Please retry: {str(e)}")
-    if "connection" in error_str:
-        return LLMError(f"Connection error to OpenAI API during {operation}: {str(e)}")
-    if "quota" in error_str or "billing" in error_str:
-        return ApiKeyError(f"OpenAI quota exceeded or billing issue: {str(e)}")
-    if "context" in error_str and "length" in error_str:
-        return LLMError(f"Input too long for OpenAI model during {operation}: {str(e)}")
-
-    return None  # No specific classification
+    if error_type in ("auth", "quota"):
+        raise ApiKeyError(f"{messages[error_type]}: {e}") from e
+    if error_type in messages:
+        raise error_class(f"{messages[error_type]}: {e}") from e
+    raise error_class(f"Failed to {operation}: {e}") from e
 
 
 class OpenAIProvider(BaseLLMProvider):
@@ -55,7 +62,7 @@ class OpenAIProvider(BaseLLMProvider):
     def __init__(
         self,
         api_key: str,
-        model: Optional[str] = None,
+        model: str | None = None,
         temperature: float = 0.2,
     ) -> None:
         """Initialize the OpenAI provider.
@@ -88,14 +95,11 @@ class OpenAIProvider(BaseLLMProvider):
                 temperature=self._temperature,
             )
         except ValueError as e:
-            raise LLMError(f"Invalid OpenAI configuration: {str(e)}") from e
+            raise LLMError(f"Invalid OpenAI configuration: {e}") from e
         except TypeError as e:
-            raise LLMError(f"OpenAI API incompatibility: {str(e)}") from e
+            raise LLMError(f"OpenAI API incompatibility: {e}") from e
         except Exception as e:
-            classified = _classify_openai_error(e, "LLM creation")
-            if classified:
-                raise classified from e
-            raise LLMError(f"Failed to create OpenAI LLM: {str(e)}") from e
+            _raise_openai_error(e, "create OpenAI LLM")
 
     def invoke(self, prompt: str) -> LLMResponse:
         """Invoke GPT with a prompt.
@@ -116,10 +120,7 @@ class OpenAIProvider(BaseLLMProvider):
         except (LLMError, ApiKeyError):
             raise
         except Exception as e:
-            classified = _classify_openai_error(e, "LLM invocation")
-            if classified:
-                raise classified from e
-            raise LLMError(f"Failed to invoke OpenAI LLM: {str(e)}") from e
+            _raise_openai_error(e, "invoke OpenAI LLM")
 
 
 class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
@@ -134,7 +135,7 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
     def __init__(
         self,
         api_key: str,
-        model: Optional[str] = None,
+        model: str | None = None,
     ) -> None:
         """Initialize the OpenAI embedding provider.
 
@@ -163,16 +164,13 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
                 model=self._model,
             )
         except ValueError as e:
-            raise EmbeddingError(f"Invalid OpenAI embeddings configuration: {str(e)}") from e
+            raise EmbeddingError(f"Invalid OpenAI embeddings configuration: {e}") from e
         except TypeError as e:
-            raise EmbeddingError(f"OpenAI embeddings API incompatibility: {str(e)}") from e
+            raise EmbeddingError(f"OpenAI embeddings API incompatibility: {e}") from e
         except Exception as e:
-            classified = _classify_openai_error(e, "embeddings creation")
-            if classified:
-                raise classified from e
-            raise EmbeddingError(f"Failed to create OpenAI embeddings: {str(e)}") from e
+            _raise_openai_error(e, "create OpenAI embeddings", EmbeddingError)
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
         """Embed a list of documents using OpenAI.
 
         Args:
@@ -194,12 +192,9 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         except (EmbeddingError, ApiKeyError):
             raise
         except Exception as e:
-            classified = _classify_openai_error(e, "document embedding")
-            if classified:
-                raise classified from e
-            raise EmbeddingError(f"Failed to embed documents: {str(e)}") from e
+            _raise_openai_error(e, "embed documents", EmbeddingError)
 
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> list[float]:
         """Embed a single query using OpenAI.
 
         Args:
@@ -221,7 +216,4 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
         except (EmbeddingError, ApiKeyError):
             raise
         except Exception as e:
-            classified = _classify_openai_error(e, "query embedding")
-            if classified:
-                raise classified from e
-            raise EmbeddingError(f"Failed to embed query: {str(e)}") from e
+            _raise_openai_error(e, "embed query", EmbeddingError)

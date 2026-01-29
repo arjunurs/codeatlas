@@ -4,18 +4,16 @@ This module provides functions to validate file paths and prevent
 path traversal vulnerabilities.
 """
 
-import os
 from pathlib import Path
-from typing import Optional, Set
 
 from ..exceptions.errors import PathValidationError
 
-
 # Allowed extensions for env files
-ALLOWED_ENV_EXTENSIONS: Set[str] = {'.env', '.txt', ''}
+ALLOWED_ENV_EXTENSIONS: set[str] = {".env", ".txt", ""}
+
 
 # Allowed base directories (relative to these)
-def _get_allowed_directories() -> Set[Path]:
+def _get_allowed_directories() -> set[Path]:
     """Get the set of allowed base directories.
 
     Returns:
@@ -35,8 +33,7 @@ def _get_allowed_directories() -> Set[Path]:
 
 
 def validate_env_file_path(
-    path: str,
-    allowed_directories: Optional[Set[Path]] = None
+    path: str, allowed_directories: set[Path] | None = None
 ) -> Path:
     """Validate that an env file path is safe to read.
 
@@ -60,7 +57,7 @@ def validate_env_file_path(
         raise PathValidationError("Path cannot be empty")
 
     # Check for null bytes (common attack vector) - must be done before any path operations
-    if '\x00' in path:
+    if "\x00" in path:
         raise PathValidationError("Path contains null bytes")
 
     if allowed_directories is None:
@@ -78,7 +75,7 @@ def validate_env_file_path(
     name = resolved_path.name.lower()
 
     # Allow files that start with .env (like .env, .env.local, .env.production)
-    is_env_file = name.startswith('.env')
+    is_env_file = name.startswith(".env")
     has_allowed_suffix = suffix in ALLOWED_ENV_EXTENSIONS
 
     if not (is_env_file or has_allowed_suffix):
@@ -107,7 +104,7 @@ def validate_env_file_path(
     return resolved_path
 
 
-def is_safe_path(path: str, allowed_directories: Optional[Set[Path]] = None) -> bool:
+def is_safe_path(path: str, allowed_directories: set[Path] | None = None) -> bool:
     """Check if a path is safe without raising an exception.
 
     Args:

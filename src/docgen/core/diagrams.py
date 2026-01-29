@@ -6,12 +6,12 @@ for code documentation.
 
 import logging
 import os
-from typing import Dict, List, Set
 
 from ..exceptions.errors import DiagramGenerationError
 from ..models.file_analysis import FileAnalysis
 
 logger = logging.getLogger(__name__)
+
 
 class DiagramGenerator:
     """Generates various types of diagrams for code documentation.
@@ -33,18 +33,31 @@ class DiagramGenerator:
 
     @staticmethod
     def _clean_name(name: str) -> str:
-        """Clean a name for use in Mermaid diagrams.
+        """Clean a name for use in Mermaid diagram node IDs.
 
         Args:
             name: Name to clean
 
         Returns:
-            Cleaned name safe for use in diagrams
+            Cleaned name safe for use as a Mermaid node ID
         """
-        clean = name.replace("-", "_").replace(".", "_").replace("/", "_").replace("@", "")
+        # Replace special characters with underscores
+        clean = (
+            name.replace("-", "_").replace(".", "_").replace("/", "_").replace("@", "")
+        )
+        # Strip leading/trailing underscores (Mermaid can misinterpret these)
+        clean = clean.strip("_")
+        # Ensure ID doesn't start with a digit
+        if clean and clean[0].isdigit():
+            clean = "n" + clean
+        # Handle empty result
+        if not clean:
+            clean = "node"
         return clean
 
-    def _add_node_with_limit(self, diagram: List[str], name: str, nodes_seen: Set[str], nodes_added: int) -> bool:
+    def _add_node_with_limit(
+        self, diagram: list[str], name: str, nodes_seen: set[str], nodes_added: int
+    ) -> bool:
         """Add a node to the diagram if it hasn't been seen and we're under the limit.
 
         Args:
@@ -57,16 +70,31 @@ class DiagramGenerator:
             True if node was added, False otherwise
         """
         clean_name = self._clean_name(name)
-        if clean_name not in nodes_seen and nodes_added < self.max_nodes:
-            # Format node with proper escaping and quotes for special characters
-            display_name = name.replace('"', '\\"')  # Escape quotes
-            # Use square brackets format for node definition to match test expectations
-            diagram.append(f'    {clean_name}[{display_name}]')
-            nodes_seen.add(clean_name)
-            return True
-        return False
+        if clean_name in nodes_seen or nodes_added >= self.max_nodes:
+            return False
 
-    def generate_class_diagram(self, analyses: List[FileAnalysis]) -> str:
+        display_name = name.replace('"', "'")
+        diagram.append(f'    {clean_name}["{display_name}"]')
+        nodes_seen.add(clean_name)
+        return True
+
+    def _append_truncation_note(
+        self, diagram: list[str], nodes_added: int, entity_type: str = "nodes"
+    ) -> None:
+        """Append a truncation note if node limit was reached.
+
+        Args:
+            diagram: List of diagram lines
+            nodes_added: Number of nodes added
+            entity_type: Type of entities (nodes, classes, etc.)
+        """
+        if nodes_added >= self.max_nodes:
+            diagram.append("")
+            diagram.append(
+                f'    note["Diagram truncated: showing top {self.max_nodes} {entity_type}"]'
+            )
+
+    def generate_class_diagram(self, analyses: list[FileAnalysis]) -> str:
         """Generate a class diagram from file analyses.
 
         Args:
@@ -115,7 +143,7 @@ class DiagramGenerator:
                 else:
                     # Empty class
                     diagram_lines.append(f"    class {clean_name}")
-                
+
                 nodes_added += 1
 
             # Add blank line before relationships
@@ -130,16 +158,14 @@ class DiagramGenerator:
                     diagram_lines.append(f"    {clean_name} --|> {clean_parent}")
 
             # Add truncation note if needed
-            if nodes_added >= self.max_nodes:
-                diagram_lines.append("")  # Add blank line for readability
-                diagram_lines.append(f'    note "Diagram truncated: showing top {self.max_nodes} classes"')
+            self._append_truncation_note(diagram_lines, nodes_added, "classes")
 
             return "\n".join(diagram_lines)
         except Exception as e:
             logger.debug(f"Error in class diagram: {str(e)}")
             raise DiagramGenerationError(f"Failed to generate class diagram: {str(e)}")
 
-    def generate_sequence_diagram(self, call_graph: Dict[str, Set[str]]) -> str:
+    def generate_sequence_diagram(self, call_graph: dict[str, set[str]]) -> str:
         """Generate a sequence diagram from function call graph.
 
         Args:
@@ -163,7 +189,9 @@ class DiagramGenerator:
 
             if nodes_added >= self.max_nodes:
                 diagram.append("")  # Add blank line for readability
-                diagram.append(f'    Note over participant1: Diagram truncated at {self.max_nodes} nodes')
+                diagram.append(
+                    f"    Note over participant1: Diagram truncated at {self.max_nodes} nodes"
+                )
                 break
 
             for callee in callees:
@@ -178,7 +206,7 @@ class DiagramGenerator:
 
         return "\n".join(diagram)
 
-    def generate_dependency_diagram(self, dependencies: Dict[str, Set[str]]) -> str:
+    def generate_dependency_diagram(self, dependencies: dict[str, set[str]]) -> str:
         """Generate a dependency diagram from package dependencies.
 
         Args:
@@ -199,14 +227,14 @@ class DiagramGenerator:
 
         for package, deps in dependencies.items():
             if nodes_added >= self.max_nodes:
-                diagram.append("")  # Add blank line for readability
-                diagram.append(f'    note["Diagram truncated: showing top {self.max_nodes} nodes"]')
+                self._append_truncation_note(diagram, nodes_added)
                 break
 
             clean_package = self._clean_name(package)
             if package not in nodes_seen:
-                # Use square bracket format for node definition
-                diagram.append(f'    {clean_package}[{package}]')
+                # Use quoted label to safely handle special characters
+                display_package = package.replace('"', "'")
+                diagram.append(f'    {clean_package}["{display_package}"]')
                 nodes_seen.add(package)
                 nodes_added += 1
 
@@ -216,8 +244,9 @@ class DiagramGenerator:
 
                 clean_dep = self._clean_name(dep)
                 if dep not in nodes_seen:
-                    # Use square bracket format for node definition
-                    diagram.append(f'    {clean_dep}[{dep}]')
+                    # Use quoted label to safely handle special characters
+                    display_dep = dep.replace('"', "'")
+                    diagram.append(f'    {clean_dep}["{display_dep}"]')
                     nodes_seen.add(dep)
                     nodes_added += 1
 
@@ -228,7 +257,7 @@ class DiagramGenerator:
 
         return "\n".join(diagram)
 
-    def generate_call_graph_diagram(self, call_graph: Dict[str, Set[str]]) -> str:
+    def generate_call_graph_diagram(self, call_graph: dict[str, set[str]]) -> str:
         """Generate a call graph diagram showing function calls.
 
         Args:
@@ -261,21 +290,23 @@ class DiagramGenerator:
                         break
 
                     clean_callee = self._clean_name(callee)
-                    if self._add_node_with_limit(diagram, callee, nodes_seen, nodes_added):
+                    if self._add_node_with_limit(
+                        diagram, callee, nodes_seen, nodes_added
+                    ):
                         nodes_added += 1
 
                     diagram.append(f"    {clean_caller} --> {clean_callee}")
 
-            if nodes_added >= self.max_nodes:
-                diagram.append("")  # Add blank line for readability
-                diagram.append(f'    Note: Showing top {self.max_nodes} nodes')
+            self._append_truncation_note(diagram, nodes_added)
 
             return "\n".join(diagram)
         except Exception as e:
             logger.debug(f"Error in call graph diagram: {str(e)}")
-            raise DiagramGenerationError(f"Failed to generate call graph diagram: {str(e)}")
+            raise DiagramGenerationError(
+                f"Failed to generate call graph diagram: {str(e)}"
+            )
 
-    def generate_architecture_diagram(self, analyses: List[FileAnalysis]) -> str:
+    def generate_architecture_diagram(self, analyses: list[FileAnalysis]) -> str:
         """Generate an architecture diagram showing module relationships.
 
         Args:
@@ -301,7 +332,9 @@ class DiagramGenerator:
                     break
 
                 module_name = os.path.splitext(os.path.basename(analysis.file_path))[0]
-                if self._add_node_with_limit(diagram, module_name, nodes_seen, nodes_added):
+                if self._add_node_with_limit(
+                    diagram, module_name, nodes_seen, nodes_added
+                ):
                     nodes_added += 1
 
                 for imp in analysis.imports:
@@ -311,29 +344,27 @@ class DiagramGenerator:
                     if self._add_node_with_limit(diagram, imp, nodes_seen, nodes_added):
                         nodes_added += 1
 
-            # Then add all edges
+            # Then add all edges (between nodes that were added)
             for analysis in analyses:
-                if nodes_added >= self.max_nodes:
-                    break
-
                 module_name = os.path.splitext(os.path.basename(analysis.file_path))[0]
                 clean_module = self._clean_name(module_name)
 
-                for imp in analysis.imports:
-                    if nodes_added >= self.max_nodes:
-                        break
+                # Only add edges for modules that were included in the diagram
+                if clean_module not in nodes_seen:
+                    continue
 
+                for imp in analysis.imports:
                     clean_imp = self._clean_name(imp)
-                    if clean_module in nodes_seen and clean_imp in nodes_seen:
+                    # Only add edge if both nodes are in the diagram
+                    if clean_imp in nodes_seen:
                         diagram.append(f"    {clean_module} --> {clean_imp}")
 
             # Add node limit note if needed
-            if nodes_added >= self.max_nodes:
-                diagram.append("")  # Add blank line for readability
-                diagram.append(f'    note["Diagram truncated: showing top {self.max_nodes} nodes"]')
+            self._append_truncation_note(diagram, nodes_added)
 
-            # Add proper line breaks and indentation
             return "\n".join(diagram)
         except Exception as e:
             logger.debug(f"Error in architecture diagram: {str(e)}")
-            raise DiagramGenerationError(f"Failed to generate architecture diagram: {str(e)}") 
+            raise DiagramGenerationError(
+                f"Failed to generate architecture diagram: {str(e)}"
+            )

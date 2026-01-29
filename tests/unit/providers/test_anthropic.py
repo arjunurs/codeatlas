@@ -1,10 +1,11 @@
 """Unit tests for Anthropic provider."""
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-from docgen.providers.anthropic import AnthropicProvider
+import pytest
+
 from docgen.exceptions.errors import LLMError
+from docgen.providers.anthropic import AnthropicProvider
 
 
 class TestAnthropicProvider:
@@ -12,26 +13,30 @@ class TestAnthropicProvider:
 
     def test_default_model(self):
         """Test that default model is used when not specified."""
-        with patch('docgen.providers.anthropic.ChatAnthropic') as mock_chat:
+        with patch("docgen.providers.anthropic.ChatAnthropic"):
             provider = AnthropicProvider(api_key="test-key")
             assert provider.model_name == AnthropicProvider.DEFAULT_MODEL
 
     def test_custom_model(self):
         """Test that custom model is used when specified."""
-        with patch('docgen.providers.anthropic.ChatAnthropic') as mock_chat:
-            provider = AnthropicProvider(api_key="test-key", model="claude-3-opus-20240229")
+        with patch("docgen.providers.anthropic.ChatAnthropic"):
+            provider = AnthropicProvider(
+                api_key="test-key", model="claude-3-opus-20240229"
+            )
             assert provider.model_name == "claude-3-opus-20240229"
 
     def test_custom_temperature(self):
         """Test that custom temperature is used."""
-        with patch('docgen.providers.anthropic.ChatAnthropic') as mock_chat:
+        with patch("docgen.providers.anthropic.ChatAnthropic"):
             provider = AnthropicProvider(api_key="test-key", temperature=0.7)
             assert provider.temperature == 0.7
 
     def test_create_llm_success(self):
         """Test successful LLM creation."""
         mock_llm = MagicMock()
-        with patch('docgen.providers.anthropic.ChatAnthropic', return_value=mock_llm) as mock_chat:
+        with patch(
+            "docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm
+        ) as mock_chat:
             provider = AnthropicProvider(api_key="test-key")
             llm = provider.get_langchain_llm()
 
@@ -44,7 +49,10 @@ class TestAnthropicProvider:
 
     def test_create_llm_failure(self):
         """Test LLM creation failure raises LLMError."""
-        with patch('docgen.providers.anthropic.ChatAnthropic', side_effect=Exception("API error")):
+        with patch(
+            "docgen.providers.anthropic.ChatAnthropic",
+            side_effect=Exception("API error"),
+        ):
             provider = AnthropicProvider.__new__(AnthropicProvider)
             provider._api_key = "test-key"
             provider._model = "test-model"
@@ -59,7 +67,7 @@ class TestAnthropicProvider:
         mock_llm = MagicMock()
         mock_llm.invoke.return_value = "Generated response"
 
-        with patch('docgen.providers.anthropic.ChatAnthropic', return_value=mock_llm):
+        with patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm):
             provider = AnthropicProvider(api_key="test-key")
             result = provider.invoke("Test prompt")
 
@@ -71,7 +79,7 @@ class TestAnthropicProvider:
         mock_llm = MagicMock()
         mock_llm.invoke.side_effect = Exception("API error")
 
-        with patch('docgen.providers.anthropic.ChatAnthropic', return_value=mock_llm):
+        with patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm):
             provider = AnthropicProvider(api_key="test-key")
 
             with pytest.raises(LLMError, match="Failed to invoke Anthropic LLM"):

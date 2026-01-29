@@ -40,7 +40,7 @@
 
     <div class="diagram-container" id="diagram-container" style="border: none; border-radius: 0;">
         <div class="diagram-content">
-            <pre class="mermaid">{{ diagram_code | trim }}</pre>
+            <pre class="mermaid">{{ diagram_code | trim | safe }}</pre>
         </div>
     </div>
 

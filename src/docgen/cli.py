@@ -7,13 +7,15 @@ including argument parsing and main execution flow.
 import argparse
 import logging
 import sys
-from typing import List, Optional
+from pathlib import Path
 
-from docgen.config import DEFAULT_CONFIG
+from docgen.config import DEFAULT_CONFIG, QualityMode
 from docgen.core.generator import CodeDocumentationGenerator
 from docgen.utils.api_keys import get_api_keys
 from docgen.utils.logging import setup_logging
-from .exceptions.errors import DocumentationError, ApiKeyError
+
+from .cache.metadata import CacheMetadata
+from .exceptions.errors import ApiKeyError, CacheError, DocumentationError
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +23,7 @@ logger = logging.getLogger(__name__)
 __version__ = "0.1.0"
 
 
-def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
+def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     """Parse command line arguments.
 
     Args:
@@ -53,35 +55,30 @@ Examples:
 API Keys:
   Set ANTHROPIC_API_KEY and OPENAI_API_KEY environment variables,
   or use --api-key-env to specify a .env file containing them.
-"""
+""",
     )
 
     # Version
     parser.add_argument(
-        "--version", "-V",
-        action="version",
-        version=f"%(prog)s {__version__}"
+        "--version", "-V", action="version", version=f"%(prog)s {__version__}"
     )
 
     # Required arguments
     parser.add_argument(
-        "--source",
-        required=True,
-        help="Source directory containing Python files"
+        "--source", required=True, help="Source directory containing Python files"
     )
 
     # Output options
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default="docs",
-        help="Output directory for documentation (default: docs)"
+        help="Output directory for documentation (default: docs)",
     )
 
     # API key arguments (only .env file path - no direct keys for security)
     parser.add_argument(
-        "--api-key-env",
-        metavar="PATH",
-        help="Path to .env file containing API keys"
+        "--api-key-env", metavar="PATH", help="Path to .env file containing API keys"
     )
 
     # Model options
@@ -90,31 +87,27 @@ API Keys:
         type=float,
         default=DEFAULT_CONFIG.DEFAULT_TEMPERATURE,
         metavar="TEMP",
-        help=f"Temperature for LLM generation (0.0 to 1.0, default: {DEFAULT_CONFIG.DEFAULT_TEMPERATURE})"
+        help=f"Temperature for LLM generation (0.0 to 1.0, default: {DEFAULT_CONFIG.DEFAULT_TEMPERATURE})",
     )
     parser.add_argument(
         "--anthropic-model",
         default=DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL,
         metavar="MODEL",
-        help=f"Anthropic model to use (default: {DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL})"
+        help=f"Anthropic model to use (default: {DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL})",
     )
     parser.add_argument(
         "--openai-embedding-model",
         default=DEFAULT_CONFIG.DEFAULT_OPENAI_EMBEDDING_MODEL,
         metavar="MODEL",
-        help=f"OpenAI embedding model to use (default: {DEFAULT_CONFIG.DEFAULT_OPENAI_EMBEDDING_MODEL})"
+        help=f"OpenAI embedding model to use (default: {DEFAULT_CONFIG.DEFAULT_OPENAI_EMBEDDING_MODEL})",
     )
 
     # Logging options
     parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Enable verbose logging"
+        "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
     parser.add_argument(
-        "--quiet", "-q",
-        action="store_true",
-        help="Minimal output (errors only)"
+        "--quiet", "-q", action="store_true", help="Minimal output (errors only)"
     )
 
     # Generation options
@@ -123,41 +116,146 @@ API Keys:
         action="append",
         default=[],
         metavar="PATTERN",
-        help="Glob pattern to exclude files/dirs (can be repeated)"
+        help="Glob pattern to exclude files/dirs (can be repeated)",
     )
     parser.add_argument(
-        "--no-diagrams",
+        "--no-diagrams", action="store_true", help="Skip diagram generation"
+    )
+    parser.add_argument(
+        "--diagrams-only",
         action="store_true",
-        help="Skip diagram generation"
+        help="Generate only diagrams without LLM section generation (no API costs)",
     )
     parser.add_argument(
         "--sections",
         metavar="LIST",
-        help="Comma-separated sections to generate: overview,dependencies,classes,dataflow,integration"
+        help="Comma-separated sections to generate: overview,dependencies,classes,dataflow,integration",
     )
     parser.add_argument(
         "--diagrams",
         metavar="LIST",
-        help="Comma-separated diagrams to generate: architecture,class,sequence,callgraph,dependency"
+        help="Comma-separated diagrams to generate: architecture,class,sequence,callgraph,dependency",
     )
     parser.add_argument(
-        "--template-dir",
-        metavar="PATH",
-        help="Custom HTML template directory"
+        "--template-dir", metavar="PATH", help="Custom HTML template directory"
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Analyze code without LLM calls (preview mode)"
+        help="Analyze code without LLM calls (preview mode)",
     )
     parser.add_argument(
-        "--max-files",
-        type=int,
-        metavar="N",
-        help="Maximum number of files to analyze"
+        "--max-files", type=int, metavar="N", help="Maximum number of files to analyze"
+    )
+
+    # Cache options
+    parser.add_argument(
+        "--cache-dir",
+        metavar="PATH",
+        help=f"Cache directory (default: {DEFAULT_CONFIG.DEFAULT_CACHE_DIR})",
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable caching (regenerate everything)",
+    )
+    parser.add_argument(
+        "--force-refresh",
+        action="store_true",
+        help="Ignore cache and regenerate all content",
+    )
+    parser.add_argument(
+        "--clear-cache", action="store_true", help="Clear cache and exit"
+    )
+    parser.add_argument(
+        "--cache-stats", action="store_true", help="Show cache statistics and exit"
+    )
+
+    # Performance & quality options
+    parser.add_argument(
+        "--quality-mode",
+        choices=["fast", "balanced", "best"],
+        default="balanced",
+        help="Quality mode: fast (cheapest, Haiku), balanced (default), best (highest quality, Sonnet)",
+    )
+    parser.add_argument(
+        "--no-parallel", action="store_true", help="Disable parallel section generation"
+    )
+    parser.add_argument(
+        "--no-cost-tracking",
+        action="store_true",
+        help="Disable API cost tracking and summary",
     )
 
     return parser.parse_args(args)
+
+
+def _get_cache_dir(args: argparse.Namespace, source_path: Path) -> Path:
+    """Get cache directory for the project.
+
+    Args:
+        args: Parsed command line arguments
+        source_path: Source directory path
+
+    Returns:
+        Path to cache directory
+    """
+    if args.cache_dir:
+        base_cache_dir = Path(args.cache_dir)
+    else:
+        base_cache_dir = Path(DEFAULT_CONFIG.DEFAULT_CACHE_DIR)
+
+    # Create project-specific subdirectory based on source path hash
+    metadata = CacheMetadata.create_for_project(source_path)
+    return base_cache_dir / metadata.project_hash
+
+
+def _handle_clear_cache(cache_dir: Path) -> None:
+    """Clear cache directory and exit.
+
+    Args:
+        cache_dir: Path to cache directory
+    """
+    import shutil
+
+    if cache_dir.exists():
+        shutil.rmtree(cache_dir)
+        print(f"Cache cleared: {cache_dir}")
+    else:
+        print("No cache found")
+    sys.exit(0)
+
+
+def _handle_cache_stats(cache_dir: Path) -> None:
+    """Show cache statistics and exit.
+
+    Args:
+        cache_dir: Path to cache directory
+    """
+    if not cache_dir.exists():
+        print("No cache found")
+        sys.exit(0)
+
+    # Load cache metadata
+    metadata = CacheMetadata.load(cache_dir)
+    if not metadata:
+        print("Cache exists but is corrupted or empty")
+        sys.exit(0)
+
+    # Calculate cache size
+    total_size = sum(f.stat().st_size for f in cache_dir.rglob("*") if f.is_file())
+
+    print("Cache Statistics:")
+    print(f"  Location: {cache_dir}")
+    print(f"  Project: {metadata.project_path}")
+    print(f"  Created: {metadata.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  Last updated: {metadata.last_updated.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  Cached files: {len(metadata.file_metadata)}")
+    print(f"  Cache size: {total_size / 1024:.2f} KB")
+    if metadata.git_commit:
+        print(f"  Git commit: {metadata.git_commit[:8]}")
+
+    sys.exit(0)
 
 
 def main() -> None:
@@ -167,18 +265,50 @@ def main() -> None:
 
         # Handle mutually exclusive verbose/quiet
         if args.verbose and args.quiet:
-            print("Error: --verbose and --quiet are mutually exclusive", file=sys.stderr)
+            print(
+                "Error: --verbose and --quiet are mutually exclusive", file=sys.stderr
+            )
+            sys.exit(1)
+
+        # Handle mutually exclusive no-diagrams/diagrams-only
+        if args.no_diagrams and args.diagrams_only:
+            print(
+                "Error: --no-diagrams and --diagrams-only are mutually exclusive",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         setup_logging(verbose=args.verbose, quiet=args.quiet)
 
-        # In dry-run mode, API keys are not required
-        if args.dry_run:
-            logger.info("Dry-run mode: API keys not required")
-            anthropic_key = "dry-run-placeholder"
-            openai_key = "dry-run-placeholder"
+        # Get source path and cache directory
+        source_path = Path(args.source).resolve()
+        cache_dir = _get_cache_dir(args, source_path)
+
+        # Handle cache-only commands
+        if args.clear_cache:
+            _handle_clear_cache(cache_dir)
+        if args.cache_stats:
+            _handle_cache_stats(cache_dir)
+
+        # Determine cache settings
+        cache_enabled = not args.no_cache and not args.dry_run
+        force_refresh = args.force_refresh
+
+        # Parse quality mode
+        quality_mode = QualityMode(args.quality_mode)
+
+        # Performance settings
+        parallel_sections = not args.no_parallel
+        enable_cost_tracking = not args.no_cost_tracking
+
+        # In dry-run or diagrams-only mode, API keys are not required
+        skip_api_mode = args.dry_run or args.diagrams_only
+        if skip_api_mode:
+            mode_name = "diagrams-only" if args.diagrams_only else "dry-run"
+            logger.info(f"{mode_name.capitalize()} mode: API keys not required")
+            anthropic_key = f"{mode_name}-placeholder"
+            openai_key = f"{mode_name}-placeholder"
         else:
-            # Get API keys
             anthropic_key, openai_key = get_api_keys(args.api_key_env)
 
         # Parse sections and diagrams if provided
@@ -203,7 +333,14 @@ def main() -> None:
             diagrams=diagrams,
             template_dir=args.template_dir,
             dry_run=args.dry_run,
-            max_files=args.max_files
+            max_files=args.max_files,
+            cache_enabled=cache_enabled,
+            cache_dir=cache_dir if cache_enabled else None,
+            force_refresh=force_refresh,
+            quality_mode=quality_mode,
+            parallel_sections=parallel_sections,
+            enable_cost_tracking=enable_cost_tracking,
+            diagrams_only=args.diagrams_only,
         )
 
         # Generate documentation
@@ -211,7 +348,7 @@ def main() -> None:
 
         logger.info("Documentation generated successfully")
 
-    except (DocumentationError, ApiKeyError, ValueError) as e:
+    except (DocumentationError, ApiKeyError, CacheError, ValueError) as e:
         logger.error(f"Documentation generation failed: {str(e)}")
         sys.exit(1)
     except Exception as e:

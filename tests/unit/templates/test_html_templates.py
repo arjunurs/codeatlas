@@ -1,14 +1,12 @@
 """Unit tests for HTML template system."""
 
-import os
 import pytest
-from pathlib import Path
 
 from docgen.templates.html import (
-    TemplateManager,
-    get_template_manager,
     DEFAULT_TEMPLATES_DIR,
     StringTemplateLoader,
+    TemplateManager,
+    get_template_manager,
 )
 
 
@@ -102,7 +100,9 @@ class TestTemplateManager:
             "navigation": "<nav>Nav</nav>",
         }
 
-        manager.render_template("section", context, str(output_dir), "sections/overview.html")
+        manager.render_template(
+            "section", context, str(output_dir), "sections/overview.html"
+        )
 
         output_file = output_dir / "sections" / "overview.html"
         assert output_file.exists()
@@ -119,9 +119,7 @@ class TestTemplateManager:
         manager = TemplateManager()
 
         html = manager.templates["navigation"].render(
-            active="Overview",
-            sections=["Overview", "Dependencies"],
-            base_url="./"
+            active="Overview", sections=["Overview", "Dependencies"], base_url="./"
         )
 
         assert "Overview" in html
@@ -140,7 +138,9 @@ class TestTemplateManager:
             "navigation": "<nav>Nav</nav>",
         }
 
-        manager.render_template("diagrams", context, str(output_dir), "diagrams/test.html")
+        manager.render_template(
+            "diagrams", context, str(output_dir), "diagrams/test.html"
+        )
 
         output_file = output_dir / "diagrams" / "test.html"
         content = output_file.read_text()

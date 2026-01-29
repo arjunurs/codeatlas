@@ -8,7 +8,6 @@ import ast
 import fnmatch
 import logging
 import os
-from typing import Dict, List, Optional, Set
 
 from ..config import DEFAULT_CONFIG
 from ..exceptions.errors import CodeParseError, FileEncodingError
@@ -16,6 +15,7 @@ from ..models.code_entity import CodeEntity
 from ..models.file_analysis import FileAnalysis
 
 logger = logging.getLogger(__name__)
+
 
 class CodeAnalyzer:
     """Analyzes Python source code to extract code entities and relationships."""
@@ -29,8 +29,8 @@ class CodeAnalyzer:
         """
         self.skip_validation = skip_validation
         self.encoding = encoding or DEFAULT_CONFIG.DEFAULT_FILE_ENCODING
-        self._source: Optional[str] = None
-        self._analyzed_directory: Optional[str] = None
+        self._source: str | None = None
+        self._analyzed_directory: str | None = None
 
     def analyze_file(self, file_path: str) -> FileAnalysis:
         """Analyze a single Python file.
@@ -48,11 +48,13 @@ class CodeAnalyzer:
             raise CodeParseError(f"File does not exist: {file_path}")
 
         try:
-            with open(file_path, 'r', encoding=self.encoding) as f:
+            with open(file_path, encoding=self.encoding) as f:
                 self._source = f.read()
         except UnicodeDecodeError as e:
-            raise FileEncodingError(f"Failed to decode {file_path} with encoding {self.encoding}: {str(e)}")
-        except IOError as e:
+            raise FileEncodingError(
+                f"Failed to decode {file_path} with encoding {self.encoding}: {str(e)}"
+            )
+        except OSError as e:
             raise CodeParseError(f"Failed to read {file_path}: {str(e)}")
 
         try:
@@ -68,7 +70,7 @@ class CodeAnalyzer:
                 entities=entities,
                 imports=imports,
                 content=self._source,
-                _skip_validation=self.skip_validation
+                _skip_validation=self.skip_validation,
             )
         except SyntaxError as e:
             raise CodeParseError(f"Failed to parse {file_path}: {str(e)}")
@@ -78,9 +80,9 @@ class CodeAnalyzer:
     def analyze_directory(
         self,
         directory: str,
-        exclude_patterns: Optional[List[str]] = None,
-        max_files: Optional[int] = None
-    ) -> List[FileAnalysis]:
+        exclude_patterns: list[str] | None = None,
+        max_files: int | None = None,
+    ) -> list[FileAnalysis]:
         """Analyze all Python files in a directory.
 
         Args:
@@ -111,16 +113,17 @@ class CodeAnalyzer:
             # Filter out excluded directories (modifying dirs in-place affects os.walk)
             if exclude_patterns:
                 dirs[:] = [
-                    d for d in dirs
+                    d
+                    for d in dirs
                     if not self._matches_any_pattern(d, exclude_patterns)
                     and not self._matches_any_pattern(
                         os.path.relpath(os.path.join(root, d), directory),
-                        exclude_patterns
+                        exclude_patterns,
                     )
                 ]
 
             for file in files:
-                if not file.endswith('.py'):
+                if not file.endswith(".py"):
                     continue
 
                 # Check if file matches any exclude pattern
@@ -150,7 +153,7 @@ class CodeAnalyzer:
 
         return analyses
 
-    def _matches_any_pattern(self, name: str, patterns: List[str]) -> bool:
+    def _matches_any_pattern(self, name: str, patterns: list[str]) -> bool:
         """Check if a name matches any of the given glob patterns.
 
         Args:
@@ -162,7 +165,9 @@ class CodeAnalyzer:
         """
         return any(fnmatch.fnmatch(name, pattern) for pattern in patterns)
 
-    def analyze_dependencies(self, requirements_path: str = "requirements.txt") -> Dict[str, Set[str]]:
+    def analyze_dependencies(
+        self, requirements_path: str = "requirements.txt"
+    ) -> dict[str, set[str]]:
         """Analyze package dependencies from requirements.txt.
 
         Args:
@@ -178,33 +183,33 @@ class CodeAnalyzer:
         if not os.path.exists(requirements_path):
             raise FileNotFoundError(f"Requirements file not found: {requirements_path}")
 
-        with open(requirements_path, 'r', encoding='utf-8') as f:
+        with open(requirements_path, encoding="utf-8") as f:
             content = f.read().strip()
 
         if not content:
             raise ValueError("Requirements file is empty")
 
         dependencies = {}
-        for line in content.split('\n'):
+        version_separators = [">=", "==", ">", "<", "<=", "~=", "!="]
+
+        for line in content.split("\n"):
             line = line.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
 
-            # Parse package name and version
-            parts = line.split('>=')
-            if len(parts) != 2:
-                parts = line.split('==')
-            if len(parts) != 2:
-                parts = line.split('>')
-            if len(parts) != 2:
-                continue
+            # Extract package name by finding version separator
+            package = line
+            for sep in version_separators:
+                if sep in line:
+                    package = line.split(sep)[0].strip()
+                    break
 
-            package = parts[0].strip()
-            dependencies[package] = set()
+            if package:
+                dependencies[package] = set()
 
         return dependencies
 
-    def analyze_package_dependencies(self) -> Dict[str, Set[str]]:
+    def analyze_package_dependencies(self) -> dict[str, set[str]]:
         """Analyze package dependencies between Python modules.
 
         Returns:
@@ -218,38 +223,38 @@ class CodeAnalyzer:
 
         # Use the analyzed directory if available, otherwise fall back to current working directory
         search_directory = self._analyzed_directory or os.getcwd()
-        
+
         # Add package dependencies from imports
         for root, _, files in os.walk(search_directory):
             for file in files:
-                if not file.endswith('.py'):
+                if not file.endswith(".py"):
                     continue
 
                 file_path = os.path.join(root, file)
                 try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
+                    with open(file_path, encoding="utf-8") as f:
                         content = f.read()
-                    
+
                     tree = ast.parse(content)
                     imports = self._extract_imports(tree)
-                    
+
                     # Get package name from file path relative to the search directory
                     rel_path = os.path.relpath(file_path, search_directory)
-                    package_name = os.path.dirname(rel_path).replace(os.sep, '.')
+                    package_name = os.path.dirname(rel_path).replace(os.sep, ".")
                     if not package_name:
                         package_name = os.path.splitext(file)[0]
-                    
+
                     # Add dependencies
                     if package_name not in dependencies:
                         dependencies[package_name] = set()
-                    
+
                     for imp in imports:
                         # Get top-level package name
-                        top_pkg = imp.split('.')[0]
+                        top_pkg = imp.split(".")[0]
                         if top_pkg != package_name:
                             dependencies[package_name].add(top_pkg)
-                
-                except (UnicodeDecodeError, IOError) as e:
+
+                except (OSError, UnicodeDecodeError) as e:
                     logger.warning(f"Error reading {file_path}: {str(e)}")
                     continue
                 except (SyntaxError, ValueError) as e:
@@ -258,7 +263,9 @@ class CodeAnalyzer:
 
         return dependencies
 
-    def analyze_function_calls(self, analyses: List[FileAnalysis]) -> Dict[str, Set[str]]:
+    def analyze_function_calls(
+        self, analyses: list[FileAnalysis]
+    ) -> dict[str, set[str]]:
         """Analyze function call relationships between entities.
 
         Args:
@@ -279,7 +286,7 @@ class CodeAnalyzer:
                 # Store the current function name
                 prev_function = self.current_function
                 self.current_function = node.name
-                
+
                 # Initialize empty set for this function's calls
                 self.calls[self.current_function] = set()
 
@@ -320,13 +327,17 @@ class CodeAnalyzer:
                 call_graph.update(visitor.calls)
 
             except SyntaxError as e:
-                logger.warning(f"Syntax error analyzing function calls in {analysis.file_path}: {str(e)}")
+                logger.warning(
+                    f"Syntax error analyzing function calls in {analysis.file_path}: {str(e)}"
+                )
             except Exception as e:
-                logger.warning(f"Unexpected error analyzing function calls in {analysis.file_path}: {str(e)}")
+                logger.warning(
+                    f"Unexpected error analyzing function calls in {analysis.file_path}: {str(e)}"
+                )
 
         return call_graph
 
-    def _extract_entities(self, tree: ast.AST, file_path: str) -> List[CodeEntity]:
+    def _extract_entities(self, tree: ast.AST, file_path: str) -> list[CodeEntity]:
         """Extract code entities from an AST.
 
         Args:
@@ -359,16 +370,18 @@ class CodeAnalyzer:
                 if node.bases:
                     parent_class = ast.unparse(node.bases[0])
 
-                entities.append(CodeEntity(
-                    name=node.name,
-                    type="class",
-                    docstring=docstring,
-                    methods=methods,
-                    start_line=node.lineno,
-                    end_line=node.end_lineno or node.lineno,
-                    source=source_lines,
-                    parent_class=parent_class
-                ))
+                entities.append(
+                    CodeEntity(
+                        name=node.name,
+                        type="class",
+                        docstring=docstring,
+                        methods=methods,
+                        start_line=node.lineno,
+                        end_line=node.end_lineno or node.lineno,
+                        source=source_lines,
+                        parent_class=parent_class,
+                    )
+                )
 
             elif isinstance(node, ast.FunctionDef):
                 docstring = ast.get_docstring(node) or ""
@@ -376,19 +389,21 @@ class CodeAnalyzer:
                 if source_lines is None:
                     source_lines = ""
 
-                entities.append(CodeEntity(
-                    name=node.name,
-                    type="function",
-                    docstring=docstring,
-                    methods=None,
-                    start_line=node.lineno,
-                    end_line=node.end_lineno or node.lineno,
-                    source=source_lines
-                ))
+                entities.append(
+                    CodeEntity(
+                        name=node.name,
+                        type="function",
+                        docstring=docstring,
+                        methods=None,
+                        start_line=node.lineno,
+                        end_line=node.end_lineno or node.lineno,
+                        source=source_lines,
+                    )
+                )
 
         return entities
 
-    def _extract_imports(self, tree: ast.AST) -> List[str]:
+    def _extract_imports(self, tree: ast.AST) -> list[str]:
         """Extract import statements from an AST.
 
         Args:
@@ -400,10 +415,8 @@ class CodeAnalyzer:
         imports = []
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                for name in node.names:
-                    imports.append(name.name)
+                imports.extend(alias.name for alias in node.names)
             elif isinstance(node, ast.ImportFrom):
                 module = node.module or ""
-                for name in node.names:
-                    imports.append(f"{module}.{name.name}")
-        return imports 
+                imports.extend(f"{module}.{alias.name}" for alias in node.names)
+        return imports

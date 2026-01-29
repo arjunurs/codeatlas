@@ -7,7 +7,7 @@ This module defines the CodeEntity class that represents a code entity
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+
 
 @dataclass
 class CodeEntity:
@@ -23,14 +23,15 @@ class CodeEntity:
         source: Source code of the entity
         parent_class: Name of parent class for class entities
     """
+
     name: str
     type: str
     docstring: str
-    methods: Optional[List[str]] = None
+    methods: list[str] | None = None
     start_line: int = 1
     end_line: int = 1
     source: str = ""
-    parent_class: Optional[str] = None
+    parent_class: str | None = None
 
     def __post_init__(self):
         """Validate entity attributes after initialization."""

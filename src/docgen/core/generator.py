@@ -6,36 +6,46 @@ the entire documentation generation process.
 
 from __future__ import annotations
 
-import os
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Sequence
 import logging
+import os
+from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
-from langchain_anthropic import ChatAnthropic
-from langchain_openai import OpenAIEmbeddings
-from langchain_core.documents import Document
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough, Runnable
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+import markdown
 from langchain_chroma import Chroma
+from langchain_core.documents import Document
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import Runnable, RunnablePassthrough
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from ..cache.content_cache import SectionContentCache
+from ..cache.vector_cache import VectorStoreCache
+from ..config import (
+    DEFAULT_CONFIG,
+    GeneratorConfig,
+    QualityMode,
+    get_model_for_quality_mode,
+)
+from ..exceptions.errors import (
+    ApiKeyError,
+    DocumentationError,
+    LLMError,
+    TemplateError,
+    VectorStoreError,
+)
+from ..models.file_analysis import FileAnalysis
+from ..prompts.sections import SECTION_ORDER, get_section_prompt
+from ..providers.anthropic import AnthropicProvider
+from ..providers.base import EmbeddingProvider, LLMProvider
+from ..providers.openai import OpenAIEmbeddingProvider
+from ..templates.html import get_template_manager
+from ..utils.cost_tracker import CostTracker
 from .analyzer import CodeAnalyzer
 from .diagrams import DiagramGenerator
-from ..config import GeneratorConfig, DEFAULT_CONFIG
-from ..models.file_analysis import FileAnalysis
-from ..templates.html import get_template_manager
-from ..providers.base import LLMProvider, EmbeddingProvider
-from ..providers.anthropic import AnthropicProvider
-from ..providers.openai import OpenAIEmbeddingProvider
-from ..prompts.sections import SECTION_ORDER, get_section_prompt
-from ..exceptions.errors import (
-    DocumentationError,
-    ApiKeyError,
-    VectorStoreError,
-    LLMError,
-    TemplateError
-)
 
 logger = logging.getLogger(__name__)
 
@@ -69,22 +79,29 @@ class CodeDocumentationGenerator:
 
     def __init__(
         self,
-        anthropic_api_key: Optional[str] = None,
-        openai_api_key: Optional[str] = None,
-        temperature: Optional[float] = None,
-        anthropic_model: Optional[str] = None,
-        openai_embedding_model: Optional[str] = None,
-        config: Optional[GeneratorConfig] = None,
+        anthropic_api_key: str | None = None,
+        openai_api_key: str | None = None,
+        temperature: float | None = None,
+        anthropic_model: str | None = None,
+        openai_embedding_model: str | None = None,
+        config: GeneratorConfig | None = None,
         *,
-        llm_provider: Optional[LLMProvider] = None,
-        embedding_provider: Optional[EmbeddingProvider] = None,
-        exclude_patterns: Optional[List[str]] = None,
+        llm_provider: LLMProvider | None = None,
+        embedding_provider: EmbeddingProvider | None = None,
+        exclude_patterns: list[str] | None = None,
         skip_diagrams: bool = False,
-        sections: Optional[List[str]] = None,
-        diagrams: Optional[List[str]] = None,
-        template_dir: Optional[str] = None,
+        sections: list[str] | None = None,
+        diagrams: list[str] | None = None,
+        template_dir: str | None = None,
         dry_run: bool = False,
-        max_files: Optional[int] = None,
+        max_files: int | None = None,
+        cache_enabled: bool = True,
+        cache_dir: Any | None = None,
+        force_refresh: bool = False,
+        quality_mode: QualityMode | None = None,
+        parallel_sections: bool | None = None,
+        enable_cost_tracking: bool = True,
+        diagrams_only: bool = False,
     ) -> None:
         """Initialize the documentation generator.
 
@@ -108,18 +125,29 @@ class CodeDocumentationGenerator:
             template_dir: Custom HTML template directory
             dry_run: Analyze code without LLM calls
             max_files: Maximum number of files to analyze
+            cache_enabled: Enable vector store and content caching
+            cache_dir: Cache directory path (Path object or None)
+            force_refresh: Force cache refresh (ignore existing cache)
+            quality_mode: Quality mode preset (fast/balanced/best)
+            parallel_sections: Enable parallel section generation
+            enable_cost_tracking: Enable API cost tracking
+            diagrams_only: Generate only diagrams without LLM section generation (no API costs)
 
         Raises:
             ValueError: If configuration is invalid
-            ApiKeyError: If API keys are invalid or missing
+            ApiKeyError: If API keys are invalid or missing (unless diagrams_only=True)
         """
         # Use provided config or default
         self.config = config or DEFAULT_CONFIG
 
         # Override config values if provided
-        final_temperature = temperature if temperature is not None else self.config.DEFAULT_TEMPERATURE
+        final_temperature = (
+            temperature if temperature is not None else self.config.DEFAULT_TEMPERATURE
+        )
         final_anthropic_model = anthropic_model or self.config.DEFAULT_ANTHROPIC_MODEL
-        final_openai_model = openai_embedding_model or self.config.DEFAULT_OPENAI_EMBEDDING_MODEL
+        final_openai_model = (
+            openai_embedding_model or self.config.DEFAULT_OPENAI_EMBEDDING_MODEL
+        )
 
         if not 0 <= final_temperature <= 1:
             raise ValueError("Temperature must be between 0 and 1")
@@ -127,12 +155,17 @@ class CodeDocumentationGenerator:
         self.temperature = final_temperature
 
         # Initialize providers
-        self._llm_provider: Optional[LLMProvider] = None
-        self._embedding_provider: Optional[EmbeddingProvider] = None
-        self._vector_store: Optional[Chroma] = None
+        self._llm_provider: LLMProvider | None = None
+        self._embedding_provider: EmbeddingProvider | None = None
+        self._vector_store: Chroma | None = None
 
+        # In diagrams-only mode, API keys are not required
+        if diagrams_only:
+            logger.info("Diagrams-only mode: API keys not required")
+            self.llm = None
+            self.embeddings = None
         # Provider mode: use provided providers
-        if llm_provider is not None or embedding_provider is not None:
+        elif llm_provider is not None or embedding_provider is not None:
             if llm_provider is None or embedding_provider is None:
                 raise ApiKeyError(
                     "Both llm_provider and embedding_provider must be provided together"
@@ -168,8 +201,7 @@ class CodeDocumentationGenerator:
             )
 
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.config.CHUNK_SIZE,
-            chunk_overlap=self.config.CHUNK_OVERLAP
+            chunk_size=self.config.CHUNK_SIZE, chunk_overlap=self.config.CHUNK_OVERLAP
         )
 
         # Store generation options
@@ -180,13 +212,38 @@ class CodeDocumentationGenerator:
         self.template_dir = template_dir
         self.dry_run = dry_run
         self.max_files = max_files
+        self.diagrams_only = diagrams_only
+
+        # Cache options (disabled in dry-run and diagrams-only modes)
+        self.cache_enabled = cache_enabled and not dry_run and not diagrams_only
+        self.cache_dir = cache_dir
+        self.force_refresh = force_refresh
+
+        # Quality and performance options
+        self.quality_mode = quality_mode or self.config.DEFAULT_QUALITY_MODE
+        self.parallel_sections = (
+            parallel_sections
+            if parallel_sections is not None
+            else self.config.PARALLEL_SECTIONS
+        )
+
+        # Cost tracking (disabled in dry-run and diagrams-only modes)
+        self.enable_cost_tracking = (
+            enable_cost_tracking and not dry_run and not diagrams_only
+        )
+        self.cost_tracker = CostTracker() if self.enable_cost_tracking else None
 
         # Initialize analysis components
         self.analyzer = CodeAnalyzer()
         self.diagram_generator = DiagramGenerator()
         self.template_manager = get_template_manager(template_dir)
 
-    def __enter__(self) -> "CodeDocumentationGenerator":
+        # Section content cache (initialized on first use)
+        self._section_cache: SectionContentCache | None = None
+        # Store analyses for section caching
+        self._current_analyses: list[FileAnalysis] | None = None
+
+    def __enter__(self) -> CodeDocumentationGenerator:
         """Enter context manager."""
         return self
 
@@ -204,23 +261,39 @@ class CodeDocumentationGenerator:
 
         This should be called when done using the generator to free resources.
         The generator can also be used as a context manager for automatic cleanup.
+
+        Note: When caching is enabled, the vector store is preserved on disk.
         """
         if self._vector_store is not None:
             try:
-                # Chroma doesn't have a close method, but we can delete the collection
-                self._vector_store.delete_collection()
+                if not self.cache_enabled:
+                    # Only delete collection if caching is disabled
+                    self._vector_store.delete_collection()
+                # Note: When caching is enabled, we preserve the vector store on disk
             except Exception as e:
                 logger.warning(f"Error cleaning up vector store: {str(e)}")
             finally:
                 self._vector_store = None
 
+    def _convert_markdown_to_html(self, content: str) -> str:
+        """Convert markdown content to HTML.
+
+        Args:
+            content: Markdown-formatted text content
+
+        Returns:
+            HTML-formatted content
+        """
+        md = markdown.Markdown(extensions=["fenced_code", "tables", "toc"])
+        return md.convert(content)
+
     @property
-    def llm_provider(self) -> Optional[LLMProvider]:
+    def llm_provider(self) -> LLMProvider | None:
         """Get the LLM provider instance."""
         return self._llm_provider
 
     @property
-    def embedding_provider(self) -> Optional[EmbeddingProvider]:
+    def embedding_provider(self) -> EmbeddingProvider | None:
         """Get the embedding provider instance."""
         return self._embedding_provider
 
@@ -251,7 +324,7 @@ class CodeDocumentationGenerator:
             analyses = self.analyzer.analyze_directory(
                 abs_directory_path,
                 exclude_patterns=self.exclude_patterns,
-                max_files=self.max_files
+                max_files=self.max_files,
             )
 
             if not analyses:
@@ -260,41 +333,78 @@ class CodeDocumentationGenerator:
 
             logger.info(f"Analyzed {len(analyses)} Python files")
 
+            # Store analyses for section caching
+            self._current_analyses = analyses
+
+            # Initialize section cache if enabled
+            if self.cache_enabled and self.cache_dir:
+                self._section_cache = SectionContentCache(Path(self.cache_dir))
+
             # Generate diagrams (unless skipped)
-            diagrams: Dict[str, str] = {}
-            diagram_errors: List[tuple[str, str]] = []
+            diagrams: dict[str, str] = {}
+            diagram_errors: list[tuple[str, str]] = []
             if not self.skip_diagrams:
                 diagrams, diagram_errors = self._generate_all_diagrams(analyses)
             else:
                 logger.info("Skipping diagram generation (--no-diagrams)")
 
+            # In diagrams-only mode, skip all section generation
+            if self.diagrams_only:
+                logger.info(
+                    "Diagrams-only mode: skipping LLM calls and section generation"
+                )
+                documentation = {
+                    "title": "Code Documentation (Diagrams Only)",
+                    "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "sections": [],  # No sections in diagrams-only mode
+                }
+                section_errors = []
             # In dry-run mode, skip LLM calls
-            if self.dry_run:
+            elif self.dry_run:
                 logger.info("Dry-run mode: skipping LLM calls")
                 documentation = {
-                    'title': 'Code Documentation (Dry Run)',
-                    'generated_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    'sections': [
-                        {'title': name, 'content': '*Dry-run mode: LLM content not generated*'}
+                    "title": "Code Documentation (Dry Run)",
+                    "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "sections": [
+                        {
+                            "title": name,
+                            "content": "*Dry-run mode: LLM content not generated*",
+                        }
                         for name in (self.selected_sections or SECTION_ORDER)
                         if name in SECTION_ORDER
-                    ]
+                    ],
                 }
                 section_errors = []
             else:
                 # Create vector store and RAG chain
-                rag_chain = self._create_vector_store_and_rag_chain(analyses)
+                rag_chain = self._create_vector_store_and_rag_chain(
+                    analyses,
+                    source_dir=Path(abs_directory_path),
+                )
 
                 # Generate documentation sections (with error aggregation)
-                documentation, section_errors = self._generate_documentation_sections(rag_chain)
+                documentation, section_errors = self._generate_documentation_sections(
+                    rag_chain
+                )
 
             # Create final HTML output with any generation errors
             generation_errors = {
-                'diagrams': diagram_errors,
-                'sections': section_errors,
+                "diagrams": diagram_errors,
+                "sections": section_errors,
             }
-            self._create_final_html_output(documentation, diagrams, abs_output_dir, generation_errors)
+            self._create_final_html_output(
+                documentation, diagrams, abs_output_dir, generation_errors
+            )
             logger.info(f"Documentation generated successfully in {abs_output_dir}")
+
+            # Save section cache
+            if self._section_cache:
+                self._section_cache.save_cache()
+
+            # Print cost summary
+            if self.cost_tracker:
+                self.cost_tracker.finish()
+                self.cost_tracker.print_summary()
 
         except DocumentationError:
             raise
@@ -308,16 +418,19 @@ class CodeDocumentationGenerator:
         Args:
             output_dir: Base output directory path
         """
-        os.makedirs(output_dir, exist_ok=True)
-        os.makedirs(os.path.join(output_dir, 'sections'), exist_ok=True)
-        os.makedirs(os.path.join(output_dir, 'diagrams'), exist_ok=True)
-        os.makedirs(os.path.join(output_dir, 'assets'), exist_ok=True)
+        for subdir in ["", "sections", "diagrams", "assets"]:
+            os.makedirs(os.path.join(output_dir, subdir), exist_ok=True)
 
-    def _create_vector_store_and_rag_chain(self, analyses: Sequence[FileAnalysis]) -> Runnable:
+    def _create_vector_store_and_rag_chain(
+        self,
+        analyses: Sequence[FileAnalysis],
+        source_dir: Path | None = None,
+    ) -> Runnable:
         """Create vector store and RAG chain from analyses using LCEL.
 
         Args:
             analyses: List of file analysis results
+            source_dir: Source directory path (for caching)
 
         Returns:
             LCEL RAG chain for documentation generation
@@ -334,10 +447,36 @@ class CodeDocumentationGenerator:
                 logger.error("No documentation content could be generated")
                 raise DocumentationError("No documentation content could be generated")
 
-            # Create vector store
-            logger.info("Creating vector store and RAG chain...")
+            # Split documents
             texts = self.text_splitter.split_documents(documents)
-            self._vector_store = Chroma.from_documents(texts, self.embeddings)
+
+            # Create or load vector store (with caching if enabled)
+            if self.cache_enabled and self.cache_dir and source_dir:
+                logger.info("Cache enabled: using persistent vector store")
+
+                # Get list of current Python files for change detection
+                current_files = [
+                    Path(source_dir) / analysis.file_path for analysis in analyses
+                ]
+
+                # Use vector store cache
+                cache = VectorStoreCache(
+                    cache_dir=Path(self.cache_dir),
+                    source_dir=Path(source_dir),
+                    embeddings=self.embeddings,
+                    force_refresh=self.force_refresh,
+                )
+
+                self._vector_store = cache.get_or_create_vector_store(
+                    analyses=analyses,
+                    documents=texts,
+                    current_files=current_files,
+                )
+            else:
+                # No caching - create ephemeral vector store
+                logger.info("Cache disabled: creating ephemeral vector store")
+                self._vector_store = Chroma.from_documents(texts, self.embeddings)
+
             retriever = self._vector_store.as_retriever()
 
             # Create RAG prompt template
@@ -373,7 +512,7 @@ Answer:"""
 
     def _generate_all_diagrams(
         self, analyses: Sequence[FileAnalysis]
-    ) -> tuple[Dict[str, str], List[tuple[str, str]]]:
+    ) -> tuple[dict[str, str], list[tuple[str, str]]]:
         """Generate all documentation diagrams.
 
         Args:
@@ -383,8 +522,8 @@ Answer:"""
             Tuple of (diagrams dict, list of (diagram_name, error_message) pairs)
         """
         logger.info("Generating diagrams...")
-        diagrams: Dict[str, str] = {}
-        errors: List[tuple[str, str]] = []
+        diagrams: dict[str, str] = {}
+        errors: list[tuple[str, str]] = []
 
         def should_generate(diagram_key: str) -> bool:
             """Check if a diagram should be generated based on selection."""
@@ -393,48 +532,108 @@ Answer:"""
             return diagram_key in self.selected_diagrams
 
         # Generate architecture diagram
-        if should_generate('architecture'):
+        if should_generate("architecture"):
             try:
-                diagrams['architecture'] = self.diagram_generator.generate_architecture_diagram(analyses)
+                diagrams["architecture"] = (
+                    self.diagram_generator.generate_architecture_diagram(analyses)
+                )
             except Exception as e:
-                errors.append(('architecture', str(e)))
+                errors.append(("architecture", str(e)))
 
         # Generate class diagram
-        if should_generate('class'):
+        if should_generate("class"):
             try:
-                diagrams['class_diagram'] = self.diagram_generator.generate_class_diagram(analyses)
+                diagrams["class_diagram"] = (
+                    self.diagram_generator.generate_class_diagram(analyses)
+                )
             except Exception as e:
-                errors.append(('class_diagram', str(e)))
+                errors.append(("class_diagram", str(e)))
 
         # Generate function-related diagrams
-        need_function_analysis = should_generate('sequence') or should_generate('callgraph')
+        need_function_analysis = should_generate("sequence") or should_generate(
+            "callgraph"
+        )
         if need_function_analysis:
             try:
                 function_calls = self.analyzer.analyze_function_calls(analyses)
-                if should_generate('sequence'):
+                if should_generate("sequence"):
                     try:
-                        diagrams['sequence'] = self.diagram_generator.generate_sequence_diagram(function_calls)
+                        diagrams["sequence"] = (
+                            self.diagram_generator.generate_sequence_diagram(
+                                function_calls
+                            )
+                        )
                     except Exception as e:
-                        errors.append(('sequence', str(e)))
-                if should_generate('callgraph'):
+                        errors.append(("sequence", str(e)))
+                if should_generate("callgraph"):
                     try:
-                        diagrams['function_calls'] = self.diagram_generator.generate_call_graph_diagram(function_calls)
+                        diagrams["function_calls"] = (
+                            self.diagram_generator.generate_call_graph_diagram(
+                                function_calls
+                            )
+                        )
                     except Exception as e:
-                        errors.append(('function_calls', str(e)))
+                        errors.append(("function_calls", str(e)))
             except Exception as e:
-                errors.append(('function_analysis', str(e)))
+                errors.append(("function_analysis", str(e)))
 
         # Generate dependency diagram
-        if should_generate('dependency'):
+        if should_generate("dependency"):
             try:
                 package_deps = self.analyzer.analyze_package_dependencies()
-                diagrams['package_dependencies'] = self.diagram_generator.generate_dependency_diagram(package_deps)
+                diagrams["package_dependencies"] = (
+                    self.diagram_generator.generate_dependency_diagram(package_deps)
+                )
             except Exception as e:
-                errors.append(('package_dependencies', str(e)))
+                errors.append(("package_dependencies", str(e)))
 
         return diagrams, errors
 
-    def _generate_documentation_sections(self, rag_chain: Runnable) -> Dict[str, Any]:
+    def _generate_section_with_cache(
+        self,
+        rag_chain: Runnable,
+        section_name: str,
+    ) -> str:
+        """Generate a section with caching support.
+
+        Args:
+            rag_chain: LCEL RAG chain for content generation
+            section_name: Name of the section to generate
+
+        Returns:
+            Section content (markdown)
+        """
+        # Try to get from cache
+        if self._section_cache and self._current_analyses:
+            cached_content = self._section_cache.get_cached_section(
+                section_name, self._current_analyses
+            )
+            if cached_content is not None:
+                if self.cost_tracker:
+                    # Record as cached request (no API call)
+                    model_name = get_model_for_quality_mode(
+                        self.quality_mode, "general"
+                    )
+                    self.cost_tracker.record_llm_usage(
+                        model=model_name,
+                        input_tokens=0,
+                        output_tokens=0,
+                        cached=True,
+                    )
+                return cached_content
+
+        # Generate new content
+        content = self._generate_section(rag_chain, section_name)
+
+        # Cache the generated content
+        if self._section_cache and self._current_analyses:
+            self._section_cache.cache_section(
+                section_name, content, self._current_analyses
+            )
+
+        return content
+
+    def _generate_documentation_sections(self, rag_chain: Runnable) -> dict[str, Any]:
         """Generate all documentation sections using the RAG chain.
 
         Args:
@@ -445,28 +644,20 @@ Answer:"""
         """
         logger.info("Generating documentation content...")
 
-        sections = []
-        errors: List[tuple[str, str]] = []
-
         # Filter sections if specific ones are selected
         sections_to_generate = self._filter_sections(SECTION_ORDER)
         if self.selected_sections:
             logger.info(f"Generating selected sections: {sections_to_generate}")
 
-        for section_name in sections_to_generate:
-            logger.info(f"Generating section: {section_name}")
-            try:
-                content = self._generate_section(rag_chain, section_name)
-            except Exception as e:
-                error_msg = str(e)
-                logger.error(f"Failed to generate section '{section_name}': {error_msg}")
-                errors.append((section_name, error_msg))
-                content = f"*Error generating this section: {error_msg}*"
-
-            sections.append({
-                'title': section_name,
-                'content': content
-            })
+        # Generate sections (with optional parallelization)
+        if self.parallel_sections and len(sections_to_generate) > 1:
+            sections, errors = self._generate_sections_parallel(
+                rag_chain, sections_to_generate
+            )
+        else:
+            sections, errors = self._generate_sections_sequential(
+                rag_chain, sections_to_generate
+            )
 
         if errors:
             logger.warning(
@@ -475,12 +666,106 @@ Answer:"""
             )
 
         documentation = {
-            'title': 'Code Documentation',
-            'generated_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            'sections': sections
+            "title": "Code Documentation",
+            "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "sections": sections,
         }
 
         return documentation, errors
+
+    def _generate_sections_sequential(
+        self,
+        rag_chain: Runnable,
+        section_names: list[str],
+    ) -> tuple[list[dict], list[tuple[str, str]]]:
+        """Generate sections sequentially.
+
+        Args:
+            rag_chain: LCEL RAG chain for content generation
+            section_names: List of section names to generate
+
+        Returns:
+            Tuple of (sections list, errors list)
+        """
+        sections = []
+        errors: list[tuple[str, str]] = []
+
+        for section_name in section_names:
+            logger.info(f"Generating section: {section_name}")
+            try:
+                content = self._generate_section_with_cache(rag_chain, section_name)
+                html_content = self._convert_markdown_to_html(content)
+                sections.append({"title": section_name, "content": html_content})
+            except Exception as e:
+                error_msg = str(e)
+                logger.error(
+                    f"Failed to generate section '{section_name}': {error_msg}"
+                )
+                errors.append((section_name, error_msg))
+                sections.append(
+                    {
+                        "title": section_name,
+                        "content": f"*Error generating this section: {error_msg}*",
+                    }
+                )
+
+        return sections, errors
+
+    def _generate_sections_parallel(
+        self,
+        rag_chain: Runnable,
+        section_names: list[str],
+    ) -> tuple[list[dict], list[tuple[str, str]]]:
+        """Generate sections in parallel.
+
+        Args:
+            rag_chain: LCEL RAG chain for content generation
+            section_names: List of section names to generate
+
+        Returns:
+            Tuple of (sections list, errors list)
+        """
+        logger.info(f"Generating {len(section_names)} sections in parallel")
+
+        sections_dict = {}
+        errors: list[tuple[str, str]] = []
+
+        max_workers = min(len(section_names), self.config.MAX_PARALLEL_WORKERS)
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all section generation tasks
+            future_to_section = {
+                executor.submit(
+                    self._generate_section_with_cache, rag_chain, section_name
+                ): section_name
+                for section_name in section_names
+            }
+
+            # Collect results as they complete
+            for future in as_completed(future_to_section):
+                section_name = future_to_section[future]
+                try:
+                    content = future.result()
+                    html_content = self._convert_markdown_to_html(content)
+                    sections_dict[section_name] = {
+                        "title": section_name,
+                        "content": html_content,
+                    }
+                    logger.info(f"Completed section: {section_name}")
+                except Exception as e:
+                    error_msg = str(e)
+                    logger.error(
+                        f"Failed to generate section '{section_name}': {error_msg}"
+                    )
+                    errors.append((section_name, error_msg))
+                    sections_dict[section_name] = {
+                        "title": section_name,
+                        "content": f"*Error generating this section: {error_msg}*",
+                    }
+
+        # Return sections in original order
+        sections = [sections_dict[name] for name in section_names]
+        return sections, errors
 
     def _generate_section(self, rag_chain: Runnable, section_name: str) -> str:
         """Generate content for a documentation section.
@@ -499,9 +784,11 @@ Answer:"""
             prompt = get_section_prompt(section_name)
             return rag_chain.invoke(prompt)
         except Exception as e:
-            raise LLMError(f"Failed to generate section '{section_name}': {str(e)}") from e
+            raise LLMError(
+                f"Failed to generate section '{section_name}': {str(e)}"
+            ) from e
 
-    def _filter_sections(self, available_sections: List[str]) -> List[str]:
+    def _filter_sections(self, available_sections: list[str]) -> list[str]:
         """Filter sections based on user selection.
 
         Args:
@@ -517,7 +804,7 @@ Answer:"""
 
         def matches_selection(section: str) -> bool:
             """Check if section matches any user selection."""
-            normalized = section.lower().replace(' ', '_').replace('_and_', '_')
+            normalized = section.lower().replace(" ", "_").replace("_and_", "_")
             section_lower = section.lower()
             return (
                 section in self.selected_sections
@@ -530,10 +817,10 @@ Answer:"""
 
     def _create_final_html_output(
         self,
-        documentation: Dict[str, Any],
-        diagrams: Dict[str, str],
+        documentation: dict[str, Any],
+        diagrams: dict[str, str],
         output_dir: str,
-        generation_errors: Optional[Dict[str, List[tuple[str, str]]]] = None
+        generation_errors: dict[str, list[tuple[str, str]]] | None = None,
     ) -> None:
         """Generate final HTML documentation output.
 
@@ -545,12 +832,14 @@ Answer:"""
         """
         logger.info("Generating HTML documentation...")
         try:
-            self._generate_html_documentation(documentation, diagrams, output_dir, generation_errors)
+            self._generate_html_documentation(
+                documentation, diagrams, output_dir, generation_errors
+            )
         except Exception as e:
             logger.error(f"Error generating HTML documentation: {str(e)}")
             raise TemplateError(f"Failed to generate HTML documentation: {str(e)}")
 
-    def _create_documents(self, analyses: Sequence[FileAnalysis]) -> List[Document]:
+    def _create_documents(self, analyses: Sequence[FileAnalysis]) -> list[Document]:
         """Create LangChain documents from file analyses.
 
         Args:
@@ -559,40 +848,54 @@ Answer:"""
         Returns:
             List of LangChain documents for vector store
         """
-        documents: List[Document] = []
+        documents: list[Document] = []
 
         for analysis in analyses:
             # Add file content
-            documents.append(Document(
-                page_content=analysis.content,
-                metadata={"source": analysis.file_path}
-            ))
+            documents.append(
+                Document(
+                    page_content=analysis.content,
+                    metadata={"source": analysis.file_path},
+                )
+            )
 
             # Add entity information
             for entity in analysis.entities:
-                doc = f"Type: {entity.type}\nName: {entity.name}\n"
-                if entity.docstring:
-                    doc += f"Description: {entity.docstring}\n"
-                if entity.type == 'class':
-                    if entity.methods is not None:
-                        doc += f"Methods: {', '.join(entity.methods)}\n"
-                    else:
-                        doc += "Methods: None\n"
-                    if entity.parent_class:
-                        doc += f"Inherits from: {entity.parent_class}\n"
-                documents.append(Document(
-                    page_content=doc,
-                    metadata={"source": analysis.file_path}
-                ))
+                doc = self._format_entity_document(entity)
+                documents.append(
+                    Document(page_content=doc, metadata={"source": analysis.file_path})
+                )
 
         return documents
 
+    def _format_entity_document(self, entity) -> str:
+        """Format a code entity as a document string.
+
+        Args:
+            entity: CodeEntity to format
+
+        Returns:
+            Formatted document string
+        """
+        lines = [f"Type: {entity.type}", f"Name: {entity.name}"]
+
+        if entity.docstring:
+            lines.append(f"Description: {entity.docstring}")
+
+        if entity.type == "class":
+            methods = ", ".join(entity.methods) if entity.methods else "None"
+            lines.append(f"Methods: {methods}")
+            if entity.parent_class:
+                lines.append(f"Inherits from: {entity.parent_class}")
+
+        return "\n".join(lines) + "\n"
+
     def _generate_html_documentation(
         self,
-        documentation: Dict[str, Any],
-        diagrams: Dict[str, str],
+        documentation: dict[str, Any],
+        diagrams: dict[str, str],
         output_dir: str,
-        generation_errors: Optional[Dict[str, List[tuple[str, str]]]] = None
+        generation_errors: dict[str, list[tuple[str, str]]] | None = None,
     ) -> None:
         """Generate HTML documentation with embedded diagrams.
 
@@ -607,75 +910,92 @@ Answer:"""
         """
         try:
             # Prepare error summary for display
-            errors = generation_errors or {'diagrams': [], 'sections': []}
-            has_errors = bool(errors.get('diagrams') or errors.get('sections'))
+            errors = generation_errors or {"diagrams": [], "sections": []}
+            has_errors = bool(errors.get("diagrams") or errors.get("sections"))
 
             # Generate index page
             index_context = {
-                'title': documentation['title'],
-                'documentation': documentation,
-                'base_url': './',  # Current directory for index page
-                'navigation': self._generate_navigation('index', documentation['sections'], './'),
-                'generation_errors': errors if has_errors else None,
+                "title": documentation["title"],
+                "documentation": documentation,
+                "base_url": "./",  # Current directory for index page
+                "navigation": self._generate_navigation(
+                    "index", documentation["sections"], "./"
+                ),
+                "generation_errors": errors if has_errors else None,
             }
-            self.template_manager.render_template('index', index_context, output_dir, 'index.html')
+            self.template_manager.render_template(
+                "index", index_context, output_dir, "index.html"
+            )
 
             # Generate section pages
-            sections_list = documentation['sections']
+            sections_list = documentation["sections"]
             for i, section in enumerate(sections_list):
                 filename = f"sections/{section['title'].lower().replace(' ', '_')}.html"
 
                 # Determine prev/next sections for navigation
-                prev_section = sections_list[i - 1]['title'] if i > 0 else None
-                next_section = sections_list[i + 1]['title'] if i < len(sections_list) - 1 else None
+                prev_section = sections_list[i - 1]["title"] if i > 0 else None
+                next_section = (
+                    sections_list[i + 1]["title"]
+                    if i < len(sections_list) - 1
+                    else None
+                )
 
                 section_context = {
-                    'title': section['title'],
-                    'section': section,
-                    'base_url': '../',  # Parent directory for section pages
-                    'navigation': self._generate_navigation(section['title'], sections_list, '../'),
-                    'prev_section': prev_section,
-                    'next_section': next_section,
+                    "title": section["title"],
+                    "section": section,
+                    "base_url": "../",  # Parent directory for section pages
+                    "navigation": self._generate_navigation(
+                        section["title"], sections_list, "../"
+                    ),
+                    "prev_section": prev_section,
+                    "next_section": next_section,
                 }
-                self.template_manager.render_template('section', section_context, output_dir, filename)
+                self.template_manager.render_template(
+                    "section", section_context, output_dir, filename
+                )
 
             # Generate diagram pages
             diagram_files = {
-                'architecture': diagrams.get('architecture', ''),
-                'dependencies': diagrams.get('package_dependencies', ''),
-                'classes': diagrams.get('class_diagram', ''),
-                'sequence': diagrams.get('sequence', ''),
-                'call_graph': diagrams.get('function_calls', '')
+                "architecture": diagrams.get("architecture", ""),
+                "dependencies": diagrams.get("package_dependencies", ""),
+                "classes": diagrams.get("class_diagram", ""),
+                "sequence": diagrams.get("sequence", ""),
+                "call_graph": diagrams.get("function_calls", ""),
             }
 
             for name, diagram in diagram_files.items():
                 if diagram:
                     filename = f"diagrams/{name}.html"
                     diagram_context = {
-                        'title': f"{name.replace('_', ' ').title()} Diagram",
-                        'diagram_code': diagram,
-                        'base_url': '../',  # Parent directory for diagram pages
-                        'navigation': self._generate_navigation('diagrams', documentation['sections'], '../')
+                        "title": f"{name.replace('_', ' ').title()} Diagram",
+                        "diagram_code": diagram,
+                        "base_url": "../",  # Parent directory for diagram pages
+                        "navigation": self._generate_navigation(
+                            "diagrams", documentation["sections"], "../"
+                        ),
                     }
-                    self.template_manager.render_template('diagrams', diagram_context, output_dir, filename)
+                    self.template_manager.render_template(
+                        "diagrams", diagram_context, output_dir, filename
+                    )
 
             # Generate search page
             search_context = {
-                'title': 'Search Documentation',
-                'base_url': './',  # Current directory for search page
-                'navigation': self._generate_navigation('search', documentation['sections'], './')
+                "title": "Search Documentation",
+                "base_url": "./",  # Current directory for search page
+                "navigation": self._generate_navigation(
+                    "search", documentation["sections"], "./"
+                ),
             }
-            self.template_manager.render_template('search', search_context, output_dir, 'search.html')
+            self.template_manager.render_template(
+                "search", search_context, output_dir, "search.html"
+            )
 
         except Exception as e:
             logger.error(f"Error generating HTML documentation: {str(e)}")
             raise DocumentationError(f"Failed to generate HTML documentation: {str(e)}")
 
     def _generate_navigation(
-        self,
-        active_page: str,
-        sections: List[Dict[str, str]],
-        base_url: str
+        self, active_page: str, sections: list[dict[str, str]], base_url: str
     ) -> str:
         """Generate navigation HTML for the current page.
 
@@ -687,8 +1007,8 @@ Answer:"""
         Returns:
             Navigation HTML content
         """
-        return self.template_manager.templates['navigation'].render(
+        return self.template_manager.templates["navigation"].render(
             active=active_page,
-            sections=[s['title'] for s in sections],
-            base_url=base_url
+            sections=[s["title"] for s in sections],
+            base_url=base_url,
         )

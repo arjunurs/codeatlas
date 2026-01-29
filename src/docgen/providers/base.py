@@ -5,15 +5,42 @@ enabling provider-agnostic code in the documentation generator.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Protocol, Union, runtime_checkable
+from typing import Protocol, Union, runtime_checkable
 
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage
 
-
 # Type alias for LLM responses - can be a message or string
 LLMResponse = Union[BaseMessage, str]
+
+# Common error patterns for API error classification
+ERROR_PATTERNS: list[tuple[tuple[str, ...], str]] = [
+    (("rate", "limit"), "rate_limit"),
+    (("api_key", "authentication", "unauthorized", "401"), "auth"),
+    (("timeout", "timed out"), "timeout"),
+    (("connection",), "connection"),
+    (("quota", "billing"), "quota"),
+    (("context", "length"), "context_length"),
+]
+
+
+def classify_api_error(error: Exception) -> str | None:
+    """Classify an API error based on common patterns.
+
+    Args:
+        error: The exception to classify
+
+    Returns:
+        Error type string or None if no match
+    """
+    error_str = str(error).lower()
+    for keywords, error_type in ERROR_PATTERNS:
+        if all(kw in error_str for kw in keywords[:1]) and any(
+            kw in error_str for kw in keywords
+        ):
+            return error_type
+    return None
 
 
 @runtime_checkable
@@ -62,7 +89,7 @@ class EmbeddingProvider(Protocol):
         """Get the name of the embedding model being used."""
         ...
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
         """Embed a list of documents.
 
         Args:
@@ -73,7 +100,7 @@ class EmbeddingProvider(Protocol):
         """
         ...
 
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> list[float]:
         """Embed a single query.
 
         Args:
@@ -121,7 +148,7 @@ class BaseLLMProvider(ABC):
         self._api_key = api_key
         self._model = model
         self._temperature = temperature
-        self._llm: Optional[BaseChatModel] = None
+        self._llm: BaseChatModel | None = None
 
     @property
     def model_name(self) -> str:
@@ -188,7 +215,7 @@ class BaseEmbeddingProvider(ABC):
 
         self._api_key = api_key
         self._model = model
-        self._embeddings: Optional[Embeddings] = None
+        self._embeddings: Embeddings | None = None
 
     @property
     def model_name(self) -> str:
@@ -215,7 +242,7 @@ class BaseEmbeddingProvider(ABC):
         return self._embeddings
 
     @abstractmethod
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
         """Embed a list of documents.
 
         Args:
@@ -227,7 +254,7 @@ class BaseEmbeddingProvider(ABC):
         pass
 
     @abstractmethod
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> list[float]:
         """Embed a single query.
 
         Args:

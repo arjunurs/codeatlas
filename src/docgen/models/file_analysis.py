@@ -4,11 +4,11 @@ This module defines the FileAnalysis class that represents the analysis results
 of a Python source file.
 """
 
-from dataclasses import dataclass, field
-from typing import List, Optional
 import os
+from dataclasses import dataclass, field
 
 from .code_entity import CodeEntity
+
 
 @dataclass
 class FileAnalysis:
@@ -26,11 +26,12 @@ class FileAnalysis:
         error: Optional error message if analysis failed
         _skip_validation: Whether to skip validation (for testing)
     """
+
     file_path: str
-    entities: List['CodeEntity']
-    imports: List[str]
+    entities: list["CodeEntity"]
+    imports: list[str]
     content: str
-    error: Optional[str] = None
+    error: str | None = None
     _skip_validation: bool = field(default=False, repr=False)
 
     def __post_init__(self):
@@ -61,67 +62,67 @@ class FileAnalysis:
             for entity in self.entities:
                 if not isinstance(entity, CodeEntity):
                     raise ValueError("All entities must be instances of CodeEntity")
-    
+
     @property
     def module_name(self) -> str:
         """Get the module name from the file path.
-        
+
         Returns:
             Module name derived from the file path
         """
         return os.path.splitext(os.path.basename(self.file_path))[0]
-    
+
     @property
-    def classes(self) -> List[CodeEntity]:
+    def classes(self) -> list[CodeEntity]:
         """Get all class entities in the file.
-        
+
         Returns:
             List of class entities
         """
-        return [e for e in self.entities if e.type == 'class']
-    
+        return [e for e in self.entities if e.type == "class"]
+
     @property
-    def functions(self) -> List[CodeEntity]:
+    def functions(self) -> list[CodeEntity]:
         """Get all function entities in the file.
-        
+
         Returns:
             List of function entities
         """
-        return [e for e in self.entities if e.type == 'function']
-    
+        return [e for e in self.entities if e.type == "function"]
+
     @property
     def is_empty(self) -> bool:
         """Check if the file has no content.
-        
+
         Returns:
             True if the file has no content, False otherwise
         """
         return not self.content.strip()
-    
+
     @property
     def has_error(self) -> bool:
         """Check if the file analysis has an error.
-        
+
         Returns:
             True if the file analysis has an error, False otherwise
         """
         return self.error is not None
-    
+
     @property
     def is_init_file(self) -> bool:
         """Check if the file is an __init__.py file.
-        
+
         Returns:
             True if the file is an __init__.py file, False otherwise
         """
         return os.path.basename(self.file_path) == "__init__.py"
-    
-    def get_entity_by_name(self, name: str) -> Optional[CodeEntity]:
+
+    def get_entity_by_name(self, name: str) -> CodeEntity | None:
         """Get an entity by its name.
-        
+
         Args:
             name: Name of the entity to find
-            
+
         Returns:
             The entity if found, None otherwise
         """
@@ -148,4 +149,4 @@ class FileAnalysis:
             f"imports={self.imports}, "
             f"content='{self.content[:50]}...', "
             f"error={self.error})"
-        ) 
+        )

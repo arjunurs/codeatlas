@@ -4,9 +4,7 @@ This module defines the PromptTemplate dataclass and rendering utilities
 for consistent prompt formatting across all documentation sections.
 """
 
-from dataclasses import dataclass, field
-from typing import List, Optional
-
+from dataclasses import dataclass
 
 # Standard formatting instructions shared across all prompts
 STANDARD_FORMAT_INSTRUCTIONS = """Format your response using proper Markdown with these specific requirements:
@@ -36,10 +34,10 @@ class PromptTemplate:
 
     title: str
     task: str
-    sections: List[str]
-    format_instructions: Optional[str] = None
-    reference_instructions: Optional[str] = None
-    additional_context: Optional[str] = None
+    sections: list[str]
+    format_instructions: str | None = None
+    reference_instructions: str | None = None
+    additional_context: str | None = None
 
     def render(self) -> str:
         """Render the complete prompt string.

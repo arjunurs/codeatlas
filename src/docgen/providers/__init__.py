@@ -5,9 +5,9 @@ for various LLM and embedding providers, allowing for extensibility
 and easier testing.
 """
 
-from .base import LLMProvider, EmbeddingProvider, LLMResponse
 from .anthropic import AnthropicProvider
-from .openai import OpenAIProvider, OpenAIEmbeddingProvider
+from .base import EmbeddingProvider, LLMProvider, LLMResponse
+from .openai import OpenAIEmbeddingProvider, OpenAIProvider
 from .registry import ProviderRegistry, get_default_registry
 
 __all__ = [

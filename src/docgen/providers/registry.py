@@ -4,12 +4,11 @@ This module provides a registry pattern for managing LLM and embedding
 providers, allowing for dynamic provider selection and easy extension.
 """
 
-from typing import Callable, Dict, Optional, Type, Union
+from collections.abc import Callable
 
-from .base import LLMProvider, EmbeddingProvider, BaseLLMProvider, BaseEmbeddingProvider
 from .anthropic import AnthropicProvider
-from .openai import OpenAIProvider, OpenAIEmbeddingProvider
-
+from .base import BaseEmbeddingProvider, BaseLLMProvider, EmbeddingProvider, LLMProvider
+from .openai import OpenAIEmbeddingProvider, OpenAIProvider
 
 # Type aliases for provider factories
 LLMProviderFactory = Callable[..., LLMProvider]
@@ -25,8 +24,8 @@ class ProviderRegistry:
 
     def __init__(self) -> None:
         """Initialize the provider registry with default providers."""
-        self._llm_providers: Dict[str, Type[BaseLLMProvider]] = {}
-        self._embedding_providers: Dict[str, Type[BaseEmbeddingProvider]] = {}
+        self._llm_providers: dict[str, type[BaseLLMProvider]] = {}
+        self._embedding_providers: dict[str, type[BaseEmbeddingProvider]] = {}
 
         # Register default providers
         self._register_default_providers()
@@ -45,7 +44,7 @@ class ProviderRegistry:
     def register_llm_provider(
         self,
         name: str,
-        provider_class: Type[BaseLLMProvider],
+        provider_class: type[BaseLLMProvider],
     ) -> None:
         """Register an LLM provider.
 
@@ -58,7 +57,7 @@ class ProviderRegistry:
     def register_embedding_provider(
         self,
         name: str,
-        provider_class: Type[BaseEmbeddingProvider],
+        provider_class: type[BaseEmbeddingProvider],
     ) -> None:
         """Register an embedding provider.
 
@@ -72,7 +71,7 @@ class ProviderRegistry:
         self,
         name: str,
         api_key: str,
-        model: Optional[str] = None,
+        model: str | None = None,
         temperature: float = 0.2,
         **kwargs,
     ) -> LLMProvider:
@@ -110,7 +109,7 @@ class ProviderRegistry:
         self,
         name: str,
         api_key: str,
-        model: Optional[str] = None,
+        model: str | None = None,
         **kwargs,
     ) -> EmbeddingProvider:
         """Create an embedding provider instance by name.
@@ -159,7 +158,7 @@ class ProviderRegistry:
 
 
 # Global default registry instance
-_default_registry: Optional[ProviderRegistry] = None
+_default_registry: ProviderRegistry | None = None
 
 
 def get_default_registry() -> ProviderRegistry:

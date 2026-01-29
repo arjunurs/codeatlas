@@ -1,0 +1,26 @@
+repos:
+  # Ruff linting and formatting (official hooks)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4  # Update to latest: https://github.com/astral-sh/ruff-pre-commit/releases
+    hooks:
+      # Run the linter
+      - id: ruff
+        args: [--fix]
+      # Run the formatter
+      - id: ruff-format
+
+  # Ty type checking (manual local hook until official hook available)
+  # See: https://docs.astral.sh/ty/ and https://github.com/astral-sh/ruff-pre-commit/issues/269
+  # NOTE: Non-blocking (verbose: true) - shows warnings but doesn't fail commit
+  #       Ty is in early development (v0.0.14) and has false positives
+  - repo: local
+    hooks:
+      - id: ty-check
+        name: ty type check (non-blocking)
+        entry: bash -c 'uv run ty check || true'
+        language: system
+        types: [python]
+        pass_filenames: false
+        verbose: true
+        # Only run on Python files in src/
+        files: ^src/
