@@ -155,19 +155,33 @@ Use concrete examples from the actual code. Focus on maintainability, testabilit
     ),
     "Cross-Reference Documentation": PromptTemplate(
         title="Cross-Reference Documentation",
-        task="Map where key components are defined and used throughout the codebase.",
+        task=(
+            "Document where key components are defined and used throughout the codebase. "
+            "You will receive pre-analyzed cross-reference data showing exact import relationships."
+        ),
         sections=[
             "Core Classes - Usage Map",
             "Key Functions - Call Sites",
             "Important Modules - Import Graph",
             "Public APIs - Consumer Analysis",
         ],
-        additional_context="""For the 10-15 most important components (high-impact classes, widely-used functions):
-- WHERE DEFINED: File path and line numbers (e.g., `src/core/generator.py:156`)
-- WHERE USED: List of consumer files with brief context (e.g., "imported in 5 test files")
-- PURPOSE: One-sentence explanation of why this component is important
+        additional_context="""The pre-analyzed data provides:
+- Exact file paths where components are defined (with line numbers)
+- Complete list of files that import each component
+- Import counts for quantifying usage
 
-Format as tables or structured lists for easy scanning. Prioritize public APIs and core abstractions over internal helpers.""",
+Your task:
+1. Use the pre-analyzed data as the factual foundation
+2. Add PURPOSE explanations: Why is each component important? What role does it play?
+3. Add CONTEXT from the codebase: How do consumers typically use this component?
+4. Identify PATTERNS: Are there common usage patterns? Architectural insights?
+5. Highlight KEY INTEGRATIONS: Which components work together frequently?
+
+Format with clear structure:
+- Use tables for components with many importers
+- Use code snippets to show typical usage patterns
+- Group related components together
+- Prioritize high-impact, frequently-used components""",
     ),
 }
 

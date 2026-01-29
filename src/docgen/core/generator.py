@@ -855,6 +855,26 @@ Answer:"""
         """
         try:
             prompt = get_section_prompt(section_name)
+
+            # Special handling for Cross-Reference Documentation
+            if "cross" in section_name.lower() and "reference" in section_name.lower():
+                if self._current_analyses:
+                    # Import here to avoid circular dependency
+                    from .cross_reference import CrossReferenceAnalyzer
+
+                    # Generate structured cross-reference data
+                    analyzer = CrossReferenceAnalyzer(self._current_analyses)
+                    reference_report = analyzer.generate_reference_report(limit=15)
+
+                    # Enhance prompt with structured data
+                    prompt = (
+                        f"{prompt}\n\n"
+                        f"## Pre-analyzed Cross-Reference Data\n\n"
+                        f"Use this structured analysis as the foundation for your response. "
+                        f"Expand on it with additional insights from the codebase context:\n\n"
+                        f"{reference_report}"
+                    )
+
             return rag_chain.invoke(prompt)
         except Exception as e:
             raise LLMError(
