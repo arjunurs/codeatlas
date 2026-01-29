@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class ChangeDetectionStrategy(Enum):
     """Strategy for detecting file changes."""
+
     GIT = "git"  # Use git diff (fastest)
     FILESYSTEM = "filesystem"  # Use mtime + content hash
     HASH_ONLY = "hash_only"  # Always check content hash
@@ -33,6 +34,7 @@ class ChangeDetectionResult:
         unchanged_files: Set of relative paths that are unchanged
         strategy_used: Detection strategy that was used
     """
+
     changed_files: set[str]
     new_files: set[str]
     deleted_files: set[str]
@@ -90,8 +92,7 @@ class FileChangeDetector:
             return ChangeDetectionResult(
                 changed_files=set(),
                 new_files={
-                    f.relative_to(self.source_dir).as_posix()
-                    for f in current_files
+                    f.relative_to(self.source_dir).as_posix() for f in current_files
                 },
                 deleted_files=set(),
                 unchanged_files=set(),
@@ -107,8 +108,7 @@ class FileChangeDetector:
             return self._detect_via_git(current_files)
         else:
             return self._detect_via_filesystem(
-                current_files,
-                hash_only=(strategy == ChangeDetectionStrategy.HASH_ONLY)
+                current_files, hash_only=(strategy == ChangeDetectionStrategy.HASH_ONLY)
             )
 
     def _choose_strategy(self) -> ChangeDetectionStrategy:
@@ -194,18 +194,19 @@ class FileChangeDetector:
                     git_changed = {
                         line.strip()
                         for line in result.stdout.splitlines()
-                        if line.strip().endswith('.py')
+                        if line.strip().endswith(".py")
                     }
 
                     current_relative = {
-                        f.relative_to(self.source_dir).as_posix()
-                        for f in current_files
+                        f.relative_to(self.source_dir).as_posix() for f in current_files
                     }
 
                     changed_files = git_changed & current_relative
                     logger.info(f"Git detected {len(changed_files)} changed files")
                 else:
-                    logger.warning("Git diff failed, falling back to filesystem detection")
+                    logger.warning(
+                        "Git diff failed, falling back to filesystem detection"
+                    )
                     return self._detect_via_filesystem(current_files)
 
             except subprocess.TimeoutExpired:
@@ -217,7 +218,9 @@ class FileChangeDetector:
             return self._detect_via_filesystem(current_files)
 
         # Categorize files
-        return self._categorize_files(current_files, changed_files, ChangeDetectionStrategy.GIT)
+        return self._categorize_files(
+            current_files, changed_files, ChangeDetectionStrategy.GIT
+        )
 
     def _detect_via_filesystem(
         self,
@@ -256,7 +259,11 @@ class FileChangeDetector:
                 if cached_meta.has_changed(file_path):
                     changed_files.add(relative_path)
 
-        strategy = ChangeDetectionStrategy.HASH_ONLY if hash_only else ChangeDetectionStrategy.FILESYSTEM
+        strategy = (
+            ChangeDetectionStrategy.HASH_ONLY
+            if hash_only
+            else ChangeDetectionStrategy.FILESYSTEM
+        )
         return self._categorize_files(current_files, changed_files, strategy)
 
     def _categorize_files(
@@ -277,8 +284,7 @@ class FileChangeDetector:
         """
         # Get all current relative paths
         current_relative = {
-            f.relative_to(self.source_dir).as_posix()
-            for f in current_files
+            f.relative_to(self.source_dir).as_posix() for f in current_files
         }
 
         # Get all cached relative paths

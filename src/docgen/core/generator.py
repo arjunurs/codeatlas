@@ -102,6 +102,11 @@ class CodeDocumentationGenerator:
         parallel_sections: bool | None = None,
         enable_cost_tracking: bool = True,
         diagrams_only: bool = False,
+        retriever_k: int | None = None,
+        retriever_search_type: str | None = None,
+        retriever_score_threshold: float | None = None,
+        retriever_fetch_k: int | None = None,
+        retriever_lambda_mult: float | None = None,
     ) -> None:
         """Initialize the documentation generator.
 
@@ -137,8 +142,30 @@ class CodeDocumentationGenerator:
             ValueError: If configuration is invalid
             ApiKeyError: If API keys are invalid or missing (unless diagrams_only=True)
         """
-        # Use provided config or default
-        self.config = config or DEFAULT_CONFIG
+        # Use provided config or default, then apply retriever overrides
+        base_config = config or DEFAULT_CONFIG
+
+        # Apply RAG retriever overrides if any are provided
+        retriever_overrides = {
+            "RETRIEVER_K": retriever_k,
+            "RETRIEVER_SEARCH_TYPE": retriever_search_type,
+            "RETRIEVER_SCORE_THRESHOLD": retriever_score_threshold,
+            "RETRIEVER_FETCH_K": retriever_fetch_k,
+            "RETRIEVER_LAMBDA_MULT": retriever_lambda_mult,
+        }
+        has_overrides = any(v is not None for v in retriever_overrides.values())
+
+        if has_overrides:
+            # Copy base config and apply only the provided overrides
+            from dataclasses import asdict
+
+            config_dict = asdict(base_config)
+            for key, value in retriever_overrides.items():
+                if value is not None:
+                    config_dict[key] = value
+            self.config = GeneratorConfig(**config_dict)
+        else:
+            self.config = base_config
 
         # Override config values if provided
         final_temperature = (
@@ -477,13 +504,59 @@ class CodeDocumentationGenerator:
                 logger.info("Cache disabled: creating ephemeral vector store")
                 self._vector_store = Chroma.from_documents(texts, self.embeddings)
 
-            retriever = self._vector_store.as_retriever()
+            # Create retriever with configurable search parameters
+            if self.config.RETRIEVER_SEARCH_TYPE == "mmr":
+                retriever = self._vector_store.as_retriever(
+                    search_type="mmr",
+                    search_kwargs={
+                        "k": self.config.RETRIEVER_K,
+                        "fetch_k": self.config.RETRIEVER_FETCH_K,
+                        "lambda_mult": self.config.RETRIEVER_LAMBDA_MULT,
+                    },
+                )
+                logger.info(
+                    f"Using MMR retriever: k={self.config.RETRIEVER_K}, "
+                    f"fetch_k={self.config.RETRIEVER_FETCH_K}, "
+                    f"lambda_mult={self.config.RETRIEVER_LAMBDA_MULT}"
+                )
+            elif self.config.RETRIEVER_SCORE_THRESHOLD:
+                retriever = self._vector_store.as_retriever(
+                    search_type="similarity_score_threshold",
+                    search_kwargs={
+                        "score_threshold": self.config.RETRIEVER_SCORE_THRESHOLD,
+                        "k": self.config.RETRIEVER_K,
+                    },
+                )
+                logger.info(
+                    f"Using similarity threshold retriever: k={self.config.RETRIEVER_K}, "
+                    f"threshold={self.config.RETRIEVER_SCORE_THRESHOLD}"
+                )
+            else:
+                retriever = self._vector_store.as_retriever(
+                    search_type="similarity",
+                    search_kwargs={"k": self.config.RETRIEVER_K},
+                )
+                logger.info(f"Using similarity retriever: k={self.config.RETRIEVER_K}")
 
             # Create RAG prompt template
             rag_prompt = ChatPromptTemplate.from_template(
-                """You are a documentation expert analyzing a Python codebase.
-Use the following context from the codebase to answer the question.
-If you cannot find relevant information in the context, say so.
+                """You are a senior software architect and technical writer analyzing a Python codebase.
+
+Your task: Create clear, accurate, and actionable documentation from the provided code context.
+
+## Guidelines:
+1. **Be Specific**: Reference actual code with proper formatting (`ClassName`, `method_name()`, `module.function()`)
+2. **Be Accurate**: Only describe what you can verify from the context - avoid speculation
+3. **Explain WHY**: Don't just describe WHAT the code does - explain the reasoning, design decisions, and trade-offs
+4. **Use Examples**: Include concrete usage examples and patterns from the actual codebase
+5. **Admit Gaps**: If the context is insufficient to answer fully, clearly state what information is missing
+
+## Format Requirements:
+- Use Markdown with ## for main sections, ### for subsections
+- Wrap all code elements in `backticks` (classes, methods, variables, file paths)
+- Use ```python for code blocks with proper indentation
+- Add blank lines between sections and list items for readability
+- Use tables for structured comparisons when appropriate
 
 Context:
 {context}

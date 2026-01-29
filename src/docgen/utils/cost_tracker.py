@@ -13,18 +13,17 @@ logger = logging.getLogger(__name__)
 # Pricing per 1M tokens (as of January 2025)
 PRICING = {
     # Anthropic Claude models
-    'claude-opus-4': {'input': 15.00, 'output': 75.00},
-    'claude-sonnet-4': {'input': 3.00, 'output': 15.00},
-    'claude-sonnet-4-20250514': {'input': 3.00, 'output': 15.00},
-    'claude-haiku-4': {'input': 0.25, 'output': 1.25},
-    'claude-3-5-sonnet-20241022': {'input': 3.00, 'output': 15.00},
-    'claude-3-opus-20240229': {'input': 15.00, 'output': 75.00},
-    'claude-3-haiku-20240307': {'input': 0.25, 'output': 1.25},
-
+    "claude-opus-4": {"input": 15.00, "output": 75.00},
+    "claude-sonnet-4": {"input": 3.00, "output": 15.00},
+    "claude-sonnet-4-20250514": {"input": 3.00, "output": 15.00},
+    "claude-haiku-4": {"input": 0.25, "output": 1.25},
+    "claude-3-5-sonnet-20241022": {"input": 3.00, "output": 15.00},
+    "claude-3-opus-20240229": {"input": 15.00, "output": 75.00},
+    "claude-3-haiku-20240307": {"input": 0.25, "output": 1.25},
     # OpenAI embedding models
-    'text-embedding-3-small': {'input': 0.02, 'output': 0.0},
-    'text-embedding-3-large': {'input': 0.13, 'output': 0.0},
-    'text-embedding-ada-002': {'input': 0.10, 'output': 0.0},
+    "text-embedding-3-small": {"input": 0.02, "output": 0.0},
+    "text-embedding-3-large": {"input": 0.13, "output": 0.0},
+    "text-embedding-ada-002": {"input": 0.10, "output": 0.0},
 }
 
 
@@ -40,6 +39,7 @@ class UsageStats:
         cached_requests: Number of requests served from cache
         timestamp: When these stats were recorded
     """
+
     model: str
     input_tokens: int = 0
     output_tokens: int = 0
@@ -58,20 +58,20 @@ class UsageStats:
             return 0.0
 
         pricing = PRICING[self.model]
-        input_cost = (self.input_tokens / 1_000_000) * pricing['input']
-        output_cost = (self.output_tokens / 1_000_000) * pricing['output']
+        input_cost = (self.input_tokens / 1_000_000) * pricing["input"]
+        output_cost = (self.output_tokens / 1_000_000) * pricing["output"]
         return input_cost + output_cost
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
-            'model': self.model,
-            'input_tokens': self.input_tokens,
-            'output_tokens': self.output_tokens,
-            'requests': self.requests,
-            'cached_requests': self.cached_requests,
-            'estimated_cost': self.estimate_cost(),
-            'timestamp': self.timestamp.isoformat(),
+            "model": self.model,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "requests": self.requests,
+            "cached_requests": self.cached_requests,
+            "estimated_cost": self.estimate_cost(),
+            "timestamp": self.timestamp.isoformat(),
         }
 
 
@@ -180,15 +180,14 @@ class CostTracker:
             duration = (self.end_time - self.start_time).total_seconds()
 
         return {
-            'start_time': self.start_time.isoformat(),
-            'end_time': self.end_time.isoformat() if self.end_time else None,
-            'duration_seconds': duration,
-            'total_cost_usd': self.get_total_cost(),
-            'total_requests': self.get_total_requests(),
-            'cache_hit_rate_percent': self.get_cache_hit_rate(),
-            'usage_by_model': {
-                model: stats.to_dict()
-                for model, stats in self.usage_by_model.items()
+            "start_time": self.start_time.isoformat(),
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "duration_seconds": duration,
+            "total_cost_usd": self.get_total_cost(),
+            "total_requests": self.get_total_requests(),
+            "cache_hit_rate_percent": self.get_cache_hit_rate(),
+            "usage_by_model": {
+                model: stats.to_dict() for model, stats in self.usage_by_model.items()
             },
         }
 
@@ -196,11 +195,11 @@ class CostTracker:
         """Print a formatted summary to console."""
         summary = self.get_summary()
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("  API Usage & Cost Summary")
-        print("="*60)
+        print("=" * 60)
 
-        if summary['duration_seconds']:
+        if summary["duration_seconds"]:
             print(f"Duration: {summary['duration_seconds']:.1f}s")
 
         print(f"Total Requests: {summary['total_requests']}")
@@ -208,14 +207,16 @@ class CostTracker:
         print(f"Estimated Cost: ${summary['total_cost_usd']:.4f}")
 
         print("\nBreakdown by Model:")
-        print("-"*60)
-        for model, stats in summary['usage_by_model'].items():
+        print("-" * 60)
+        for model, stats in summary["usage_by_model"].items():
             print(f"  {model}:")
-            print(f"    Requests: {stats['requests']} (cached: {stats['cached_requests']})")
-            if stats['input_tokens'] > 0:
+            print(
+                f"    Requests: {stats['requests']} (cached: {stats['cached_requests']})"
+            )
+            if stats["input_tokens"] > 0:
                 print(f"    Input tokens: {stats['input_tokens']:,}")
-            if stats['output_tokens'] > 0:
+            if stats["output_tokens"] > 0:
                 print(f"    Output tokens: {stats['output_tokens']:,}")
             print(f"    Cost: ${stats['estimated_cost']:.4f}")
 
-        print("="*60 + "\n")
+        print("=" * 60 + "\n")

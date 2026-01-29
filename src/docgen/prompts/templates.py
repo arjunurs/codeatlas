@@ -30,6 +30,7 @@ class PromptTemplate:
         format_instructions: Custom formatting instructions (uses standard if None)
         reference_instructions: Code reference instructions (uses standard if None)
         additional_context: Any additional context to append
+        few_shot_examples: Optional list of example outputs to guide the LLM
     """
 
     title: str
@@ -38,6 +39,7 @@ class PromptTemplate:
     format_instructions: str | None = None
     reference_instructions: str | None = None
     additional_context: str | None = None
+    few_shot_examples: list[str] | None = None
 
     def render(self) -> str:
         """Render the complete prompt string.
@@ -46,6 +48,14 @@ class PromptTemplate:
             The formatted prompt string ready for LLM consumption
         """
         parts = [self.task]
+
+        # Add few-shot examples FIRST (before instructions)
+        if self.few_shot_examples:
+            parts.append("\n## Examples of Good Output\n")
+            for i, example in enumerate(self.few_shot_examples, 1):
+                parts.append(f"### Example {i}:")
+                parts.append(example)
+                parts.append("")  # Empty line after each example
 
         # Add formatting instructions
         format_inst = self.format_instructions or STANDARD_FORMAT_INSTRUCTIONS

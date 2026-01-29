@@ -32,13 +32,13 @@ def test_usage_stats_to_dict():
     )
 
     data = stats.to_dict()
-    assert data['model'] == "claude-haiku-4"
-    assert data['input_tokens'] == 1000
-    assert data['output_tokens'] == 500
-    assert data['requests'] == 5
-    assert data['cached_requests'] == 2
-    assert 'estimated_cost' in data
-    assert 'timestamp' in data
+    assert data["model"] == "claude-haiku-4"
+    assert data["input_tokens"] == 1000
+    assert data["output_tokens"] == 500
+    assert data["requests"] == 5
+    assert data["cached_requests"] == 2
+    assert "estimated_cost" in data
+    assert "timestamp" in data
 
 
 def test_cost_tracker_record_llm_usage():
@@ -156,17 +156,17 @@ def test_cost_tracker_get_summary():
 
     # Get summary
     summary = tracker.get_summary()
-    assert 'start_time' in summary
-    assert 'end_time' in summary
-    assert 'duration_seconds' in summary
-    assert 'total_cost_usd' in summary
-    assert 'total_requests' in summary
-    assert 'cache_hit_rate_percent' in summary
-    assert 'usage_by_model' in summary
+    assert "start_time" in summary
+    assert "end_time" in summary
+    assert "duration_seconds" in summary
+    assert "total_cost_usd" in summary
+    assert "total_requests" in summary
+    assert "cache_hit_rate_percent" in summary
+    assert "usage_by_model" in summary
 
     # Check models are included
-    assert "claude-sonnet-4-20250514" in summary['usage_by_model']
-    assert "text-embedding-3-small" in summary['usage_by_model']
+    assert "claude-sonnet-4-20250514" in summary["usage_by_model"]
+    assert "text-embedding-3-small" in summary["usage_by_model"]
 
 
 def test_cost_tracker_print_summary(capsys):

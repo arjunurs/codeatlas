@@ -1,6 +1,5 @@
 """Unit tests for section content caching."""
 
-
 import pytest
 
 from docgen.cache.content_cache import SectionCacheEntry, SectionContentCache
@@ -54,10 +53,10 @@ def test_section_cache_entry_serialization():
 
     # Serialize
     data = entry.to_dict()
-    assert data['section_name'] == "overview"
-    assert data['content_hash'] == "abc123"
-    assert data['content'] == "Test content"
-    assert set(data['dependency_files']) == {"file1.py", "file2.py"}
+    assert data["section_name"] == "overview"
+    assert data["content_hash"] == "abc123"
+    assert data["content"] == "Test content"
+    assert set(data["dependency_files"]) == {"file1.py", "file2.py"}
 
     # Deserialize
     restored = SectionCacheEntry.from_dict(data)
@@ -192,7 +191,7 @@ def test_section_cache_stats(tmp_path, sample_analyses):
 
     # Get stats
     stats = cache.get_stats()
-    assert stats['total_sections'] == 2
-    assert stats['total_size_bytes'] > 0
-    assert "overview" in stats['sections']
-    assert "dependencies" in stats['sections']
+    assert stats["total_sections"] == 2
+    assert stats["total_size_bytes"] > 0
+    assert "overview" in stats["sections"]
+    assert "dependencies" in stats["sections"]

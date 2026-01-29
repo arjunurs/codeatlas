@@ -27,6 +27,7 @@ class SectionCacheEntry:
         cached_at: When this entry was cached
         dependency_files: Set of file paths this section depends on
     """
+
     section_name: str
     content_hash: str
     content: str
@@ -36,20 +37,28 @@ class SectionCacheEntry:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'section_name': self.section_name,
-            'content_hash': self.content_hash,
-            'content': self.content,
-            'cached_at': self.cached_at.isoformat(),
-            'dependency_files': list(self.dependency_files),
+            "section_name": self.section_name,
+            "content_hash": self.content_hash,
+            "content": self.content,
+            "cached_at": self.cached_at.isoformat(),
+            "dependency_files": list(self.dependency_files),
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "SectionCacheEntry":
         """Create from dictionary (JSON deserialization)."""
         data = data.copy()
-        data['cached_at'] = datetime.fromisoformat(data['cached_at'])
-        data['dependency_files'] = set(data['dependency_files'])
+        data["cached_at"] = datetime.fromisoformat(data["cached_at"])
+        data["dependency_files"] = set(data["dependency_files"])
         return cls(**data)
+
+
+def _normalize_section_name(name: str) -> str:
+    """Normalize section name for dependency lookup.
+
+    Converts "Key Classes and Functions" -> "key_classes_functions"
+    """
+    return name.lower().replace(" ", "_").replace("_and_", "_")
 
 
 class SectionContentCache:
@@ -59,13 +68,17 @@ class SectionContentCache:
     When files change, only sections that depend on those files are regenerated.
     """
 
-    # Define which files each section type depends on
+    # Define which files each section type depends on (use normalized names)
     SECTION_DEPENDENCIES = {
-        'overview': 'all',  # Depends on all files
-        'dependencies': 'imports',  # Depends on imports
-        'classes': 'entities',  # Depends on class/function entities
-        'dataflow': 'entities',  # Depends on entities and calls
-        'integration': 'imports',  # Depends on external imports
+        "overview": "all",
+        "dependencies": "imports",
+        "key_classes_functions": "entities",
+        "data_flow": "entities",
+        "integration_points": "imports",
+        # Optional sections
+        "migration_guidance": "all",
+        "code_quality_insights": "all",
+        "cross_reference_documentation": "entities",
     }
 
     def __init__(self, cache_dir: Path):
@@ -97,7 +110,7 @@ class SectionContentCache:
     def save_cache(self) -> None:
         """Save cache to disk."""
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        with open(self.cache_file, 'w') as f:
+        with open(self.cache_file, "w") as f:
             data = {name: entry.to_dict() for name, entry in self.cache.items()}
             json.dump(data, f, indent=2)
         logger.info(f"Saved section cache with {len(self.cache)} entries")
@@ -116,7 +129,8 @@ class SectionContentCache:
         Returns:
             Tuple of (content hash, set of dependency file paths)
         """
-        dependency_type = self.SECTION_DEPENDENCIES.get(section_name, 'all')
+        normalized_name = _normalize_section_name(section_name)
+        dependency_type = self.SECTION_DEPENDENCIES.get(normalized_name, "all")
         hasher = hashlib.sha256()
         dependency_files = set()
 
@@ -126,12 +140,12 @@ class SectionContentCache:
             hasher.update(analysis.file_path.encode())
             dependency_files.add(analysis.file_path)
 
-            if dependency_type == 'all':
+            if dependency_type == "all":
                 hasher.update(analysis.content.encode())
-            elif dependency_type == 'imports':
+            elif dependency_type == "imports":
                 for imp in sorted(analysis.imports):
                     hasher.update(imp.encode())
-            elif dependency_type == 'entities':
+            elif dependency_type == "entities":
                 for entity in sorted(analysis.entities, key=lambda e: e.name):
                     hasher.update(entity.name.encode())
                     hasher.update(entity.type.encode())
@@ -230,7 +244,7 @@ class SectionContentCache:
         """
         total_size = sum(len(entry.content) for entry in self.cache.values())
         return {
-            'total_sections': len(self.cache),
-            'total_size_bytes': total_size,
-            'sections': list(self.cache.keys()),
+            "total_sections": len(self.cache),
+            "total_size_bytes": total_size,
+            "sections": list(self.cache.keys()),
         }

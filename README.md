@@ -54,18 +54,21 @@ echo "OPENAI_API_KEY=your-key-here" >> .env
 
 ```bash
 # Basic usage (API keys from environment)
-docgen --source ./my_project -o ./docs
+docgen --source ./my_project
+
+# Specify output directory
+docgen --source ./my_project -o ./my-docs
 
 # With .env file for API keys
 docgen --source ./my_project --api-key-env ./.env
 
 # With verbose logging
-docgen --source ./my_project -o ./docs -v
+docgen --source ./my_project -v
 ```
 
 ### 3. View the generated documentation
 
-Open `docs/index.html` in your browser.
+Open `output/index.html` in your browser (or your specified output directory).
 
 ## CLI Options
 
@@ -83,7 +86,7 @@ options:
   -h, --help            show this help message and exit
   --version, -V         show program's version number and exit
   --source SOURCE       Source directory containing Python files
-  -o, --output OUTPUT   Output directory (default: docs)
+  -o, --output OUTPUT   Output directory (default: output)
 
 API Keys:
   --api-key-env PATH    Path to .env file containing API keys

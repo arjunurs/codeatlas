@@ -13,7 +13,8 @@ class QualityMode(Enum):
 
     These presets balance cost and quality:
     - FAST: Lowest cost, fastest generation (Haiku for everything)
-    - BALANCED: Good balance of cost and quality (Haiku for sections, Sonnet for complex tasks)
+    - BALANCED: Good balance of cost and quality (Haiku for sections, Sonnet
+      for complex tasks)
     - BEST: Highest quality, highest cost (Sonnet for everything)
     """
 
@@ -42,7 +43,7 @@ class GeneratorConfig:
     DEFAULT_FILE_ENCODING: str = "utf-8"
 
     # Output settings
-    DEFAULT_OUTPUT_DIR: str = "docs"
+    DEFAULT_OUTPUT_DIR: str = "output"
 
     # Cache settings
     CACHE_ENABLED: bool = True
@@ -55,6 +56,13 @@ class GeneratorConfig:
     # Parallel processing settings
     PARALLEL_SECTIONS: bool = True
     MAX_PARALLEL_WORKERS: int = 5
+
+    # RAG retriever settings
+    RETRIEVER_K: int = 10
+    RETRIEVER_SEARCH_TYPE: str = "similarity"  # or "mmr"
+    RETRIEVER_SCORE_THRESHOLD: float | None = None
+    RETRIEVER_FETCH_K: int = 20  # For MMR
+    RETRIEVER_LAMBDA_MULT: float = 0.5  # For MMR diversity
 
     def __post_init__(self):
         """Validate configuration values."""
@@ -73,6 +81,19 @@ class GeneratorConfig:
         if self.MAX_PARALLEL_WORKERS <= 0:
             raise ValueError("Max parallel workers must be positive")
 
+        # Validate RAG retriever settings
+        if self.RETRIEVER_K <= 0:
+            raise ValueError("Retriever K must be positive")
+        if self.RETRIEVER_SEARCH_TYPE not in ("similarity", "mmr"):
+            raise ValueError("Retriever search type must be 'similarity' or 'mmr'")
+        if self.RETRIEVER_SCORE_THRESHOLD is not None:
+            if not 0 <= self.RETRIEVER_SCORE_THRESHOLD <= 1:
+                raise ValueError("Retriever score threshold must be between 0 and 1")
+        if self.RETRIEVER_FETCH_K <= 0:
+            raise ValueError("Retriever fetch K must be positive")
+        if not 0 <= self.RETRIEVER_LAMBDA_MULT <= 1:
+            raise ValueError("Retriever lambda mult must be between 0 and 1")
+
 
 # Default configuration instance
 DEFAULT_CONFIG = GeneratorConfig()
@@ -88,15 +109,15 @@ def get_model_for_quality_mode(quality_mode: QualityMode, task: str = "general")
     Returns:
         Model name
     """
-    HAIKU = "claude-haiku-4"
-    SONNET = "claude-sonnet-4-20250514"
+    haiku = "claude-haiku-4"
+    sonnet = "claude-sonnet-4-20250514"
 
     if quality_mode == QualityMode.FAST:
-        return HAIKU
+        return haiku
     if quality_mode == QualityMode.BEST:
-        return SONNET
+        return sonnet
     # BALANCED: use Sonnet for complex tasks, Haiku otherwise
-    return SONNET if task == "complex" else HAIKU
+    return sonnet if task == "complex" else haiku
 
 
 def create_config(
@@ -114,6 +135,11 @@ def create_config(
     quality_mode: QualityMode | None = None,
     parallel_sections: bool | None = None,
     max_parallel_workers: int | None = None,
+    retriever_k: int | None = None,
+    retriever_search_type: str | None = None,
+    retriever_score_threshold: float | None = None,
+    retriever_fetch_k: int | None = None,
+    retriever_lambda_mult: float | None = None,
 ) -> GeneratorConfig:
     """Create a custom configuration with overrides.
 
@@ -132,30 +158,41 @@ def create_config(
         quality_mode: Override for quality mode
         parallel_sections: Override for parallel sections flag
         max_parallel_workers: Override for max parallel workers
+        retriever_k: Override for retriever K
+        retriever_search_type: Override for retriever search type
+        retriever_score_threshold: Override for retriever score threshold
+        retriever_fetch_k: Override for retriever fetch K
+        retriever_lambda_mult: Override for retriever lambda mult
 
     Returns:
         GeneratorConfig instance with specified overrides
     """
-    return GeneratorConfig(
-        CHUNK_SIZE=chunk_size or DEFAULT_CONFIG.CHUNK_SIZE,
-        CHUNK_OVERLAP=chunk_overlap or DEFAULT_CONFIG.CHUNK_OVERLAP,
-        DEFAULT_TEMPERATURE=temperature or DEFAULT_CONFIG.DEFAULT_TEMPERATURE,
-        DEFAULT_ANTHROPIC_MODEL=anthropic_model
-        or DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL,
-        DEFAULT_OPENAI_EMBEDDING_MODEL=openai_embedding_model
-        or DEFAULT_CONFIG.DEFAULT_OPENAI_EMBEDDING_MODEL,
-        MAX_DIAGRAM_NODES=max_diagram_nodes or DEFAULT_CONFIG.MAX_DIAGRAM_NODES,
-        DEFAULT_FILE_ENCODING=file_encoding or DEFAULT_CONFIG.DEFAULT_FILE_ENCODING,
-        DEFAULT_OUTPUT_DIR=output_dir or DEFAULT_CONFIG.DEFAULT_OUTPUT_DIR,
-        CACHE_ENABLED=cache_enabled
-        if cache_enabled is not None
-        else DEFAULT_CONFIG.CACHE_ENABLED,
-        DEFAULT_CACHE_DIR=cache_dir or DEFAULT_CONFIG.DEFAULT_CACHE_DIR,
-        CACHE_TTL_DAYS=cache_ttl_days or DEFAULT_CONFIG.CACHE_TTL_DAYS,
-        DEFAULT_QUALITY_MODE=quality_mode or DEFAULT_CONFIG.DEFAULT_QUALITY_MODE,
-        PARALLEL_SECTIONS=parallel_sections
-        if parallel_sections is not None
-        else DEFAULT_CONFIG.PARALLEL_SECTIONS,
-        MAX_PARALLEL_WORKERS=max_parallel_workers
-        or DEFAULT_CONFIG.MAX_PARALLEL_WORKERS,
-    )
+    from dataclasses import replace
+
+    # Map parameter names to config field names
+    overrides = {
+        "CHUNK_SIZE": chunk_size,
+        "CHUNK_OVERLAP": chunk_overlap,
+        "DEFAULT_TEMPERATURE": temperature,
+        "DEFAULT_ANTHROPIC_MODEL": anthropic_model,
+        "DEFAULT_OPENAI_EMBEDDING_MODEL": openai_embedding_model,
+        "MAX_DIAGRAM_NODES": max_diagram_nodes,
+        "DEFAULT_FILE_ENCODING": file_encoding,
+        "DEFAULT_OUTPUT_DIR": output_dir,
+        "CACHE_ENABLED": cache_enabled,
+        "DEFAULT_CACHE_DIR": cache_dir,
+        "CACHE_TTL_DAYS": cache_ttl_days,
+        "DEFAULT_QUALITY_MODE": quality_mode,
+        "PARALLEL_SECTIONS": parallel_sections,
+        "MAX_PARALLEL_WORKERS": max_parallel_workers,
+        "RETRIEVER_K": retriever_k,
+        "RETRIEVER_SEARCH_TYPE": retriever_search_type,
+        "RETRIEVER_SCORE_THRESHOLD": retriever_score_threshold,
+        "RETRIEVER_FETCH_K": retriever_fetch_k,
+        "RETRIEVER_LAMBDA_MULT": retriever_lambda_mult,
+    }
+
+    # Filter out None values (keep only explicit overrides)
+    active_overrides = {k: v for k, v in overrides.items() if v is not None}
+
+    return replace(DEFAULT_CONFIG, **active_overrides)

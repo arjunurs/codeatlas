@@ -23,6 +23,7 @@ class FileMetadata:
         size: File size in bytes
         last_analyzed: Timestamp when file was last analyzed
     """
+
     path: str
     content_hash: str
     mtime: float
@@ -32,14 +33,14 @@ class FileMetadata:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         data = asdict(self)
-        data['last_analyzed'] = self.last_analyzed.isoformat()
+        data["last_analyzed"] = self.last_analyzed.isoformat()
         return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "FileMetadata":
         """Create from dictionary (JSON deserialization)."""
         data = data.copy()
-        data['last_analyzed'] = datetime.fromisoformat(data['last_analyzed'])
+        data["last_analyzed"] = datetime.fromisoformat(data["last_analyzed"])
         return cls(**data)
 
     @classmethod
@@ -75,9 +76,9 @@ class FileMetadata:
             Hex string of file hash
         """
         sha256 = hashlib.sha256()
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             # Read in chunks to handle large files
-            for chunk in iter(lambda: f.read(8192), b''):
+            for chunk in iter(lambda: f.read(8192), b""):
                 sha256.update(chunk)
         return sha256.hexdigest()
 
@@ -117,6 +118,7 @@ class CacheMetadata:
         git_commit: Optional git commit hash at last run
         cache_version: Cache format version for migrations
     """
+
     project_path: str
     project_hash: str
     created_at: datetime = field(default_factory=datetime.now)
@@ -128,27 +130,26 @@ class CacheMetadata:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'project_path': self.project_path,
-            'project_hash': self.project_hash,
-            'created_at': self.created_at.isoformat(),
-            'last_updated': self.last_updated.isoformat(),
-            'file_metadata': {
-                path: meta.to_dict()
-                for path, meta in self.file_metadata.items()
+            "project_path": self.project_path,
+            "project_hash": self.project_hash,
+            "created_at": self.created_at.isoformat(),
+            "last_updated": self.last_updated.isoformat(),
+            "file_metadata": {
+                path: meta.to_dict() for path, meta in self.file_metadata.items()
             },
-            'git_commit': self.git_commit,
-            'cache_version': self.cache_version,
+            "git_commit": self.git_commit,
+            "cache_version": self.cache_version,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> "CacheMetadata":
         """Create from dictionary (JSON deserialization)."""
         data = data.copy()
-        data['created_at'] = datetime.fromisoformat(data['created_at'])
-        data['last_updated'] = datetime.fromisoformat(data['last_updated'])
-        data['file_metadata'] = {
+        data["created_at"] = datetime.fromisoformat(data["created_at"])
+        data["last_updated"] = datetime.fromisoformat(data["last_updated"])
+        data["file_metadata"] = {
             path: FileMetadata.from_dict(meta)
-            for path, meta in data['file_metadata'].items()
+            for path, meta in data["file_metadata"].items()
         }
         return cls(**data)
 
@@ -179,7 +180,7 @@ class CacheMetadata:
         cache_dir.mkdir(parents=True, exist_ok=True)
         metadata_file = cache_dir / "file_metadata.json"
 
-        with open(metadata_file, 'w') as f:
+        with open(metadata_file, "w") as f:
             json.dump(self.to_dict(), f, indent=2)
 
     @classmethod

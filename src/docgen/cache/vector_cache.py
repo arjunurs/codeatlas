@@ -86,6 +86,7 @@ class VectorStoreCache:
                 logger.info("Force refresh: recreating vector store from scratch")
                 if self.vector_dir.exists():
                     import shutil
+
                     shutil.rmtree(self.vector_dir)
                 self.vector_dir.mkdir(parents=True, exist_ok=True)
                 return self._create_new_vector_store(analyses, documents, current_files)
@@ -98,9 +99,7 @@ class VectorStoreCache:
                 )
             else:
                 logger.info("No existing vector store, creating new one")
-                return self._create_new_vector_store(
-                    analyses, documents, current_files
-                )
+                return self._create_new_vector_store(analyses, documents, current_files)
 
         except Exception as e:
             logger.error(f"Cache error: {str(e)}")
@@ -192,7 +191,9 @@ class VectorStoreCache:
             return vector_store
 
         # Update vector store incrementally
-        self._update_vector_store(vector_store, analyses, documents, changes, current_files)
+        self._update_vector_store(
+            vector_store, analyses, documents, changes, current_files
+        )
 
         return vector_store
 
@@ -216,7 +217,7 @@ class VectorStoreCache:
         # Build map of file path -> documents
         doc_map = {}
         for doc in documents:
-            file_path = doc.metadata.get('file_path', '')
+            file_path = doc.metadata.get("file_path", "")
             if file_path not in doc_map:
                 doc_map[file_path] = []
             doc_map[file_path].append(doc)
@@ -226,9 +227,7 @@ class VectorStoreCache:
             logger.info(f"Removing deleted file from vector store: {deleted_file}")
             try:
                 # Delete documents with this file path
-                vector_store.delete(
-                    where={"file_path": deleted_file}
-                )
+                vector_store.delete(where={"file_path": deleted_file})
                 self.metadata.remove_file(deleted_file)
             except Exception as e:
                 logger.warning(f"Failed to remove {deleted_file}: {e}")
@@ -244,7 +243,9 @@ class VectorStoreCache:
                     docs_to_add.extend(doc_map[file_path])
 
             if docs_to_add:
-                logger.info(f"Updating vector store with {len(docs_to_add)} documents from {len(changed_and_new)} files")
+                logger.info(
+                    f"Updating vector store with {len(docs_to_add)} documents from {len(changed_and_new)} files"
+                )
 
                 # Remove old versions first
                 for file_path in changed_and_new:
@@ -298,5 +299,6 @@ class VectorStoreCache:
         """
         if not preserve_cache and self.vector_dir.exists():
             import shutil
+
             logger.info("Cleaning up vector store cache")
             shutil.rmtree(self.vector_dir)

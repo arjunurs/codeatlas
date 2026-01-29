@@ -47,10 +47,11 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# Documentation
-docs/
-docs/_build/
-docs/generated/
+# Generated Documentation (not source docs in docs/)
+# Note: docs/ is now for source documentation (markdown files)
+# Generated output goes to a user-specified directory
+output/
+generated-docs/
 
 # Vector Store
 chroma_db/

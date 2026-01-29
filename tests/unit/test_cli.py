@@ -19,7 +19,7 @@ class TestParseArgs:
         """Test parsing with only --source."""
         args = parse_args(["--source", "./my_project"])
         assert args.source == "./my_project"
-        assert args.output == "docs"  # default
+        assert args.output == "output"  # default
 
     def test_output_short_alias(self):
         """Test -o alias for --output."""
@@ -105,7 +105,7 @@ class TestParseArgs:
     def test_defaults(self):
         """Test default values."""
         args = parse_args(["--source", "./src"])
-        assert args.output == "docs"
+        assert args.output == "output"
         assert args.verbose is False
         assert args.quiet is False
         assert args.exclude == []

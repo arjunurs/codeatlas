@@ -83,7 +83,7 @@ def test_cache_created_on_first_run(
     cache_dir,
     tmp_path,
     mock_llm_provider,
-    mock_embedding_provider
+    mock_embedding_provider,
 ):
     """Test that cache is created on first run."""
     output_dir = tmp_path / "output"
@@ -114,7 +114,7 @@ def test_cache_reused_on_second_run(
     cache_dir,
     tmp_path,
     mock_llm_provider,
-    mock_embedding_provider
+    mock_embedding_provider,
 ):
     """Test that cache is reused when files haven't changed."""
     output_dir = tmp_path / "output"
@@ -157,7 +157,7 @@ def test_cache_updated_when_file_changes(
     cache_dir,
     tmp_path,
     mock_llm_provider,
-    mock_embedding_provider
+    mock_embedding_provider,
 ):
     """Test that cache is updated when files change."""
     output_dir = tmp_path / "output"
@@ -211,7 +211,7 @@ def test_cache_disabled(
     cache_dir,
     tmp_path,
     mock_llm_provider,
-    mock_embedding_provider
+    mock_embedding_provider,
 ):
     """Test that no cache is created when caching is disabled."""
     output_dir = tmp_path / "output"
@@ -237,7 +237,7 @@ def test_force_refresh_clears_cache(
     cache_dir,
     tmp_path,
     mock_llm_provider,
-    mock_embedding_provider
+    mock_embedding_provider,
 ):
     """Test that force refresh clears and rebuilds cache."""
     output_dir = tmp_path / "output"

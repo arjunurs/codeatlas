@@ -72,8 +72,8 @@ API Keys:
     parser.add_argument(
         "--output",
         "-o",
-        default="docs",
-        help="Output directory for documentation (default: docs)",
+        default="output",
+        help="Output directory for generated documentation (default: output)",
     )
 
     # API key arguments (only .env file path - no direct keys for security)
@@ -87,19 +87,28 @@ API Keys:
         type=float,
         default=DEFAULT_CONFIG.DEFAULT_TEMPERATURE,
         metavar="TEMP",
-        help=f"Temperature for LLM generation (0.0 to 1.0, default: {DEFAULT_CONFIG.DEFAULT_TEMPERATURE})",
+        help=(
+            f"Temperature for LLM generation "
+            f"(0.0-1.0, default: {DEFAULT_CONFIG.DEFAULT_TEMPERATURE})"
+        ),
     )
     parser.add_argument(
         "--anthropic-model",
         default=DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL,
         metavar="MODEL",
-        help=f"Anthropic model to use (default: {DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL})",
+        help=(
+            f"Anthropic model to use "
+            f"(default: {DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL})"
+        ),
     )
     parser.add_argument(
         "--openai-embedding-model",
         default=DEFAULT_CONFIG.DEFAULT_OPENAI_EMBEDDING_MODEL,
         metavar="MODEL",
-        help=f"OpenAI embedding model to use (default: {DEFAULT_CONFIG.DEFAULT_OPENAI_EMBEDDING_MODEL})",
+        help=(
+            f"OpenAI embedding model to use "
+            f"(default: {DEFAULT_CONFIG.DEFAULT_OPENAI_EMBEDDING_MODEL})"
+        ),
     )
 
     # Logging options
@@ -129,12 +138,19 @@ API Keys:
     parser.add_argument(
         "--sections",
         metavar="LIST",
-        help="Comma-separated sections to generate: overview,dependencies,classes,dataflow,integration",
+        help=(
+            "Comma-separated sections: overview,dependencies,classes,"
+            "dataflow,integration (optional: migration_guidance,"
+            "code_quality,cross_reference)"
+        ),
     )
     parser.add_argument(
         "--diagrams",
         metavar="LIST",
-        help="Comma-separated diagrams to generate: architecture,class,sequence,callgraph,dependency",
+        help=(
+            "Comma-separated diagrams to generate: architecture,class,"
+            "sequence,callgraph,dependency"
+        ),
     )
     parser.add_argument(
         "--template-dir", metavar="PATH", help="Custom HTML template directory"
@@ -176,7 +192,10 @@ API Keys:
         "--quality-mode",
         choices=["fast", "balanced", "best"],
         default="balanced",
-        help="Quality mode: fast (cheapest, Haiku), balanced (default), best (highest quality, Sonnet)",
+        help=(
+            "Quality mode: fast (cheapest, Haiku), balanced (default), "
+            "best (highest quality, Sonnet)"
+        ),
     )
     parser.add_argument(
         "--no-parallel", action="store_true", help="Disable parallel section generation"
@@ -185,6 +204,42 @@ API Keys:
         "--no-cost-tracking",
         action="store_true",
         help="Disable API cost tracking and summary",
+    )
+
+    # RAG retrieval options
+    rag_group = parser.add_argument_group("RAG Retrieval Options")
+    rag_group.add_argument(
+        "--retriever-k",
+        type=int,
+        default=10,
+        metavar="N",
+        help="Number of documents to retrieve per query (default: 10)",
+    )
+    rag_group.add_argument(
+        "--retriever-search-type",
+        choices=["similarity", "mmr"],
+        default="similarity",
+        help="Retrieval method: similarity (default) or mmr (diversity-focused)",
+    )
+    rag_group.add_argument(
+        "--retriever-score-threshold",
+        type=float,
+        metavar="FLOAT",
+        help="Minimum similarity score threshold (0.0-1.0, optional)",
+    )
+    rag_group.add_argument(
+        "--retriever-fetch-k",
+        type=int,
+        default=20,
+        metavar="N",
+        help="Number of documents to fetch before MMR reranking (default: 20)",
+    )
+    rag_group.add_argument(
+        "--retriever-lambda-mult",
+        type=float,
+        default=0.5,
+        metavar="FLOAT",
+        help="MMR diversity parameter: 0=max diversity, 1=max relevance (default: 0.5)",
     )
 
     return parser.parse_args(args)
@@ -311,14 +366,12 @@ def main() -> None:
         else:
             anthropic_key, openai_key = get_api_keys(args.api_key_env)
 
-        # Parse sections and diagrams if provided
-        sections = None
-        if args.sections:
-            sections = [s.strip() for s in args.sections.split(",")]
+        # Parse comma-separated sections and diagrams if provided
+        def parse_csv(value: str | None) -> list[str] | None:
+            return [s.strip() for s in value.split(",")] if value else None
 
-        diagrams = None
-        if args.diagrams:
-            diagrams = [d.strip() for d in args.diagrams.split(",")]
+        sections = parse_csv(args.sections)
+        diagrams = parse_csv(args.diagrams)
 
         # Initialize generator
         generator = CodeDocumentationGenerator(
@@ -341,6 +394,11 @@ def main() -> None:
             parallel_sections=parallel_sections,
             enable_cost_tracking=enable_cost_tracking,
             diagrams_only=args.diagrams_only,
+            retriever_k=args.retriever_k,
+            retriever_search_type=args.retriever_search_type,
+            retriever_score_threshold=args.retriever_score_threshold,
+            retriever_fetch_k=args.retriever_fetch_k,
+            retriever_lambda_mult=args.retriever_lambda_mult,
         )
 
         # Generate documentation
