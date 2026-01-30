@@ -23,7 +23,7 @@ A powerful tool for automatically generating comprehensive documentation for Pyt
 Using [uv](https://docs.astral.sh/uv/) (recommended):
 
 ```bash
-git clone https://github.com/yourusername/CodeDocumentationGenerator.git
+git clone https://github.com/arjunurs/CodeDocumentationGenerator.git
 cd CodeDocumentationGenerator
 uv sync
 ```
@@ -31,7 +31,7 @@ uv sync
 Or install with pip:
 
 ```bash
-pip install git+https://github.com/yourusername/CodeDocumentationGenerator.git
+pip install git+https://github.com/arjunurs/CodeDocumentationGenerator.git
 ```
 
 ## Requirements
@@ -232,7 +232,7 @@ The generated documentation includes:
 
 ```bash
 # Clone and setup
-git clone https://github.com/yourusername/CodeDocumentationGenerator.git
+git clone https://github.com/arjunurs/CodeDocumentationGenerator.git
 cd CodeDocumentationGenerator
 uv sync
 
