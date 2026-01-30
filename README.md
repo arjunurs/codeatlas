@@ -197,17 +197,24 @@ docgen --source ./src --retriever-score-threshold 0.75
 
 The generated documentation includes:
 
+### Diagrams
 - **System Architecture**: High-level view of system components and their relationships
 - **Package Dependencies**: Visualization of package dependencies and their versions
 - **Function Call Graph**: Interactive graph showing function calls and relationships
 - **Class Diagram**: UML-style class diagram showing inheritance and composition
-- **Main Workflows**: Sequence diagrams illustrating key system workflows
-- **Comprehensive Sections**:
-  - Overview
-  - Dependencies
-  - Key Classes and Functions
-  - Data Flow
-  - Integration Points
+- **Sequence Diagrams**: Illustrating key system workflows
+
+### Core Sections (always generated)
+- **Overview**: System purpose, components, and architecture
+- **Dependencies**: Core/optional dependencies, versions, and integrations
+- **Key Classes and Functions**: Public APIs with usage examples
+- **Data Flow**: Processing pipeline and data structures
+- **Integration Points**: External systems and authentication
+
+### Optional Sections (via `--sections` flag)
+- **Migration Guidance**: Deprecated patterns, security issues, modern alternatives
+- **Code Quality Insights**: Architectural patterns, trade-offs, improvement suggestions
+- **Cross-Reference Documentation**: Where components are defined and used throughout the codebase
 
 ## Documentation
 
