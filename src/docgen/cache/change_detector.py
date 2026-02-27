@@ -161,8 +161,7 @@ class FileChangeDetector:
                 logger.info(f"Git detected {len(changed_files)} changed files")
             else:
                 logger.warning(
-                    "Git diff returned no results, "
-                    "falling back to filesystem detection"
+                    "Git diff returned no results, falling back to filesystem detection"
                 )
                 return self._detect_via_filesystem(current_files)
         else:

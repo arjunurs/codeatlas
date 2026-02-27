@@ -193,30 +193,46 @@ class CostTracker:
 
     def print_summary(self) -> None:
         """Print a formatted summary to console."""
-        summary = self.get_summary()
+        print(format_cost_summary(self.get_summary()))
 
-        print("\n" + "=" * 60)
-        print("  API Usage & Cost Summary")
-        print("=" * 60)
 
-        if summary["duration_seconds"]:
-            print(f"Duration: {summary['duration_seconds']:.1f}s")
+def format_cost_summary(summary: dict) -> str:
+    """Format a cost summary dict as a human-readable string.
 
-        print(f"Total Requests: {summary['total_requests']}")
-        print(f"Cache Hit Rate: {summary['cache_hit_rate_percent']:.1f}%")
-        print(f"Estimated Cost: ${summary['total_cost_usd']:.4f}")
+    Args:
+        summary: Summary dict as returned by CostTracker.get_summary()
 
-        print("\nBreakdown by Model:")
-        print("-" * 60)
-        for model, stats in summary["usage_by_model"].items():
-            print(f"  {model}:")
-            print(
-                f"    Requests: {stats['requests']} (cached: {stats['cached_requests']})"
-            )
-            if stats["input_tokens"] > 0:
-                print(f"    Input tokens: {stats['input_tokens']:,}")
-            if stats["output_tokens"] > 0:
-                print(f"    Output tokens: {stats['output_tokens']:,}")
-            print(f"    Cost: ${stats['estimated_cost']:.4f}")
+    Returns:
+        Formatted summary string
+    """
+    lines = [
+        "",
+        "=" * 60,
+        "  API Usage & Cost Summary",
+        "=" * 60,
+    ]
 
-        print("=" * 60 + "\n")
+    if summary["duration_seconds"]:
+        lines.append(f"Duration: {summary['duration_seconds']:.1f}s")
+
+    lines.append(f"Total Requests: {summary['total_requests']}")
+    lines.append(f"Cache Hit Rate: {summary['cache_hit_rate_percent']:.1f}%")
+    lines.append(f"Estimated Cost: ${summary['total_cost_usd']:.4f}")
+
+    lines.append("\nBreakdown by Model:")
+    lines.append("-" * 60)
+    for model, stats in summary["usage_by_model"].items():
+        lines.append(f"  {model}:")
+        lines.append(
+            f"    Requests: {stats['requests']} (cached: {stats['cached_requests']})"
+        )
+        if stats["input_tokens"] > 0:
+            lines.append(f"    Input tokens: {stats['input_tokens']:,}")
+        if stats["output_tokens"] > 0:
+            lines.append(f"    Output tokens: {stats['output_tokens']:,}")
+        lines.append(f"    Cost: ${stats['estimated_cost']:.4f}")
+
+    lines.append("=" * 60)
+    lines.append("")
+
+    return "\n".join(lines)

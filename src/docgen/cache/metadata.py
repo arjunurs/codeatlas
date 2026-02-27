@@ -172,39 +172,13 @@ class CacheMetadata:
         )
 
     def save(self, cache_dir: Path) -> None:
-        """Save metadata to cache directory.
-
-        Args:
-            cache_dir: Cache directory for this project
-        """
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        metadata_file = cache_dir / "file_metadata.json"
-
-        with open(metadata_file, "w") as f:
-            json.dump(self.to_dict(), f, indent=2)
+        """Save metadata to cache directory (convenience, delegates to CacheMetadataStore)."""
+        CacheMetadataStore.save(self, cache_dir)
 
     @classmethod
     def load(cls, cache_dir: Path) -> Optional["CacheMetadata"]:
-        """Load metadata from cache directory.
-
-        Args:
-            cache_dir: Cache directory for this project
-
-        Returns:
-            CacheMetadata instance if exists, None otherwise
-        """
-        metadata_file = cache_dir / "file_metadata.json"
-
-        if not metadata_file.exists():
-            return None
-
-        try:
-            with open(metadata_file) as f:
-                data = json.load(f)
-            return cls.from_dict(data)
-        except (json.JSONDecodeError, KeyError, ValueError):
-            # Cache corruption - return None to trigger rebuild
-            return None
+        """Load metadata from cache directory (convenience, delegates to CacheMetadataStore)."""
+        return CacheMetadataStore.load(cache_dir)
 
     def update_file(self, file_path: Path, source_dir: Path) -> None:
         """Update metadata for a single file.
@@ -225,3 +199,49 @@ class CacheMetadata:
         """
         self.file_metadata.pop(relative_path, None)
         self.last_updated = datetime.now()
+
+
+class CacheMetadataStore:
+    """Handles persistence (save/load) for CacheMetadata.
+
+    Separates I/O concerns from the data class.
+    """
+
+    METADATA_FILENAME = "file_metadata.json"
+
+    @staticmethod
+    def save(metadata: CacheMetadata, cache_dir: Path) -> None:
+        """Save metadata to cache directory.
+
+        Args:
+            metadata: CacheMetadata to save
+            cache_dir: Cache directory for this project
+        """
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        metadata_file = cache_dir / CacheMetadataStore.METADATA_FILENAME
+
+        with open(metadata_file, "w") as f:
+            json.dump(metadata.to_dict(), f, indent=2)
+
+    @staticmethod
+    def load(cache_dir: Path) -> CacheMetadata | None:
+        """Load metadata from cache directory.
+
+        Args:
+            cache_dir: Cache directory for this project
+
+        Returns:
+            CacheMetadata instance if exists, None otherwise
+        """
+        metadata_file = cache_dir / CacheMetadataStore.METADATA_FILENAME
+
+        if not metadata_file.exists():
+            return None
+
+        try:
+            with open(metadata_file) as f:
+                data = json.load(f)
+            return CacheMetadata.from_dict(data)
+        except (json.JSONDecodeError, KeyError, ValueError):
+            # Cache corruption - return None to trigger rebuild
+            return None

@@ -4,8 +4,8 @@ This module defines the FileAnalysis class that represents the analysis results
 of a Python source file.
 """
 
-import os
 from dataclasses import dataclass, field
+from pathlib import PurePosixPath
 
 from .code_entity import CodeEntity, EntityType
 
@@ -70,7 +70,7 @@ class FileAnalysis:
         Returns:
             Module name derived from the file path
         """
-        return os.path.splitext(os.path.basename(self.file_path))[0]
+        return PurePosixPath(self.file_path).stem
 
     @property
     def classes(self) -> list[CodeEntity]:
@@ -115,7 +115,7 @@ class FileAnalysis:
         Returns:
             True if the file is an __init__.py file, False otherwise
         """
-        return os.path.basename(self.file_path) == "__init__.py"
+        return PurePosixPath(self.file_path).name == "__init__.py"
 
     def get_entity_by_name(self, name: str) -> CodeEntity | None:
         """Get an entity by its name.

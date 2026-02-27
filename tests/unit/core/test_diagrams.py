@@ -147,7 +147,7 @@ def test_generate_call_graph_diagram(diagram_generator):
 def test_generate_call_graph_diagram_with_limit(diagram_generator):
     """Test function call graph diagram with node limit."""
     # Create more than MAX_NODES functions
-    call_graph = {f"func{i}": {f"func{i+1}"} for i in range(100)}
+    call_graph = {f"func{i}": {f"func{i + 1}"} for i in range(100)}
 
     diagram = diagram_generator.generate_call_graph_diagram(call_graph)
 
