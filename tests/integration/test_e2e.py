@@ -49,7 +49,7 @@ class TestFullWorkflow:
             patch(
                 "docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings
             ),
-            patch("docgen.core.generator.Chroma") as mock_chroma,
+            patch("docgen.core.rag_pipeline.Chroma") as mock_chroma,
             patch.object(
                 CodeDocumentationGenerator,
                 "_create_vector_store_and_rag_chain",
@@ -106,7 +106,7 @@ class TestFullWorkflow:
             patch(
                 "docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings
             ),
-            patch("docgen.core.generator.Chroma") as mock_chroma,
+            patch("docgen.core.rag_pipeline.Chroma") as mock_chroma,
             patch.object(
                 CodeDocumentationGenerator,
                 "_create_vector_store_and_rag_chain",

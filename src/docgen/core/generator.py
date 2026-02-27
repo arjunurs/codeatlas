@@ -9,51 +9,61 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Sequence
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import markdown
-from langchain_chroma import Chroma
-from langchain_core.documents import Document
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import Runnable, RunnablePassthrough
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from ..cache.content_cache import SectionContentCache
-from ..cache.vector_cache import VectorStoreCache
 from ..config import (
     DEFAULT_CONFIG,
     CacheConfig,
     GenerationOptions,
     GeneratorConfig,
     QualityMode,
-    get_model_for_quality_mode,
 )
 from ..exceptions.errors import (
     ApiKeyError,
     DocumentationError,
     LLMError,
     TemplateError,
-    VectorStoreError,
 )
-from ..models.code_entity import EntityType
 from ..models.file_analysis import FileAnalysis
-from ..prompts.sections import (
-    SECTION_ORDER,
-    get_all_available_sections,
-    get_section_prompt,
-)
+from ..prompts.sections import SECTION_ORDER
 from ..providers.base import EmbeddingProvider, LLMProvider
 from ..providers.registry import get_default_registry
 from ..templates.html import get_template_manager
 from ..utils.cost_tracker import CostTracker
 from .analyzer import CodeAnalyzer
+from .cross_reference import CrossReferenceAnalyzer
 from .diagrams import DiagramGenerator
+from .rag_pipeline import RAGPipelineFactory
+from .renderer import DocumentationRenderer
+from .section_orchestrator import SectionOrchestrator
 
 logger = logging.getLogger(__name__)
+
+
+def _cross_reference_preprocessor(
+    prompt: str, analyses: list[FileAnalysis] | None
+) -> str:
+    """Enhance cross-reference section prompts with pre-analyzed data."""
+    if not analyses:
+        return prompt
+    if "reference" not in prompt.lower() and "cross" not in prompt.lower():
+        return prompt
+
+    analyzer = CrossReferenceAnalyzer(analyses)
+    reference_report = analyzer.generate_reference_report(limit=15)
+
+    return (
+        f"{prompt}\n\n"
+        f"## Pre-analyzed Cross-Reference Data\n\n"
+        f"Use this structured analysis as the foundation for your response. "
+        f"Expand on it with additional insights from the codebase context:\n\n"
+        f"{reference_report}"
+    )
 
 
 class CodeDocumentationGenerator:
@@ -80,7 +90,7 @@ class CodeDocumentationGenerator:
         temperature: Temperature for LLM generation
         analyzer: Code analyzer for parsing source files
         diagram_generator: Generator for Mermaid diagrams
-        _vector_store: The Chroma vector store (for cleanup)
+        _rag_pipeline: RAG pipeline factory (for cleanup)
     """
 
     def __init__(
@@ -190,7 +200,6 @@ class CodeDocumentationGenerator:
         # Initialize providers
         self._llm_provider: LLMProvider | None = None
         self._embedding_provider: EmbeddingProvider | None = None
-        self._vector_store: Chroma | None = None
 
         # In diagrams-only mode, API keys are not required
         if diagrams_only:
@@ -274,6 +283,10 @@ class CodeDocumentationGenerator:
         self.diagram_generator = DiagramGenerator()
         self.template_manager = get_template_manager(template_dir)
 
+        # Extracted collaborators
+        self._renderer = DocumentationRenderer(self.template_manager)
+        self._rag_pipeline: RAGPipelineFactory | None = None
+
         # Section content cache (initialized on first use)
         self._section_cache: SectionContentCache | None = None
         # Store analyses for section caching
@@ -348,28 +361,19 @@ class CodeDocumentationGenerator:
 
         Note: When caching is enabled, the vector store is preserved on disk.
         """
-        if self._vector_store is not None:
+        if self._rag_pipeline is not None:
+            self._rag_pipeline.cleanup(preserve_cache=self.cache_enabled)
+            self._rag_pipeline = None
+        # Backward compat: also clean up vector store if set directly via tests
+        direct_store = getattr(self, "_direct_vector_store", None)
+        if direct_store is not None:
             try:
                 if not self.cache_enabled:
-                    # Only delete collection if caching is disabled
-                    self._vector_store.delete_collection()
-                # Note: When caching is enabled, we preserve the vector store on disk
+                    direct_store.delete_collection()
             except Exception as e:
                 logger.warning(f"Error cleaning up vector store: {str(e)}")
             finally:
-                self._vector_store = None
-
-    def _convert_markdown_to_html(self, content: str) -> str:
-        """Convert markdown content to HTML.
-
-        Args:
-            content: Markdown-formatted text content
-
-        Returns:
-            HTML-formatted content
-        """
-        md = markdown.Markdown(extensions=["fenced_code", "tables", "toc"])
-        return md.convert(content)
+                self._direct_vector_store = None
 
     @property
     def llm_provider(self) -> LLMProvider | None:
@@ -401,7 +405,7 @@ class CodeDocumentationGenerator:
 
         try:
             # Setup output directories
-            self._setup_output_directories(abs_output_dir)
+            self._renderer.setup_output_directories(abs_output_dir)
 
             # Analyze codebase
             logger.info("Analyzing Python files...")
@@ -440,7 +444,7 @@ class CodeDocumentationGenerator:
                 documentation = {
                     "title": "Code Documentation (Diagrams Only)",
                     "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "sections": [],  # No sections in diagrams-only mode
+                    "sections": [],
                 }
                 section_errors = []
             # In dry-run mode, skip LLM calls
@@ -476,7 +480,7 @@ class CodeDocumentationGenerator:
                 "diagrams": diagram_errors,
                 "sections": section_errors,
             }
-            self._create_final_html_output(
+            self._renderer.render(
                 documentation, diagrams, abs_output_dir, generation_errors
             )
             logger.info(f"Documentation generated successfully in {abs_output_dir}")
@@ -496,150 +500,6 @@ class CodeDocumentationGenerator:
             logger.error(f"Error generating documentation: {str(e)}")
             raise DocumentationError(f"Failed to generate documentation: {str(e)}")
 
-    def _setup_output_directories(self, output_dir: str) -> None:
-        """Create the output directory structure.
-
-        Args:
-            output_dir: Base output directory path
-        """
-        for subdir in ["", "sections", "diagrams", "assets"]:
-            os.makedirs(os.path.join(output_dir, subdir), exist_ok=True)
-
-    def _create_vector_store_and_rag_chain(
-        self,
-        analyses: Sequence[FileAnalysis],
-        source_dir: Path | None = None,
-    ) -> Runnable:
-        """Create vector store and RAG chain from analyses using LCEL.
-
-        Args:
-            analyses: List of file analysis results
-            source_dir: Source directory path (for caching)
-
-        Returns:
-            LCEL RAG chain for documentation generation
-
-        Raises:
-            VectorStoreError: If vector store creation fails
-        """
-        try:
-            # Create documents for vector store
-            logger.info("Creating vector store...")
-            documents = self._create_documents(analyses)
-
-            if not documents:
-                logger.error("No documentation content could be generated")
-                raise DocumentationError("No documentation content could be generated")
-
-            # Split documents
-            texts = self.text_splitter.split_documents(documents)
-
-            # Create or load vector store (with caching if enabled)
-            if self.cache_enabled and self.cache_dir and source_dir:
-                logger.info("Cache enabled: using persistent vector store")
-
-                # Get list of current Python files for change detection
-                current_files = [
-                    Path(source_dir) / analysis.file_path for analysis in analyses
-                ]
-
-                # Use vector store cache
-                cache = VectorStoreCache(
-                    cache_dir=Path(self.cache_dir),
-                    source_dir=Path(source_dir),
-                    embeddings=self.embeddings,
-                    force_refresh=self.force_refresh,
-                )
-
-                self._vector_store = cache.get_or_create_vector_store(
-                    analyses=analyses,
-                    documents=texts,
-                    current_files=current_files,
-                )
-            else:
-                # No caching - create ephemeral vector store
-                logger.info("Cache disabled: creating ephemeral vector store")
-                self._vector_store = Chroma.from_documents(texts, self.embeddings)
-
-            # Create retriever with configurable search parameters
-            if self.config.RETRIEVER_SEARCH_TYPE == "mmr":
-                retriever = self._vector_store.as_retriever(
-                    search_type="mmr",
-                    search_kwargs={
-                        "k": self.config.RETRIEVER_K,
-                        "fetch_k": self.config.RETRIEVER_FETCH_K,
-                        "lambda_mult": self.config.RETRIEVER_LAMBDA_MULT,
-                    },
-                )
-                logger.info(
-                    f"Using MMR retriever: k={self.config.RETRIEVER_K}, "
-                    f"fetch_k={self.config.RETRIEVER_FETCH_K}, "
-                    f"lambda_mult={self.config.RETRIEVER_LAMBDA_MULT}"
-                )
-            elif self.config.RETRIEVER_SCORE_THRESHOLD:
-                retriever = self._vector_store.as_retriever(
-                    search_type="similarity_score_threshold",
-                    search_kwargs={
-                        "score_threshold": self.config.RETRIEVER_SCORE_THRESHOLD,
-                        "k": self.config.RETRIEVER_K,
-                    },
-                )
-                logger.info(
-                    f"Using similarity threshold retriever: k={self.config.RETRIEVER_K}, "
-                    f"threshold={self.config.RETRIEVER_SCORE_THRESHOLD}"
-                )
-            else:
-                retriever = self._vector_store.as_retriever(
-                    search_type="similarity",
-                    search_kwargs={"k": self.config.RETRIEVER_K},
-                )
-                logger.info(f"Using similarity retriever: k={self.config.RETRIEVER_K}")
-
-            # Create RAG prompt template
-            rag_prompt = ChatPromptTemplate.from_template(
-                """You are a senior software architect and technical writer analyzing a Python codebase.
-
-Your task: Create clear, accurate, and actionable documentation from the provided code context.
-
-## Guidelines:
-1. **Be Specific**: Reference actual code with proper formatting (`ClassName`, `method_name()`, `module.function()`)
-2. **Be Accurate**: Only describe what you can verify from the context - avoid speculation
-3. **Explain WHY**: Don't just describe WHAT the code does - explain the reasoning, design decisions, and trade-offs
-4. **Use Examples**: Include concrete usage examples and patterns from the actual codebase
-5. **Admit Gaps**: If the context is insufficient to answer fully, clearly state what information is missing
-
-## Format Requirements:
-- Use Markdown with ## for main sections, ### for subsections
-- Wrap all code elements in `backticks` (classes, methods, variables, file paths)
-- Use ```python for code blocks with proper indentation
-- Add blank lines between sections and list items for readability
-- Use tables for structured comparisons when appropriate
-
-Context:
-{context}
-
-Question: {question}
-
-Answer:"""
-            )
-
-            # Helper function to format retrieved documents
-            def format_docs(docs):
-                return "\n\n---\n\n".join(doc.page_content for doc in docs)
-
-            # Build LCEL RAG chain
-            rag_chain = (
-                {"context": retriever | format_docs, "question": RunnablePassthrough()}
-                | rag_prompt
-                | self.llm
-                | StrOutputParser()
-            )
-
-            return rag_chain
-        except Exception as e:
-            logger.error(f"Error creating vector store: {str(e)}")
-            raise VectorStoreError(f"Failed to create vector store: {str(e)}")
-
     def _generate_all_diagrams(
         self, analyses: Sequence[FileAnalysis]
     ) -> tuple[dict[str, str], list[tuple[str, str]]]:
@@ -656,12 +516,10 @@ Answer:"""
         errors: list[tuple[str, str]] = []
 
         def should_generate(diagram_key: str) -> bool:
-            """Check if a diagram should be generated based on selection."""
             if not self.selected_diagrams:
                 return True
             return diagram_key in self.selected_diagrams
 
-        # Generate architecture diagram
         if should_generate("architecture"):
             try:
                 diagrams["architecture"] = (
@@ -670,7 +528,6 @@ Answer:"""
             except Exception as e:
                 errors.append(("architecture", str(e)))
 
-        # Generate class diagram
         if should_generate("class"):
             try:
                 diagrams["class_diagram"] = (
@@ -679,7 +536,6 @@ Answer:"""
             except Exception as e:
                 errors.append(("class_diagram", str(e)))
 
-        # Generate function-related diagrams
         need_function_analysis = should_generate("sequence") or should_generate(
             "callgraph"
         )
@@ -707,7 +563,6 @@ Answer:"""
             except Exception as e:
                 errors.append(("function_analysis", str(e)))
 
-        # Generate dependency diagram
         if should_generate("dependency"):
             try:
                 package_deps = self.analyzer.analyze_package_dependencies()
@@ -719,349 +574,36 @@ Answer:"""
 
         return diagrams, errors
 
-    def _generate_section_with_cache(
-        self,
-        rag_chain: Runnable,
-        section_name: str,
+    # ---- Backward-compatible delegating methods ----
+    # These allow existing tests that patch or call these methods directly
+    # to continue working. New code should use the extracted classes.
+
+    def _setup_output_directories(self, output_dir: str) -> None:
+        """Create the output directory structure (delegates to renderer)."""
+        self._renderer.setup_output_directories(output_dir)
+
+    def _convert_markdown_to_html(self, content: str) -> str:
+        """Convert markdown content to HTML (delegates to renderer)."""
+        return self._renderer.convert_markdown_to_html(content)
+
+    def _generate_navigation(
+        self, active_page: str, sections: list[dict[str, str]], base_url: str
     ) -> str:
-        """Generate a section with caching support.
+        """Generate navigation HTML (delegates to renderer)."""
+        return self._renderer.generate_navigation(active_page, sections, base_url)
 
-        Args:
-            rag_chain: LCEL RAG chain for content generation
-            section_name: Name of the section to generate
+    # Keep as property for test compatibility
+    @property
+    def _vector_store(self):
+        """Get the underlying vector store (for backward compat)."""
+        if self._rag_pipeline is not None:
+            return self._rag_pipeline.vector_store
+        return getattr(self, "_direct_vector_store", None)
 
-        Returns:
-            Section content (markdown)
-        """
-        # Try to get from cache
-        if self._section_cache and self._current_analyses:
-            cached_content = self._section_cache.get_cached_section(
-                section_name, self._current_analyses
-            )
-            if cached_content is not None:
-                if self.cost_tracker:
-                    # Record as cached request (no API call)
-                    model_name = get_model_for_quality_mode(
-                        self.quality_mode, "general"
-                    )
-                    self.cost_tracker.record_llm_usage(
-                        model=model_name,
-                        input_tokens=0,
-                        output_tokens=0,
-                        cached=True,
-                    )
-                return cached_content
-
-        # Generate new content
-        content = self._generate_section(rag_chain, section_name)
-
-        # Cache the generated content
-        if self._section_cache and self._current_analyses:
-            self._section_cache.cache_section(
-                section_name, content, self._current_analyses
-            )
-
-        return content
-
-    def _generate_documentation_sections(self, rag_chain: Runnable) -> dict[str, Any]:
-        """Generate all documentation sections using the RAG chain.
-
-        Args:
-            rag_chain: LCEL RAG chain for content generation
-
-        Returns:
-            Tuple of (documentation dict, list of (section_name, error) pairs)
-        """
-        logger.info("Generating documentation content...")
-
-        # Filter sections if specific ones are selected
-        # When user specifies sections, they can choose from all available sections (core + optional)
-        # When no sections specified, use only core sections (SECTION_ORDER)
-        if self.selected_sections:
-            all_sections = get_all_available_sections()
-            sections_to_generate = self._filter_sections(all_sections)
-        else:
-            sections_to_generate = SECTION_ORDER
-        if self.selected_sections:
-            logger.info(f"Generating selected sections: {sections_to_generate}")
-
-        # Generate sections (with optional parallelization)
-        if self.parallel_sections and len(sections_to_generate) > 1:
-            sections, errors = self._generate_sections_parallel(
-                rag_chain, sections_to_generate
-            )
-        else:
-            sections, errors = self._generate_sections_sequential(
-                rag_chain, sections_to_generate
-            )
-
-        if errors:
-            logger.warning(
-                f"Some sections failed to generate ({len(errors)} errors):\n"
-                + "\n".join(f"  - {name}: {error}" for name, error in errors)
-            )
-
-        documentation = {
-            "title": "Code Documentation",
-            "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "sections": sections,
-        }
-
-        return documentation, errors
-
-    def _generate_sections_sequential(
-        self,
-        rag_chain: Runnable,
-        section_names: list[str],
-    ) -> tuple[list[dict], list[tuple[str, str]]]:
-        """Generate sections sequentially.
-
-        Args:
-            rag_chain: LCEL RAG chain for content generation
-            section_names: List of section names to generate
-
-        Returns:
-            Tuple of (sections list, errors list)
-        """
-        sections = []
-        errors: list[tuple[str, str]] = []
-
-        for section_name in section_names:
-            logger.info(f"Generating section: {section_name}")
-            try:
-                content = self._generate_section_with_cache(rag_chain, section_name)
-                html_content = self._convert_markdown_to_html(content)
-                sections.append({"title": section_name, "content": html_content})
-            except Exception as e:
-                error_msg = str(e)
-                logger.error(
-                    f"Failed to generate section '{section_name}': {error_msg}"
-                )
-                errors.append((section_name, error_msg))
-                sections.append(
-                    {
-                        "title": section_name,
-                        "content": f"*Error generating this section: {error_msg}*",
-                    }
-                )
-
-        return sections, errors
-
-    def _generate_sections_parallel(
-        self,
-        rag_chain: Runnable,
-        section_names: list[str],
-    ) -> tuple[list[dict], list[tuple[str, str]]]:
-        """Generate sections in parallel.
-
-        Args:
-            rag_chain: LCEL RAG chain for content generation
-            section_names: List of section names to generate
-
-        Returns:
-            Tuple of (sections list, errors list)
-        """
-        logger.info(f"Generating {len(section_names)} sections in parallel")
-
-        sections_dict = {}
-        errors: list[tuple[str, str]] = []
-
-        max_workers = min(len(section_names), self.config.MAX_PARALLEL_WORKERS)
-
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all section generation tasks
-            future_to_section = {
-                executor.submit(
-                    self._generate_section_with_cache, rag_chain, section_name
-                ): section_name
-                for section_name in section_names
-            }
-
-            # Collect results as they complete
-            for future in as_completed(future_to_section):
-                section_name = future_to_section[future]
-                try:
-                    content = future.result()
-                    html_content = self._convert_markdown_to_html(content)
-                    sections_dict[section_name] = {
-                        "title": section_name,
-                        "content": html_content,
-                    }
-                    logger.info(f"Completed section: {section_name}")
-                except Exception as e:
-                    error_msg = str(e)
-                    logger.error(
-                        f"Failed to generate section '{section_name}': {error_msg}"
-                    )
-                    errors.append((section_name, error_msg))
-                    sections_dict[section_name] = {
-                        "title": section_name,
-                        "content": f"*Error generating this section: {error_msg}*",
-                    }
-
-        # Return sections in original order
-        sections = [sections_dict[name] for name in section_names]
-        return sections, errors
-
-    def _generate_section(self, rag_chain: Runnable, section_name: str) -> str:
-        """Generate content for a documentation section.
-
-        Args:
-            rag_chain: LCEL RAG chain for content generation
-            section_name: Name of the section to generate
-
-        Returns:
-            Generated section content as a string
-
-        Raises:
-            LLMError: If section generation fails
-        """
-        try:
-            prompt = get_section_prompt(section_name)
-
-            # Special handling for Cross-Reference Documentation
-            if "cross" in section_name.lower() and "reference" in section_name.lower():
-                if self._current_analyses:
-                    # Import here to avoid circular dependency
-                    from .cross_reference import CrossReferenceAnalyzer
-
-                    # Generate structured cross-reference data
-                    analyzer = CrossReferenceAnalyzer(self._current_analyses)
-                    reference_report = analyzer.generate_reference_report(limit=15)
-
-                    # Enhance prompt with structured data
-                    prompt = (
-                        f"{prompt}\n\n"
-                        f"## Pre-analyzed Cross-Reference Data\n\n"
-                        f"Use this structured analysis as the foundation for your response. "
-                        f"Expand on it with additional insights from the codebase context:\n\n"
-                        f"{reference_report}"
-                    )
-
-            return rag_chain.invoke(prompt)
-        except Exception as e:
-            raise LLMError(
-                f"Failed to generate section '{section_name}': {str(e)}"
-            ) from e
-
-    def _filter_sections(self, available_sections: list[str]) -> list[str]:
-        """Filter sections based on user selection.
-
-        Args:
-            available_sections: List of all available section names
-
-        Returns:
-            List of sections to generate (all if no selection, filtered otherwise)
-        """
-        if not self.selected_sections:
-            return available_sections
-
-        selected_lower = [sel.lower() for sel in self.selected_sections]
-
-        def matches_selection(section: str) -> bool:
-            """Check if section matches any user selection."""
-            # Normalize both the section name and user inputs
-            normalized = section.lower().replace(" ", "_").replace("_and_", "_")
-            section_lower = section.lower()
-
-            for sel in selected_lower:
-                # Normalize user selection the same way (remove all special chars)
-                sel_normalized = sel.replace("_", "").replace("-", "")
-                section_normalized = normalized.replace("_", "").replace("-", "")
-
-                # Check various matching strategies
-                if (
-                    section in self.selected_sections
-                    or section_lower == sel
-                    or normalized == sel
-                    or sel_normalized == section_normalized
-                    or section_lower.startswith(sel)
-                    or sel in section_lower
-                    or section_normalized.startswith(
-                        sel_normalized
-                    )  # prefix match on normalized
-                    or sel_normalized in section_normalized
-                ):  # user input contained in section
-                    return True
-
-            return False
-
-        return [s for s in available_sections if matches_selection(s)]
-
-    def _create_final_html_output(
-        self,
-        documentation: dict[str, Any],
-        diagrams: dict[str, str],
-        output_dir: str,
-        generation_errors: dict[str, list[tuple[str, str]]] | None = None,
-    ) -> None:
-        """Generate final HTML documentation output.
-
-        Args:
-            documentation: Dictionary containing documentation content
-            diagrams: Dictionary containing Mermaid diagram codes
-            output_dir: Directory where HTML files will be generated
-            generation_errors: Optional dict with 'diagrams' and 'sections' error lists
-        """
-        logger.info("Generating HTML documentation...")
-        try:
-            self._generate_html_documentation(
-                documentation, diagrams, output_dir, generation_errors
-            )
-        except Exception as e:
-            logger.error(f"Error generating HTML documentation: {str(e)}")
-            raise TemplateError(f"Failed to generate HTML documentation: {str(e)}")
-
-    def _create_documents(self, analyses: Sequence[FileAnalysis]) -> list[Document]:
-        """Create LangChain documents from file analyses.
-
-        Args:
-            analyses: List of file analysis results
-
-        Returns:
-            List of LangChain documents for vector store
-        """
-        documents: list[Document] = []
-
-        for analysis in analyses:
-            # Add file content
-            documents.append(
-                Document(
-                    page_content=analysis.content,
-                    metadata={"source": analysis.file_path},
-                )
-            )
-
-            # Add entity information
-            for entity in analysis.entities:
-                doc = self._format_entity_document(entity)
-                documents.append(
-                    Document(page_content=doc, metadata={"source": analysis.file_path})
-                )
-
-        return documents
-
-    def _format_entity_document(self, entity) -> str:
-        """Format a code entity as a document string.
-
-        Args:
-            entity: CodeEntity to format
-
-        Returns:
-            Formatted document string
-        """
-        lines = [f"Type: {entity.type.value}", f"Name: {entity.name}"]
-
-        if entity.docstring:
-            lines.append(f"Description: {entity.docstring}")
-
-        if entity.type == EntityType.CLASS:
-            methods = ", ".join(entity.methods) if entity.methods else "None"
-            lines.append(f"Methods: {methods}")
-            if entity.parent_class:
-                lines.append(f"Inherits from: {entity.parent_class}")
-
-        return "\n".join(lines) + "\n"
+    @_vector_store.setter
+    def _vector_store(self, value):
+        """Set the vector store directly (for backward compat / tests)."""
+        self._direct_vector_store = value
 
     def _generate_html_documentation(
         self,
@@ -1070,118 +612,110 @@ Answer:"""
         output_dir: str,
         generation_errors: dict[str, list[tuple[str, str]]] | None = None,
     ) -> None:
-        """Generate HTML documentation with embedded diagrams.
+        """Generate HTML documentation (delegates to renderer)."""
+        self._renderer.render(documentation, diagrams, output_dir, generation_errors)
 
-        Args:
-            documentation: Dictionary containing documentation content
-            diagrams: Dictionary containing Mermaid diagram codes
-            output_dir: Directory where HTML files will be generated
-            generation_errors: Optional dict with 'diagrams' and 'sections' error lists
+    def _create_vector_store_and_rag_chain(
+        self,
+        analyses: Sequence[FileAnalysis],
+        source_dir: Path | None = None,
+    ):
+        """Create vector store and RAG chain (delegates to RAGPipelineFactory)."""
+        self._rag_pipeline = RAGPipelineFactory(
+            llm=self.llm,
+            embeddings=self.embeddings,
+            config=self.config,
+            text_splitter=self.text_splitter,
+            cache_enabled=self.cache_enabled,
+            cache_dir=Path(self.cache_dir) if self.cache_dir else None,
+            force_refresh=self.force_refresh,
+        )
+        return self._rag_pipeline.create_rag_chain(analyses, source_dir=source_dir)
 
-        Raises:
-            DocumentationError: If HTML generation fails
-        """
+    def _create_documents(self, analyses: Sequence[FileAnalysis]):
+        """Create LangChain documents (delegates to rag_pipeline module)."""
+        from .rag_pipeline import create_documents
+
+        return create_documents(analyses)
+
+    def _format_entity_document(self, entity) -> str:
+        """Format a code entity as a document string (delegates to rag_pipeline module)."""
+        from .rag_pipeline import format_entity_document
+
+        return format_entity_document(entity)
+
+    def _generate_documentation_sections(self, rag_chain):
+        """Generate all documentation sections (delegates to SectionOrchestrator)."""
+        orchestrator = SectionOrchestrator(
+            config=self.config,
+            quality_mode=self.quality_mode,
+            parallel=self.parallel_sections,
+            cost_tracker=self.cost_tracker,
+            section_cache=self._section_cache,
+            current_analyses=self._current_analyses,
+            selected_sections=self.selected_sections,
+            section_preprocessors={
+                "cross": _cross_reference_preprocessor,
+            },
+            convert_markdown_to_html=self._renderer.convert_markdown_to_html,
+        )
+        return orchestrator.generate_documentation_sections(rag_chain)
+
+    def _generate_section_with_cache(self, rag_chain, section_name: str) -> str:
+        """Generate a section with caching support (delegates to SectionOrchestrator)."""
+        orchestrator = SectionOrchestrator(
+            config=self.config,
+            quality_mode=self.quality_mode,
+            parallel=self.parallel_sections,
+            cost_tracker=self.cost_tracker,
+            section_cache=self._section_cache,
+            current_analyses=self._current_analyses,
+            selected_sections=self.selected_sections,
+            section_preprocessors={
+                "cross": _cross_reference_preprocessor,
+            },
+            convert_markdown_to_html=self._renderer.convert_markdown_to_html,
+        )
+        return orchestrator._generate_section_with_cache(rag_chain, section_name)
+
+    def _generate_section(self, rag_chain, section_name: str) -> str:
+        """Generate a section (delegates to SectionOrchestrator)."""
+        orchestrator = SectionOrchestrator(
+            config=self.config,
+            quality_mode=self.quality_mode,
+            parallel=self.parallel_sections,
+            cost_tracker=self.cost_tracker,
+            section_cache=self._section_cache,
+            current_analyses=self._current_analyses,
+            selected_sections=self.selected_sections,
+            section_preprocessors={
+                "cross": _cross_reference_preprocessor,
+            },
+            convert_markdown_to_html=self._renderer.convert_markdown_to_html,
+        )
+        return orchestrator._generate_section(rag_chain, section_name)
+
+    def _filter_sections(self, available_sections: list[str]) -> list[str]:
+        """Filter sections (delegates to SectionOrchestrator)."""
+        orchestrator = SectionOrchestrator(
+            config=self.config,
+            selected_sections=self.selected_sections,
+        )
+        return orchestrator._filter_sections(available_sections)
+
+    def _create_final_html_output(
+        self,
+        documentation: dict[str, Any],
+        diagrams: dict[str, str],
+        output_dir: str,
+        generation_errors: dict[str, list[tuple[str, str]]] | None = None,
+    ) -> None:
+        """Generate final HTML output (delegates to renderer)."""
+        logger.info("Generating HTML documentation...")
         try:
-            # Prepare error summary for display
-            errors = generation_errors or {"diagrams": [], "sections": []}
-            has_errors = bool(errors.get("diagrams") or errors.get("sections"))
-
-            # Generate index page
-            index_context = {
-                "title": documentation["title"],
-                "documentation": documentation,
-                "base_url": "./",  # Current directory for index page
-                "navigation": self._generate_navigation(
-                    "index", documentation["sections"], "./"
-                ),
-                "generation_errors": errors if has_errors else None,
-            }
-            self.template_manager.render_template(
-                "index", index_context, output_dir, "index.html"
+            self._renderer.render(
+                documentation, diagrams, output_dir, generation_errors
             )
-
-            # Generate section pages
-            sections_list = documentation["sections"]
-            for i, section in enumerate(sections_list):
-                filename = f"sections/{section['title'].lower().replace(' ', '_')}.html"
-
-                # Determine prev/next sections for navigation
-                prev_section = sections_list[i - 1]["title"] if i > 0 else None
-                next_section = (
-                    sections_list[i + 1]["title"]
-                    if i < len(sections_list) - 1
-                    else None
-                )
-
-                section_context = {
-                    "title": section["title"],
-                    "section": section,
-                    "base_url": "../",  # Parent directory for section pages
-                    "navigation": self._generate_navigation(
-                        section["title"], sections_list, "../"
-                    ),
-                    "prev_section": prev_section,
-                    "next_section": next_section,
-                }
-                self.template_manager.render_template(
-                    "section", section_context, output_dir, filename
-                )
-
-            # Generate diagram pages
-            diagram_files = {
-                "architecture": diagrams.get("architecture", ""),
-                "dependencies": diagrams.get("package_dependencies", ""),
-                "classes": diagrams.get("class_diagram", ""),
-                "sequence": diagrams.get("sequence", ""),
-                "call_graph": diagrams.get("function_calls", ""),
-            }
-
-            for name, diagram in diagram_files.items():
-                if diagram:
-                    filename = f"diagrams/{name}.html"
-                    diagram_context = {
-                        "title": f"{name.replace('_', ' ').title()} Diagram",
-                        "diagram_code": diagram,
-                        "base_url": "../",  # Parent directory for diagram pages
-                        "navigation": self._generate_navigation(
-                            "diagrams", documentation["sections"], "../"
-                        ),
-                    }
-                    self.template_manager.render_template(
-                        "diagrams", diagram_context, output_dir, filename
-                    )
-
-            # Generate search page
-            search_context = {
-                "title": "Search Documentation",
-                "base_url": "./",  # Current directory for search page
-                "navigation": self._generate_navigation(
-                    "search", documentation["sections"], "./"
-                ),
-            }
-            self.template_manager.render_template(
-                "search", search_context, output_dir, "search.html"
-            )
-
         except Exception as e:
             logger.error(f"Error generating HTML documentation: {str(e)}")
-            raise DocumentationError(f"Failed to generate HTML documentation: {str(e)}")
-
-    def _generate_navigation(
-        self, active_page: str, sections: list[dict[str, str]], base_url: str
-    ) -> str:
-        """Generate navigation HTML for the current page.
-
-        Args:
-            active_page: Currently active page
-            sections: List of documentation sections
-            base_url: Base URL for relative paths
-
-        Returns:
-            Navigation HTML content
-        """
-        return self.template_manager.templates["navigation"].render(
-            active=active_page,
-            sections=[s["title"] for s in sections],
-            base_url=base_url,
-        )
+            raise TemplateError(f"Failed to generate HTML documentation: {str(e)}")
