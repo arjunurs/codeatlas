@@ -322,8 +322,6 @@ def mock_generator(
     mock_llm.invoke.return_value = MagicMock(content="Generated content")
 
     with (
-        patch("docgen.core.generator.ChatAnthropic", return_value=mock_llm),
-        patch("docgen.core.generator.OpenAIEmbeddings", return_value=mock_embeddings),
         patch("docgen.core.generator.CodeAnalyzer", return_value=mock_analyzer),
         patch(
             "docgen.core.generator.DiagramGenerator",

@@ -6,13 +6,21 @@ and easier testing.
 """
 
 from .anthropic import AnthropicProvider
-from .base import EmbeddingProvider, LLMProvider, LLMResponse
+from .base import (
+    EmbeddingProvider,
+    LangChainEmbeddingProvider,
+    LangChainLLMProvider,
+    LLMProvider,
+    LLMResponse,
+)
 from .openai import OpenAIEmbeddingProvider, OpenAIProvider
 from .registry import ProviderRegistry, get_default_registry
 
 __all__ = [
     "LLMProvider",
+    "LangChainLLMProvider",
     "EmbeddingProvider",
+    "LangChainEmbeddingProvider",
     "LLMResponse",
     "AnthropicProvider",
     "OpenAIProvider",

@@ -2,49 +2,59 @@
 
 This module provides a registry pattern for managing LLM and embedding
 providers, allowing for dynamic provider selection and easy extension.
+
+Provider classes are imported lazily so that heavy dependencies
+(``langchain_anthropic``, ``langchain_openai``) are only loaded when a
+provider is actually instantiated.
 """
 
+import importlib
 from collections.abc import Callable
 
-from .anthropic import AnthropicProvider
-from .base import BaseEmbeddingProvider, BaseLLMProvider, EmbeddingProvider, LLMProvider
-from .openai import OpenAIEmbeddingProvider, OpenAIProvider
+from .base import EmbeddingProvider, LLMProvider
 
 # Type aliases for provider factories
 LLMProviderFactory = Callable[..., LLMProvider]
 EmbeddingProviderFactory = Callable[..., EmbeddingProvider]
 
+# Lazy-import descriptors: (module_path, class_name)
+_DEFAULT_LLM_PROVIDERS: dict[str, tuple[str, str]] = {
+    "anthropic": ("docgen.providers.anthropic", "AnthropicProvider"),
+    "claude": ("docgen.providers.anthropic", "AnthropicProvider"),
+    "openai": ("docgen.providers.openai", "OpenAIProvider"),
+    "gpt": ("docgen.providers.openai", "OpenAIProvider"),
+}
+_DEFAULT_EMBEDDING_PROVIDERS: dict[str, tuple[str, str]] = {
+    "openai": ("docgen.providers.openai", "OpenAIEmbeddingProvider"),
+}
+
+
+def _resolve(module_path: str, class_name: str) -> type:
+    """Import *class_name* from *module_path* on first use."""
+    mod = importlib.import_module(module_path)
+    return getattr(mod, class_name)
+
 
 class ProviderRegistry:
     """Registry for LLM and embedding providers.
 
-    This class maintains registries of available providers and provides
-    methods to create provider instances by name.
+    Provider classes are stored as lazy references (module path + class
+    name) and only imported when ``create_*`` is called.
     """
 
     def __init__(self) -> None:
         """Initialize the provider registry with default providers."""
-        self._llm_providers: dict[str, type[BaseLLMProvider]] = {}
-        self._embedding_providers: dict[str, type[BaseEmbeddingProvider]] = {}
+        self._llm_providers: dict[str, type | tuple[str, str]] = {}
+        self._embedding_providers: dict[str, type | tuple[str, str]] = {}
 
-        # Register default providers
-        self._register_default_providers()
-
-    def _register_default_providers(self) -> None:
-        """Register the default set of providers."""
-        # LLM providers
-        self.register_llm_provider("anthropic", AnthropicProvider)
-        self.register_llm_provider("claude", AnthropicProvider)  # Alias
-        self.register_llm_provider("openai", OpenAIProvider)
-        self.register_llm_provider("gpt", OpenAIProvider)  # Alias
-
-        # Embedding providers
-        self.register_embedding_provider("openai", OpenAIEmbeddingProvider)
+        # Register default providers (lazy)
+        self._llm_providers.update(_DEFAULT_LLM_PROVIDERS)
+        self._embedding_providers.update(_DEFAULT_EMBEDDING_PROVIDERS)
 
     def register_llm_provider(
         self,
         name: str,
-        provider_class: type[BaseLLMProvider],
+        provider_class: type,
     ) -> None:
         """Register an LLM provider.
 
@@ -57,7 +67,7 @@ class ProviderRegistry:
     def register_embedding_provider(
         self,
         name: str,
-        provider_class: type[BaseEmbeddingProvider],
+        provider_class: type,
     ) -> None:
         """Register an embedding provider.
 
@@ -66,6 +76,22 @@ class ProviderRegistry:
             provider_class: The provider class to register
         """
         self._embedding_providers[name.lower()] = provider_class
+
+    def _resolve_llm(self, name: str) -> type:
+        entry = self._llm_providers[name]
+        if isinstance(entry, tuple):
+            cls = _resolve(*entry)
+            self._llm_providers[name] = cls  # cache
+            return cls
+        return entry
+
+    def _resolve_embedding(self, name: str) -> type:
+        entry = self._embedding_providers[name]
+        if isinstance(entry, tuple):
+            cls = _resolve(*entry)
+            self._embedding_providers[name] = cls
+            return cls
+        return entry
 
     def create_llm_provider(
         self,
@@ -97,7 +123,7 @@ class ProviderRegistry:
                 f"Unknown LLM provider: {name}. Available providers: {available}"
             )
 
-        provider_class = self._llm_providers[name_lower]
+        provider_class = self._resolve_llm(name_lower)
         return provider_class(
             api_key=api_key,
             model=model,
@@ -133,7 +159,7 @@ class ProviderRegistry:
                 f"Unknown embedding provider: {name}. Available providers: {available}"
             )
 
-        provider_class = self._embedding_providers[name_lower]
+        provider_class = self._resolve_embedding(name_lower)
         return provider_class(
             api_key=api_key,
             model=model,

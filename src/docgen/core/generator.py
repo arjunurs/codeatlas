@@ -46,9 +46,8 @@ from ..prompts.sections import (
     get_all_available_sections,
     get_section_prompt,
 )
-from ..providers.anthropic import AnthropicProvider
 from ..providers.base import EmbeddingProvider, LLMProvider
-from ..providers.openai import OpenAIEmbeddingProvider
+from ..providers.registry import get_default_registry
 from ..templates.html import get_template_manager
 from ..utils.cost_tracker import CostTracker
 from .analyzer import CodeAnalyzer
@@ -215,12 +214,15 @@ class CodeDocumentationGenerator:
                 raise ApiKeyError("Both Anthropic and OpenAI API keys are required")
 
             try:
-                self._llm_provider = AnthropicProvider(
+                registry = get_default_registry()
+                self._llm_provider = registry.create_llm_provider(
+                    "anthropic",
                     api_key=anthropic_api_key,
                     model=final_anthropic_model,
                     temperature=final_temperature,
                 )
-                self._embedding_provider = OpenAIEmbeddingProvider(
+                self._embedding_provider = registry.create_embedding_provider(
+                    "openai",
                     api_key=openai_api_key,
                     model=final_openai_model,
                 )

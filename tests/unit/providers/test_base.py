@@ -21,7 +21,6 @@ class TestLLMProviderProtocol:
         mock = MagicMock()
         mock.model_name = "test-model"
         mock.invoke = MagicMock(return_value="response")
-        mock.get_langchain_llm = MagicMock(return_value=MagicMock())
 
         # Protocol check should pass
         assert isinstance(mock, LLMProvider)
@@ -31,7 +30,7 @@ class TestLLMProviderProtocol:
 
         class IncompleteProvider:
             model_name = "test"
-            # Missing invoke and get_langchain_llm
+            # Missing invoke
 
         # This will not satisfy the protocol at runtime
         provider = IncompleteProvider()
@@ -47,7 +46,6 @@ class TestEmbeddingProviderProtocol:
         mock.model_name = "test-model"
         mock.embed_documents = MagicMock(return_value=[[0.1, 0.2]])
         mock.embed_query = MagicMock(return_value=[0.1, 0.2])
-        mock.get_langchain_embeddings = MagicMock(return_value=MagicMock())
 
         assert isinstance(mock, EmbeddingProvider)
 

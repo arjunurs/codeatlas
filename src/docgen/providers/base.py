@@ -43,11 +43,7 @@ def classify_api_error(error: Exception) -> str | None:
 
 @runtime_checkable
 class LLMProvider(Protocol):
-    """Protocol for LLM providers.
-
-    Any class implementing this protocol can be used as an LLM provider
-    in the documentation generator.
-    """
+    """Narrow protocol for LLM providers (no LangChain dependency)."""
 
     @property
     def model_name(self) -> str:
@@ -55,32 +51,22 @@ class LLMProvider(Protocol):
         ...
 
     def invoke(self, prompt: str) -> LLMResponse:
-        """Invoke the LLM with a prompt.
-
-        Args:
-            prompt: The prompt to send to the LLM
-
-        Returns:
-            The LLM response (BaseMessage or string)
-        """
+        """Invoke the LLM with a prompt."""
         ...
 
-    def get_langchain_llm(self) -> BaseChatModel:
-        """Get the underlying LangChain LLM instance.
 
-        Returns:
-            A LangChain BaseChatModel instance
-        """
+@runtime_checkable
+class LangChainLLMProvider(LLMProvider, Protocol):
+    """Extended LLM protocol that also exposes a LangChain chat model."""
+
+    def get_langchain_llm(self) -> BaseChatModel:
+        """Get the underlying LangChain LLM instance."""
         ...
 
 
 @runtime_checkable
 class EmbeddingProvider(Protocol):
-    """Protocol for embedding providers.
-
-    Any class implementing this protocol can be used as an embedding provider
-    in the documentation generator.
-    """
+    """Narrow protocol for embedding providers (no LangChain dependency)."""
 
     @property
     def model_name(self) -> str:
@@ -88,33 +74,20 @@ class EmbeddingProvider(Protocol):
         ...
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        """Embed a list of documents.
-
-        Args:
-            texts: List of text documents to embed
-
-        Returns:
-            List of embedding vectors
-        """
+        """Embed a list of documents."""
         ...
 
     def embed_query(self, text: str) -> list[float]:
-        """Embed a single query.
-
-        Args:
-            text: The query text to embed
-
-        Returns:
-            Embedding vector for the query
-        """
+        """Embed a single query."""
         ...
 
-    def get_langchain_embeddings(self) -> Embeddings:
-        """Get the underlying LangChain embeddings instance.
 
-        Returns:
-            A LangChain Embeddings instance
-        """
+@runtime_checkable
+class LangChainEmbeddingProvider(EmbeddingProvider, Protocol):
+    """Extended embedding protocol that also exposes LangChain embeddings."""
+
+    def get_langchain_embeddings(self) -> Embeddings:
+        """Get the underlying LangChain embeddings instance."""
         ...
 
 
