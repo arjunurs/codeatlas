@@ -5,7 +5,6 @@ regenerating embeddings on every run.
 """
 
 import logging
-import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -15,6 +14,7 @@ from langchain_core.embeddings import Embeddings
 
 from ..exceptions.errors import CacheError
 from ..models.file_analysis import FileAnalysis
+from ..utils.git_client import GitClient
 from .change_detector import ChangeDetectionResult, FileChangeDetector
 from .metadata import CacheMetadata
 
@@ -277,19 +277,7 @@ class VectorStoreCache:
         Returns:
             Commit hash or None
         """
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=self.source_dir,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                return result.stdout.strip()
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pass
-        return None
+        return GitClient(self.source_dir).get_current_commit()
 
     def cleanup(self, preserve_cache: bool = True) -> None:
         """Clean up vector store resources.

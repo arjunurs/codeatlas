@@ -5,11 +5,11 @@ have changed since the last documentation run.
 """
 
 import logging
-import subprocess
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
+from ..utils.git_client import GitClient
 from .metadata import CacheMetadata, FileMetadata
 
 logger = logging.getLogger(__name__)
@@ -77,6 +77,7 @@ class FileChangeDetector:
         self.source_dir = source_dir.resolve()
         self.cache_metadata = cache_metadata
         self.forced_strategy = strategy
+        self._git = GitClient(self.source_dir)
 
     def detect_changes(self, current_files: list[Path]) -> ChangeDetectionResult:
         """Detect which files have changed.
@@ -127,42 +128,12 @@ class FileChangeDetector:
         return ChangeDetectionStrategy.FILESYSTEM
 
     def _is_git_repo(self) -> bool:
-        """Check if source directory is in a git repository.
-
-        Returns:
-            True if git repo, False otherwise
-        """
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "--git-dir"],
-                cwd=self.source_dir,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return False
+        """Check if source directory is in a git repository."""
+        return self._git.is_git_repo()
 
     def _get_current_git_commit(self) -> str | None:
-        """Get current git commit hash.
-
-        Returns:
-            Commit hash or None
-        """
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=self.source_dir,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                return result.stdout.strip()
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pass
-        return None
+        """Get current git commit hash."""
+        return self._git.get_current_commit()
 
     def _detect_via_git(self, current_files: list[Path]) -> ChangeDetectionResult:
         """Detect changes using git diff.
@@ -180,37 +151,19 @@ class FileChangeDetector:
 
         if cached_commit and current_commit:
             # Get changed files between commits
-            try:
-                result = subprocess.run(
-                    ["git", "diff", "--name-only", cached_commit, current_commit],
-                    cwd=self.source_dir,
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
+            all_changed = self._git.get_changed_files(cached_commit, current_commit)
+            if all_changed or cached_commit == current_commit:
+                git_changed = {f for f in all_changed if f.endswith(".py")}
+                current_relative = {
+                    f.relative_to(self.source_dir).as_posix() for f in current_files
+                }
+                changed_files = git_changed & current_relative
+                logger.info(f"Git detected {len(changed_files)} changed files")
+            else:
+                logger.warning(
+                    "Git diff returned no results, "
+                    "falling back to filesystem detection"
                 )
-
-                if result.returncode == 0:
-                    # Filter for Python files in current files
-                    git_changed = {
-                        line.strip()
-                        for line in result.stdout.splitlines()
-                        if line.strip().endswith(".py")
-                    }
-
-                    current_relative = {
-                        f.relative_to(self.source_dir).as_posix() for f in current_files
-                    }
-
-                    changed_files = git_changed & current_relative
-                    logger.info(f"Git detected {len(changed_files)} changed files")
-                else:
-                    logger.warning(
-                        "Git diff failed, falling back to filesystem detection"
-                    )
-                    return self._detect_via_filesystem(current_files)
-
-            except subprocess.TimeoutExpired:
-                logger.warning("Git diff timeout, falling back to filesystem detection")
                 return self._detect_via_filesystem(current_files)
         else:
             # No cached commit or current commit - fall back
