@@ -4,8 +4,9 @@ This module provides centralized configuration constants to avoid magic numbers
 and make the system more configurable.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 
 
 class QualityMode(Enum):
@@ -21,6 +22,32 @@ class QualityMode(Enum):
     FAST = "fast"
     BALANCED = "balanced"
     BEST = "best"
+
+
+@dataclass
+class CacheConfig:
+    """Cache-related configuration."""
+
+    enabled: bool = True
+    cache_dir: Path | None = None
+    force_refresh: bool = False
+
+
+@dataclass
+class GenerationOptions:
+    """Options controlling what the generator produces."""
+
+    exclude_patterns: list[str] = field(default_factory=list)
+    skip_diagrams: bool = False
+    selected_sections: list[str] | None = None
+    selected_diagrams: list[str] | None = None
+    template_dir: str | None = None
+    dry_run: bool = False
+    max_files: int | None = None
+    diagrams_only: bool = False
+    parallel_sections: bool = True
+    enable_cost_tracking: bool = True
+    quality_mode: QualityMode = QualityMode.BALANCED
 
 
 @dataclass

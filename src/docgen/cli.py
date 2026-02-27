@@ -9,7 +9,12 @@ import logging
 import sys
 from pathlib import Path
 
-from docgen.config import DEFAULT_CONFIG, QualityMode
+from docgen.config import (
+    DEFAULT_CONFIG,
+    CacheConfig,
+    GenerationOptions,
+    QualityMode,
+)
 from docgen.core.generator import CodeDocumentationGenerator
 from docgen.utils.api_keys import get_api_keys
 from docgen.utils.logging import setup_logging
@@ -345,16 +350,31 @@ def main() -> None:
         if args.cache_stats:
             _handle_cache_stats(cache_dir)
 
-        # Determine cache settings
+        # Build config objects
         cache_enabled = not args.no_cache and not args.dry_run
-        force_refresh = args.force_refresh
+        cache_cfg = CacheConfig(
+            enabled=cache_enabled,
+            cache_dir=cache_dir if cache_enabled else None,
+            force_refresh=args.force_refresh,
+        )
 
-        # Parse quality mode
-        quality_mode = QualityMode(args.quality_mode)
+        # Parse comma-separated sections and diagrams if provided
+        def parse_csv(value: str | None) -> list[str] | None:
+            return [s.strip() for s in value.split(",")] if value else None
 
-        # Performance settings
-        parallel_sections = not args.no_parallel
-        enable_cost_tracking = not args.no_cost_tracking
+        gen_opts = GenerationOptions(
+            exclude_patterns=args.exclude,
+            skip_diagrams=args.no_diagrams,
+            selected_sections=parse_csv(args.sections),
+            selected_diagrams=parse_csv(args.diagrams),
+            template_dir=args.template_dir,
+            dry_run=args.dry_run,
+            max_files=args.max_files,
+            diagrams_only=args.diagrams_only,
+            parallel_sections=not args.no_parallel,
+            enable_cost_tracking=not args.no_cost_tracking,
+            quality_mode=QualityMode(args.quality_mode),
+        )
 
         # In dry-run or diagrams-only mode, API keys are not required
         skip_api_mode = args.dry_run or args.diagrams_only
@@ -366,34 +386,27 @@ def main() -> None:
         else:
             anthropic_key, openai_key = get_api_keys(args.api_key_env)
 
-        # Parse comma-separated sections and diagrams if provided
-        def parse_csv(value: str | None) -> list[str] | None:
-            return [s.strip() for s in value.split(",")] if value else None
-
-        sections = parse_csv(args.sections)
-        diagrams = parse_csv(args.diagrams)
-
-        # Initialize generator
+        # Initialize generator (legacy API-key mode)
         generator = CodeDocumentationGenerator(
             anthropic_api_key=anthropic_key,
             openai_api_key=openai_key,
             temperature=args.temperature,
             anthropic_model=args.anthropic_model,
             openai_embedding_model=args.openai_embedding_model,
-            exclude_patterns=args.exclude,
-            skip_diagrams=args.no_diagrams,
-            sections=sections,
-            diagrams=diagrams,
-            template_dir=args.template_dir,
-            dry_run=args.dry_run,
-            max_files=args.max_files,
-            cache_enabled=cache_enabled,
-            cache_dir=cache_dir if cache_enabled else None,
-            force_refresh=force_refresh,
-            quality_mode=quality_mode,
-            parallel_sections=parallel_sections,
-            enable_cost_tracking=enable_cost_tracking,
-            diagrams_only=args.diagrams_only,
+            exclude_patterns=gen_opts.exclude_patterns,
+            skip_diagrams=gen_opts.skip_diagrams,
+            sections=gen_opts.selected_sections,
+            diagrams=gen_opts.selected_diagrams,
+            template_dir=gen_opts.template_dir,
+            dry_run=gen_opts.dry_run,
+            max_files=gen_opts.max_files,
+            cache_enabled=cache_cfg.enabled,
+            cache_dir=cache_cfg.cache_dir,
+            force_refresh=cache_cfg.force_refresh,
+            quality_mode=gen_opts.quality_mode,
+            parallel_sections=gen_opts.parallel_sections,
+            enable_cost_tracking=gen_opts.enable_cost_tracking,
+            diagrams_only=gen_opts.diagrams_only,
             retriever_k=args.retriever_k,
             retriever_search_type=args.retriever_search_type,
             retriever_score_threshold=args.retriever_score_threshold,

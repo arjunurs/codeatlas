@@ -26,6 +26,8 @@ from ..cache.content_cache import SectionContentCache
 from ..cache.vector_cache import VectorStoreCache
 from ..config import (
     DEFAULT_CONFIG,
+    CacheConfig,
+    GenerationOptions,
     GeneratorConfig,
     QualityMode,
     get_model_for_quality_mode,
@@ -274,6 +276,54 @@ class CodeDocumentationGenerator:
         self._section_cache: SectionContentCache | None = None
         # Store analyses for section caching
         self._current_analyses: list[FileAnalysis] | None = None
+
+    @classmethod
+    def create(
+        cls,
+        llm_provider: LLMProvider,
+        embedding_provider: EmbeddingProvider,
+        *,
+        generation_options: GenerationOptions | None = None,
+        cache_config: CacheConfig | None = None,
+        config: GeneratorConfig | None = None,
+    ) -> CodeDocumentationGenerator:
+        """Create a generator from provider instances and config objects.
+
+        This is the preferred way to construct a generator. The legacy
+        ``__init__`` with raw API keys is retained for backward compatibility.
+
+        Args:
+            llm_provider: LLM provider instance
+            embedding_provider: Embedding provider instance
+            generation_options: Options controlling output
+            cache_config: Cache settings
+            config: Low-level generator config
+
+        Returns:
+            Configured CodeDocumentationGenerator instance
+        """
+        opts = generation_options or GenerationOptions()
+        cache = cache_config or CacheConfig()
+
+        return cls(
+            llm_provider=llm_provider,
+            embedding_provider=embedding_provider,
+            config=config,
+            exclude_patterns=opts.exclude_patterns,
+            skip_diagrams=opts.skip_diagrams,
+            sections=opts.selected_sections,
+            diagrams=opts.selected_diagrams,
+            template_dir=opts.template_dir,
+            dry_run=opts.dry_run,
+            max_files=opts.max_files,
+            diagrams_only=opts.diagrams_only,
+            parallel_sections=opts.parallel_sections,
+            enable_cost_tracking=opts.enable_cost_tracking,
+            quality_mode=opts.quality_mode,
+            cache_enabled=cache.enabled,
+            cache_dir=cache.cache_dir,
+            force_refresh=cache.force_refresh,
+        )
 
     def __enter__(self) -> CodeDocumentationGenerator:
         """Enter context manager."""
