@@ -132,76 +132,40 @@ class SpecialCharactersRule:
     # Special characters that need escaping or quoting in Mermaid
     SPECIAL_CHARS = set("[];{}|:")
 
+    # Known valid Mermaid operators that contain special chars
+    _VALID_OPERATORS = [
+        "--|>",
+        "--*",
+        "--o",
+        "-->",
+        "-.->",
+        "==>",
+        "->>",
+        "-->>",
+        "<<--",
+        "<--",
+    ]
+
+    _HEADER_PREFIXES = ("graph", "flowchart", "classDiagram", "sequenceDiagram")
+
     def validate(
         self, diagram_content: str, diagram_type: DiagramType
     ) -> list[ValidationError]:
         """Check for unhandled special characters."""
         errors = []
-        lines = diagram_content.split("\n")
+        is_sequence = diagram_type == DiagramType.SEQUENCE
+        is_class = diagram_type == DiagramType.CLASS
 
-        # Known valid Mermaid operators that contain special chars
-        valid_operators = [
-            "--|>",
-            "--*",
-            "--o",
-            "-->",
-            "-.->",
-            "==>",
-            "->>",
-            "-->>",
-            "<<--",
-            "<--",
-        ]
-
-        # For sequence diagrams, : is valid syntax in messages
-        is_sequence_diagram = diagram_type == DiagramType.SEQUENCE
-        # For class diagrams, { and } are valid syntax for class bodies
-        is_class_diagram = diagram_type == DiagramType.CLASS
-
-        for line_num, line in enumerate(lines, 1):
-            # Skip comments and empty lines
-            if line.strip().startswith("%%") or not line.strip():
+        for line_num, line in enumerate(diagram_content.split("\n"), 1):
+            if self._should_skip_line(line, is_class):
                 continue
 
-            # Skip header lines
-            if any(
-                line.strip().startswith(h)
-                for h in ["graph", "flowchart", "classDiagram", "sequenceDiagram"]
-            ):
-                continue
+            temp_line = self._strip_quoted_sections(line)
+            temp_line = self._strip_valid_operators(temp_line, is_sequence)
 
-            # Skip class body delimiters in class diagrams
-            if is_class_diagram:
-                # Skip standalone braces
-                if line.strip() in ["{", "}"]:
-                    continue
-                # Skip "class Name {" lines
-                if re.match(r"\s*class\s+\w+\s*\{", line):
-                    continue
-
-            # Check if the line has special chars outside of quoted/bracketed sections
-            # Remove quoted and bracketed sections first
-            temp_line = re.sub(r"\[[^\]]*\]", "", line)  # Remove [...] sections
-            temp_line = re.sub(r'"[^"]*"', "", temp_line)  # Remove "..." sections
-            temp_line = re.sub(r"'[^']*'", "", temp_line)  # Remove '...' sections
-
-            # Remove valid Mermaid operators
-            for op in valid_operators:
-                temp_line = temp_line.replace(op, "")
-
-            # For sequence diagrams, remove message syntax (: is valid)
-            if is_sequence_diagram:
-                # Remove ": message" pattern from sequence diagram arrows
-                temp_line = re.sub(
-                    r":\s*\w+\(\)", "", temp_line
-                )  # Remove ": call()" or ": return"
-
-            # Now check for special characters in the remaining text
             for char in self.SPECIAL_CHARS:
-                # Skip : check for sequence diagrams (already handled)
-                if is_sequence_diagram and char == ":":
+                if is_sequence and char == ":":
                     continue
-
                 if char in temp_line:
                     errors.append(
                         ValidationError(
@@ -210,14 +174,41 @@ class SpecialCharactersRule:
                             line_number=line_num,
                             line_content=line.strip(),
                             rule_name=self.rule_name,
-                            suggestion=(
-                                f"Wrap text containing '{char}' in quotes or brackets"
-                            ),
+                            suggestion=f"Wrap text containing '{char}' in quotes or brackets",
                         )
                     )
                     break  # Only report once per line
 
         return errors
+
+    def _should_skip_line(self, line: str, is_class: bool) -> bool:
+        """Check if a line should be skipped during validation."""
+        stripped = line.strip()
+        if not stripped or stripped.startswith("%%"):
+            return True
+        if any(stripped.startswith(h) for h in self._HEADER_PREFIXES):
+            return True
+        if is_class:
+            if stripped in ("{", "}"):
+                return True
+            if re.match(r"\s*class\s+\w+\s*\{", line):
+                return True
+        return False
+
+    @staticmethod
+    def _strip_quoted_sections(line: str) -> str:
+        """Remove quoted and bracketed sections from a line."""
+        result = re.sub(r"\[[^\]]*\]", "", line)
+        result = re.sub(r'"[^"]*"', "", result)
+        return re.sub(r"'[^']*'", "", result)
+
+    def _strip_valid_operators(self, line: str, is_sequence: bool) -> str:
+        """Remove valid Mermaid operators from a line."""
+        for op in self._VALID_OPERATORS:
+            line = line.replace(op, "")
+        if is_sequence:
+            line = re.sub(r":\s*\w+\(\)", "", line)
+        return line
 
 
 class NodeIdFormatRule:

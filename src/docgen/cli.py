@@ -28,95 +28,46 @@ logger = logging.getLogger(__name__)
 __version__ = "0.1.0"
 
 
-def parse_args(args: list[str] | None = None) -> argparse.Namespace:
-    """Parse command line arguments.
-
-    Args:
-        args: Optional list of command line arguments
-
-    Returns:
-        Parsed arguments namespace
-    """
-    parser = argparse.ArgumentParser(
-        description="Generate comprehensive documentation for Python codebases",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Basic usage (API keys from environment)
-  docgen --source ./my_project -o ./docs
-
-  # With .env file for API keys
-  docgen --source ./my_project --api-key-env ./.env
-
-  # Exclude test files and limit analysis
-  docgen --source ./src --exclude "*_test.py" --exclude "__pycache__" --max-files 50
-
-  # Generate only specific sections without diagrams
-  docgen --source ./src --sections overview,dependencies --no-diagrams
-
-  # Preview mode (no LLM calls)
-  docgen --source ./src --dry-run
-
-API Keys:
-  Set ANTHROPIC_API_KEY and OPENAI_API_KEY environment variables,
-  or use --api-key-env to specify a .env file containing them.
-""",
-    )
-
-    # Version
+def _add_source_args(parser: argparse.ArgumentParser) -> None:
+    """Add source, output, and API key arguments."""
     parser.add_argument(
         "--version", "-V", action="version", version=f"%(prog)s {__version__}"
     )
-
-    # Required arguments
     parser.add_argument(
         "--source", required=True, help="Source directory containing Python files"
     )
-
-    # Output options
     parser.add_argument(
         "--output",
         "-o",
         default="output",
         help="Output directory for generated documentation (default: output)",
     )
-
-    # API key arguments (only .env file path - no direct keys for security)
     parser.add_argument(
         "--api-key-env", metavar="PATH", help="Path to .env file containing API keys"
     )
 
-    # Model options
+
+def _add_model_args(parser: argparse.ArgumentParser) -> None:
+    """Add model configuration arguments."""
     parser.add_argument(
         "--temperature",
         type=float,
         default=DEFAULT_CONFIG.DEFAULT_TEMPERATURE,
         metavar="TEMP",
-        help=(
-            f"Temperature for LLM generation "
-            f"(0.0-1.0, default: {DEFAULT_CONFIG.DEFAULT_TEMPERATURE})"
-        ),
+        help=f"Temperature for LLM generation (0.0-1.0, default: {DEFAULT_CONFIG.DEFAULT_TEMPERATURE})",
     )
     parser.add_argument(
         "--anthropic-model",
         default=DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL,
         metavar="MODEL",
-        help=(
-            f"Anthropic model to use "
-            f"(default: {DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL})"
-        ),
+        help=f"Anthropic model to use (default: {DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL})",
     )
     parser.add_argument(
         "--openai-embedding-model",
         default=DEFAULT_CONFIG.DEFAULT_OPENAI_EMBEDDING_MODEL,
         metavar="MODEL",
-        help=(
-            f"OpenAI embedding model to use "
-            f"(default: {DEFAULT_CONFIG.DEFAULT_OPENAI_EMBEDDING_MODEL})"
-        ),
+        help=f"OpenAI embedding model to use (default: {DEFAULT_CONFIG.DEFAULT_OPENAI_EMBEDDING_MODEL})",
     )
-
-    # Logging options
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
     )
@@ -124,7 +75,9 @@ API Keys:
         "--quiet", "-q", action="store_true", help="Minimal output (errors only)"
     )
 
-    # Generation options
+
+def _add_output_args(parser: argparse.ArgumentParser) -> None:
+    """Add generation and output arguments."""
     parser.add_argument(
         "--exclude",
         action="append",
@@ -143,19 +96,12 @@ API Keys:
     parser.add_argument(
         "--sections",
         metavar="LIST",
-        help=(
-            "Comma-separated sections: overview,dependencies,classes,"
-            "dataflow,integration (optional: migration_guidance,"
-            "code_quality,cross_reference)"
-        ),
+        help="Comma-separated sections: overview,dependencies,classes,dataflow,integration (optional: migration_guidance,code_quality,cross_reference)",
     )
     parser.add_argument(
         "--diagrams",
         metavar="LIST",
-        help=(
-            "Comma-separated diagrams to generate: architecture,class,"
-            "sequence,callgraph,dependency"
-        ),
+        help="Comma-separated diagrams to generate: architecture,class,sequence,callgraph,dependency",
     )
     parser.add_argument(
         "--template-dir", metavar="PATH", help="Custom HTML template directory"
@@ -168,8 +114,24 @@ API Keys:
     parser.add_argument(
         "--max-files", type=int, metavar="N", help="Maximum number of files to analyze"
     )
+    parser.add_argument(
+        "--quality-mode",
+        choices=["fast", "balanced", "best"],
+        default="balanced",
+        help="Quality mode: fast (cheapest, Haiku), balanced (default), best (highest quality, Sonnet)",
+    )
+    parser.add_argument(
+        "--no-parallel", action="store_true", help="Disable parallel section generation"
+    )
+    parser.add_argument(
+        "--no-cost-tracking",
+        action="store_true",
+        help="Disable API cost tracking and summary",
+    )
 
-    # Cache options
+
+def _add_cache_args(parser: argparse.ArgumentParser) -> None:
+    """Add cache-related arguments."""
     parser.add_argument(
         "--cache-dir",
         metavar="PATH",
@@ -192,26 +154,9 @@ API Keys:
         "--cache-stats", action="store_true", help="Show cache statistics and exit"
     )
 
-    # Performance & quality options
-    parser.add_argument(
-        "--quality-mode",
-        choices=["fast", "balanced", "best"],
-        default="balanced",
-        help=(
-            "Quality mode: fast (cheapest, Haiku), balanced (default), "
-            "best (highest quality, Sonnet)"
-        ),
-    )
-    parser.add_argument(
-        "--no-parallel", action="store_true", help="Disable parallel section generation"
-    )
-    parser.add_argument(
-        "--no-cost-tracking",
-        action="store_true",
-        help="Disable API cost tracking and summary",
-    )
 
-    # RAG retrieval options
+def _add_rag_args(parser: argparse.ArgumentParser) -> None:
+    """Add RAG retrieval arguments."""
     rag_group = parser.add_argument_group("RAG Retrieval Options")
     rag_group.add_argument(
         "--retriever-k",
@@ -247,6 +192,48 @@ API Keys:
         help="MMR diversity parameter: 0=max diversity, 1=max relevance (default: 0.5)",
     )
 
+
+def parse_args(args: list[str] | None = None) -> argparse.Namespace:
+    """Parse command line arguments.
+
+    Args:
+        args: Optional list of command line arguments
+
+    Returns:
+        Parsed arguments namespace
+    """
+    parser = argparse.ArgumentParser(
+        description="Generate comprehensive documentation for Python codebases",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Basic usage (API keys from environment)
+  docgen --source ./my_project -o ./docs
+
+  # With .env file for API keys
+  docgen --source ./my_project --api-key-env ./.env
+
+  # Exclude test files and limit analysis
+  docgen --source ./src --exclude "*_test.py" --exclude "__pycache__" --max-files 50
+
+  # Generate only specific sections without diagrams
+  docgen --source ./src --sections overview,dependencies --no-diagrams
+
+  # Preview mode (no LLM calls)
+  docgen --source ./src --dry-run
+
+API Keys:
+  Set ANTHROPIC_API_KEY and OPENAI_API_KEY environment variables,
+  or use --api-key-env to specify a .env file containing them.
+""",
+    )
+
+    _add_source_args(parser)
+    _add_model_args(parser)
+    _add_output_args(parser)
+    _add_cache_args(parser)
+    _add_rag_args(parser)
+
     return parser.parse_args(args)
 
 
@@ -270,11 +257,14 @@ def _get_cache_dir(args: argparse.Namespace, source_path: Path) -> Path:
     return base_cache_dir / metadata.project_hash
 
 
-def _handle_clear_cache(cache_dir: Path) -> None:
-    """Clear cache directory and exit.
+def _handle_clear_cache(cache_dir: Path) -> int:
+    """Clear cache directory.
 
     Args:
         cache_dir: Path to cache directory
+
+    Returns:
+        Exit status code (0 for success)
     """
     import shutil
 
@@ -283,24 +273,27 @@ def _handle_clear_cache(cache_dir: Path) -> None:
         print(f"Cache cleared: {cache_dir}")
     else:
         print("No cache found")
-    sys.exit(0)
+    return 0
 
 
-def _handle_cache_stats(cache_dir: Path) -> None:
-    """Show cache statistics and exit.
+def _handle_cache_stats(cache_dir: Path) -> int:
+    """Show cache statistics.
 
     Args:
         cache_dir: Path to cache directory
+
+    Returns:
+        Exit status code (0 for success)
     """
     if not cache_dir.exists():
         print("No cache found")
-        sys.exit(0)
+        return 0
 
     # Load cache metadata
     metadata = CacheMetadata.load(cache_dir)
     if not metadata:
         print("Cache exists but is corrupted or empty")
-        sys.exit(0)
+        return 0
 
     # Calculate cache size
     total_size = sum(f.stat().st_size for f in cache_dir.rglob("*") if f.is_file())
@@ -315,7 +308,7 @@ def _handle_cache_stats(cache_dir: Path) -> None:
     if metadata.git_commit:
         print(f"  Git commit: {metadata.git_commit[:8]}")
 
-    sys.exit(0)
+    return 0
 
 
 def main() -> None:
@@ -346,9 +339,9 @@ def main() -> None:
 
         # Handle cache-only commands
         if args.clear_cache:
-            _handle_clear_cache(cache_dir)
+            sys.exit(_handle_clear_cache(cache_dir))
         if args.cache_stats:
-            _handle_cache_stats(cache_dir)
+            sys.exit(_handle_cache_stats(cache_dir))
 
         # Build config objects
         cache_enabled = not args.no_cache and not args.dry_run

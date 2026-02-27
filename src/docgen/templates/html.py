@@ -121,6 +121,28 @@ class TemplateManager:
                     )
             logger.debug(f"Loaded template '{name}' from {source_type}")
 
+    def render_to_string(
+        self,
+        template_name: str,
+        context: dict[str, Any],
+    ) -> str:
+        """Render a template and return the result as a string.
+
+        Args:
+            template_name: Name of the template to render
+            context: Template context data
+
+        Returns:
+            Rendered template content
+
+        Raises:
+            ValueError: If template name is not recognized
+        """
+        if template_name not in self.templates:
+            raise ValueError(f"Unknown template: {template_name}")
+
+        return self.templates[template_name].render(**context)
+
     def render_template(
         self,
         template_name: str,
@@ -136,11 +158,7 @@ class TemplateManager:
             output_dir: Output directory path
             filename: Optional custom filename
         """
-        if template_name not in self.templates:
-            raise ValueError(f"Unknown template: {template_name}")
-
-        template = self.templates[template_name]
-        output = template.render(**context)
+        output = self.render_to_string(template_name, context)
 
         if filename:
             output_path = os.path.join(output_dir, filename)
