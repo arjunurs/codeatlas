@@ -138,55 +138,29 @@ class EdgeSyntaxRule:
         return errors
 
 
-# Architecture diagram validator
-class ArchitectureDiagramValidator(BaseValidator):
-    """Validator for architecture diagrams."""
+def create_graph_validator(
+    diagram_type: DiagramType, config: ValidationConfig
+) -> BaseValidator:
+    """Create a validator for graph-based diagrams (architecture, call graph, dependency).
 
-    def __init__(self, config: ValidationConfig):
-        """Initialize with architecture-specific rules."""
-        super().__init__(
-            diagram_type=DiagramType.ARCHITECTURE,
-            config=config,
-            additional_rules=[
-                GraphDirectionRule(),
-                NodeDefinitionRule(),
-                EdgeSyntaxRule(),
-            ],
-        )
+    These diagram types share the same validation rules.
 
+    Args:
+        diagram_type: The type of graph diagram
+        config: Validation configuration
 
-# Call graph validator (same rules as architecture)
-class CallGraphValidator(BaseValidator):
-    """Validator for call graph diagrams."""
-
-    def __init__(self, config: ValidationConfig):
-        """Initialize with call graph rules."""
-        super().__init__(
-            diagram_type=DiagramType.CALL_GRAPH,
-            config=config,
-            additional_rules=[
-                GraphDirectionRule(),
-                NodeDefinitionRule(),
-                EdgeSyntaxRule(),
-            ],
-        )
-
-
-# Dependency diagram validator
-class DependencyDiagramValidator(BaseValidator):
-    """Validator for dependency diagrams."""
-
-    def __init__(self, config: ValidationConfig):
-        """Initialize with dependency diagram rules."""
-        super().__init__(
-            diagram_type=DiagramType.DEPENDENCY,
-            config=config,
-            additional_rules=[
-                GraphDirectionRule(),
-                NodeDefinitionRule(),
-                EdgeSyntaxRule(),
-            ],
-        )
+    Returns:
+        A configured BaseValidator instance
+    """
+    return BaseValidator(
+        diagram_type=diagram_type,
+        config=config,
+        additional_rules=[
+            GraphDirectionRule(),
+            NodeDefinitionRule(),
+            EdgeSyntaxRule(),
+        ],
+    )
 
 
 # Class diagram specific rules

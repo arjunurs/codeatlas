@@ -137,19 +137,23 @@ class DiagramValidator:
 
         # Import type-specific validators here to avoid circular imports
         from docgen.utils.diagram_validators import (
-            ArchitectureDiagramValidator,
-            CallGraphValidator,
             ClassDiagramValidator,
-            DependencyDiagramValidator,
             SequenceDiagramValidator,
+            create_graph_validator,
         )
 
         self.validators: dict[DiagramType, TypedValidator] = {
-            DiagramType.ARCHITECTURE: ArchitectureDiagramValidator(self.config),
+            DiagramType.ARCHITECTURE: create_graph_validator(
+                DiagramType.ARCHITECTURE, self.config
+            ),
             DiagramType.CLASS: ClassDiagramValidator(self.config),
             DiagramType.SEQUENCE: SequenceDiagramValidator(self.config),
-            DiagramType.CALL_GRAPH: CallGraphValidator(self.config),
-            DiagramType.DEPENDENCY: DependencyDiagramValidator(self.config),
+            DiagramType.CALL_GRAPH: create_graph_validator(
+                DiagramType.CALL_GRAPH, self.config
+            ),
+            DiagramType.DEPENDENCY: create_graph_validator(
+                DiagramType.DEPENDENCY, self.config
+            ),
         }
 
     def validate(
