@@ -87,7 +87,7 @@ class CrossReferenceAnalyzer:
                 if component_name not in self._components:
                     self._components[component_name] = ComponentReference(
                         name=component_name,
-                        type=entity.type,
+                        type=entity.type.value,
                         defined_in=file_path,
                         line_number=entity.start_line,
                         imported_by=set(),
@@ -133,9 +133,7 @@ class CrossReferenceAnalyzer:
         components = list(self._components.values())
 
         # Sort by total usage (imports + usage)
-        components.sort(
-            key=lambda c: c.import_count + c.usage_count, reverse=True
-        )
+        components.sort(key=lambda c: c.import_count + c.usage_count, reverse=True)
 
         return components[:limit]
 
@@ -152,9 +150,7 @@ class CrossReferenceAnalyzer:
         """
         return self._components.get(component_name)
 
-    def get_components_by_type(
-        self, component_type: str
-    ) -> list[ComponentReference]:
+    def get_components_by_type(self, component_type: str) -> list[ComponentReference]:
         """Get all components of a specific type.
 
         Args:
@@ -164,9 +160,7 @@ class CrossReferenceAnalyzer:
             List of ComponentReference objects of the specified type
         """
         return [
-            comp
-            for comp in self._components.values()
-            if comp.type == component_type
+            comp for comp in self._components.values() if comp.type == component_type
         ]
 
     def generate_reference_report(self, limit: int = 15) -> str:
@@ -196,7 +190,11 @@ class CrossReferenceAnalyzer:
                 continue
 
             components = by_type[comp_type]
-            type_title = comp_type.capitalize() + "es" if comp_type == "class" else comp_type.capitalize() + "s"
+            type_title = (
+                comp_type.capitalize() + "es"
+                if comp_type == "class"
+                else comp_type.capitalize() + "s"
+            )
             lines.append(f"\n## {type_title}\n")
 
             for comp in components:
@@ -209,15 +207,11 @@ class CrossReferenceAnalyzer:
 
                 # Usage information
                 if comp.imported_by:
-                    lines.append(
-                        f"**Imported by {len(comp.imported_by)} files:**"
-                    )
+                    lines.append(f"**Imported by {len(comp.imported_by)} files:**")
                     for file_path in sorted(comp.imported_by)[:10]:
                         lines.append(f"- `{file_path}`")
                     if len(comp.imported_by) > 10:
-                        lines.append(
-                            f"- ... and {len(comp.imported_by) - 10} more"
-                        )
+                        lines.append(f"- ... and {len(comp.imported_by) - 10} more")
                     lines.append("")
 
                 if comp.used_in and comp.used_in != comp.imported_by:

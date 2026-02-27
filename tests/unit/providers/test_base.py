@@ -9,6 +9,7 @@ from docgen.providers.base import (
     BaseLLMProvider,
     EmbeddingProvider,
     LLMProvider,
+    classify_api_error,
 )
 
 
@@ -195,3 +196,50 @@ class TestBaseEmbeddingProvider:
         emb2 = provider.get_langchain_embeddings()
         assert provider.create_count == 1
         assert emb1 is emb2
+
+
+class TestClassifyApiError:
+    """Test cases for classify_api_error function."""
+
+    def test_rate_limit_match(self):
+        """Test that rate limit errors are classified correctly."""
+        assert classify_api_error(Exception("rate limit exceeded")) == "rate_limit"
+        assert classify_api_error(Exception("Rate Limit hit")) == "rate_limit"
+
+    def test_partial_keyword_no_false_positive(self):
+        """Test that partial keyword matches work correctly with any-match logic."""
+        # "rate" alone should match rate_limit since keywords are alternatives
+        assert classify_api_error(Exception("rate exceeded")) == "rate_limit"
+        # "limit" alone should also match
+        assert classify_api_error(Exception("limit reached")) == "rate_limit"
+
+    def test_auth_errors(self):
+        """Test authentication error classification."""
+        assert classify_api_error(Exception("api_key invalid")) == "auth"
+        assert classify_api_error(Exception("authentication failed")) == "auth"
+        assert classify_api_error(Exception("unauthorized access")) == "auth"
+        assert classify_api_error(Exception("401 error")) == "auth"
+
+    def test_timeout_errors(self):
+        """Test timeout error classification."""
+        assert classify_api_error(Exception("request timeout")) == "timeout"
+        assert classify_api_error(Exception("timed out")) == "timeout"
+
+    def test_connection_errors(self):
+        """Test connection error classification."""
+        assert classify_api_error(Exception("connection refused")) == "connection"
+
+    def test_quota_errors(self):
+        """Test quota error classification."""
+        assert classify_api_error(Exception("quota exceeded")) == "quota"
+        assert classify_api_error(Exception("billing issue")) == "quota"
+
+    def test_context_length_errors(self):
+        """Test context length error classification."""
+        assert classify_api_error(Exception("context too long")) == "context_length"
+        assert classify_api_error(Exception("max length exceeded")) == "context_length"
+
+    def test_no_match(self):
+        """Test that unrecognized errors return None."""
+        assert classify_api_error(Exception("some random error")) is None
+        assert classify_api_error(Exception("")) is None

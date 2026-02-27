@@ -2,7 +2,7 @@
 
 import pytest
 
-from docgen.models.code_entity import CodeEntity
+from docgen.models.code_entity import CodeEntity, EntityType
 
 
 def test_code_entity_creation():
@@ -17,7 +17,7 @@ def test_code_entity_creation():
         source="def test_func():\n    pass",
     )
     assert func_entity.name == "test_func"
-    assert func_entity.type == "function"
+    assert func_entity.type == EntityType.FUNCTION
     assert func_entity.docstring == "Test function"
     assert func_entity.methods is None
     assert func_entity.start_line == 1
@@ -36,7 +36,7 @@ def test_code_entity_creation():
         parent_class="BaseClass",
     )
     assert class_entity.name == "TestClass"
-    assert class_entity.type == "class"
+    assert class_entity.type == EntityType.CLASS
     assert class_entity.docstring == "Test class"
     assert class_entity.methods == ["method1", "method2"]
     assert class_entity.start_line == 1
@@ -118,7 +118,7 @@ def test_code_entity_function():
     )
 
     assert entity.name == "test_function"
-    assert entity.type == "function"
+    assert entity.type == EntityType.FUNCTION
     assert not entity.methods  # Should be None for functions
     assert entity.parent_class is None
     assert entity.start_line == 5

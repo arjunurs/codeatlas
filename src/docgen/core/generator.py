@@ -37,6 +37,7 @@ from ..exceptions.errors import (
     TemplateError,
     VectorStoreError,
 )
+from ..models.code_entity import EntityType
 from ..models.file_analysis import FileAnalysis
 from ..prompts.sections import (
     SECTION_ORDER,
@@ -997,12 +998,12 @@ Answer:"""
         Returns:
             Formatted document string
         """
-        lines = [f"Type: {entity.type}", f"Name: {entity.name}"]
+        lines = [f"Type: {entity.type.value}", f"Name: {entity.name}"]
 
         if entity.docstring:
             lines.append(f"Description: {entity.docstring}")
 
-        if entity.type == "class":
+        if entity.type == EntityType.CLASS:
             methods = ", ".join(entity.methods) if entity.methods else "None"
             lines.append(f"Methods: {methods}")
             if entity.parent_class:

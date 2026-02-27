@@ -9,6 +9,7 @@ import os
 import re
 
 from ..exceptions.errors import DiagramGenerationError
+from ..models.code_entity import EntityType
 from ..models.diagram_validation import DiagramType, ValidationConfig
 from ..models.file_analysis import FileAnalysis
 
@@ -216,7 +217,7 @@ class DiagramGenerator:
             classes = {}  # Use dict to ensure uniqueness by name
             for analysis in analyses:
                 for entity in analysis.entities:
-                    if entity.type == "class":
+                    if entity.type == EntityType.CLASS:
                         clean_name = self._clean_name(entity.name)
                         if clean_name not in classes:
                             classes[clean_name] = entity

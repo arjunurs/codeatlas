@@ -5,14 +5,14 @@ enabling provider-agnostic code in the documentation generator.
 """
 
 from abc import ABC, abstractmethod
-from typing import Protocol, Union, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage
 
 # Type alias for LLM responses - can be a message or string
-LLMResponse = Union[BaseMessage, str]
+LLMResponse = BaseMessage | str
 
 # Common error patterns for API error classification
 ERROR_PATTERNS: list[tuple[tuple[str, ...], str]] = [
@@ -36,9 +36,7 @@ def classify_api_error(error: Exception) -> str | None:
     """
     error_str = str(error).lower()
     for keywords, error_type in ERROR_PATTERNS:
-        if all(kw in error_str for kw in keywords[:1]) and any(
-            kw in error_str for kw in keywords
-        ):
+        if any(kw in error_str for kw in keywords):
             return error_type
     return None
 

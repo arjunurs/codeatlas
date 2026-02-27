@@ -6,6 +6,7 @@ from docgen.models.diagram_validation import (
     DiagramType,
     ValidationConfig,
     ValidationError,
+    ValidationMode,
     ValidationResult,
     ValidationSeverity,
 )
@@ -193,7 +194,7 @@ class TestValidationConfig:
     def test_default_config(self):
         """Test default configuration values."""
         config = ValidationConfig()
-        assert config.mode == "strict"
+        assert config.mode == ValidationMode.STRICT
         assert not config.fail_on_warnings
         assert config.enabled_rules is None
         assert config.disabled_rules is None
@@ -207,7 +208,7 @@ class TestValidationConfig:
             enabled_rules={"rule1", "rule2"},
             validate_on_generation=False,
         )
-        assert config.mode == "permissive"
+        assert config.mode == ValidationMode.PERMISSIVE
         assert config.fail_on_warnings
         assert config.enabled_rules == {"rule1", "rule2"}
         assert not config.validate_on_generation

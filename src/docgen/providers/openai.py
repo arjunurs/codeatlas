@@ -5,6 +5,7 @@ EmbeddingProvider interfaces.
 """
 
 import logging
+from typing import NoReturn
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def _raise_openai_error(
     e: Exception, operation: str, error_class: type = LLMError
-) -> None:
+) -> NoReturn:
     """Raise appropriate exception for OpenAI errors.
 
     Args:

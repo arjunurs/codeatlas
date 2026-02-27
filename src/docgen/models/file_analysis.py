@@ -7,7 +7,7 @@ of a Python source file.
 import os
 from dataclasses import dataclass, field
 
-from .code_entity import CodeEntity
+from .code_entity import CodeEntity, EntityType
 
 
 @dataclass
@@ -79,7 +79,7 @@ class FileAnalysis:
         Returns:
             List of class entities
         """
-        return [e for e in self.entities if e.type == "class"]
+        return [e for e in self.entities if e.type == EntityType.CLASS]
 
     @property
     def functions(self) -> list[CodeEntity]:
@@ -88,7 +88,7 @@ class FileAnalysis:
         Returns:
             List of function entities
         """
-        return [e for e in self.entities if e.type == "function"]
+        return [e for e in self.entities if e.type == EntityType.FUNCTION]
 
     @property
     def is_empty(self) -> bool:

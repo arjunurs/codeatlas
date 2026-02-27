@@ -13,6 +13,7 @@ import pytest
 from docgen.core.analyzer import CodeAnalyzer
 from docgen.core.generator import CodeDocumentationGenerator
 from docgen.exceptions.errors import ApiKeyError, DocumentationError
+from docgen.models.code_entity import EntityType
 from docgen.templates.html import get_template_manager
 
 
@@ -224,12 +225,16 @@ class TestCodeAnalysis:
         assert len(main_analysis.entities) > 0
 
         # Should have found the class
-        class_entities = [e for e in main_analysis.entities if e.type == "class"]
+        class_entities = [
+            e for e in main_analysis.entities if e.type == EntityType.CLASS
+        ]
         assert len(class_entities) >= 1
         assert any(e.name == "MainClass" for e in class_entities)
 
         # Should have found the function
-        func_entities = [e for e in main_analysis.entities if e.type == "function"]
+        func_entities = [
+            e for e in main_analysis.entities if e.type == EntityType.FUNCTION
+        ]
         assert len(func_entities) >= 1
         assert any(e.name == "helper_function" for e in func_entities)
 

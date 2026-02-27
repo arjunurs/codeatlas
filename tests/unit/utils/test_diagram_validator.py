@@ -3,7 +3,11 @@
 import pytest
 
 from docgen.exceptions.errors import DiagramValidationError
-from docgen.models.diagram_validation import DiagramType, ValidationConfig
+from docgen.models.diagram_validation import (
+    DiagramType,
+    ValidationConfig,
+    ValidationMode,
+)
 from docgen.utils.diagram_validator import DiagramValidator
 
 
@@ -20,7 +24,7 @@ class TestDiagramValidator:
         """Test initialization with custom config."""
         config = ValidationConfig(mode="permissive")
         validator = DiagramValidator(config)
-        assert validator.config.mode == "permissive"
+        assert validator.config.mode == ValidationMode.PERMISSIVE
 
     def test_validate_architecture_diagram(self):
         """Test validating a valid architecture diagram."""

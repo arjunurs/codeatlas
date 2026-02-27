@@ -12,7 +12,7 @@ import pytest
 
 from docgen.core.analyzer import CodeAnalyzer
 from docgen.exceptions.errors import CodeParseError
-from docgen.models.code_entity import CodeEntity
+from docgen.models.code_entity import CodeEntity, EntityType
 from docgen.models.file_analysis import FileAnalysis
 
 
@@ -56,13 +56,13 @@ def test_analyze_file_success(analyzer, tmp_path, sample_python_code):
     assert len(analysis.entities) == 2  # TestClass and test_function
 
     # Verify class entity
-    class_entity = next(e for e in analysis.entities if e.type == "class")
+    class_entity = next(e for e in analysis.entities if e.type == EntityType.CLASS)
     assert class_entity.name == "TestClass"
     assert class_entity.docstring == "Test class docstring."
     assert class_entity.methods == ["test_method"]
 
     # Verify function entity
-    func_entity = next(e for e in analysis.entities if e.type == "function")
+    func_entity = next(e for e in analysis.entities if e.type == EntityType.FUNCTION)
     assert func_entity.name == "test_function"
     assert func_entity.docstring == "Test function docstring."
     assert func_entity.methods is None
@@ -140,8 +140,10 @@ def test_func():
     entities = analyzer._extract_entities(tree, "test.py")
 
     assert len(entities) == 2
-    assert any(e.name == "TestClass" and e.type == "class" for e in entities)
-    assert any(e.name == "test_func" and e.type == "function" for e in entities)
+    assert any(e.name == "TestClass" and e.type == EntityType.CLASS for e in entities)
+    assert any(
+        e.name == "test_func" and e.type == EntityType.FUNCTION for e in entities
+    )
 
 
 def test_extract_imports(analyzer):

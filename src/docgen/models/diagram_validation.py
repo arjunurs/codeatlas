@@ -18,6 +18,13 @@ class DiagramType(Enum):
     DEPENDENCY = "dependency"
 
 
+class ValidationMode(Enum):
+    """Validation strictness modes."""
+
+    STRICT = "strict"
+    PERMISSIVE = "permissive"
+
+
 class ValidationSeverity(Enum):
     """Severity levels for validation issues."""
 
@@ -147,7 +154,7 @@ class ValidationConfig:
         validate_on_generation: Whether to validate during diagram generation
     """
 
-    mode: str = "strict"
+    mode: ValidationMode = ValidationMode.STRICT
     fail_on_warnings: bool = False
     enabled_rules: set[str] | None = None
     disabled_rules: set[str] | None = None
@@ -155,8 +162,12 @@ class ValidationConfig:
 
     def __post_init__(self):
         """Validate configuration values."""
-        if self.mode not in ("strict", "permissive"):
-            raise ValueError("Mode must be 'strict' or 'permissive'")
+        # Auto-convert string to ValidationMode for backward compatibility
+        if isinstance(self.mode, str):
+            try:
+                self.mode = ValidationMode(self.mode)
+            except ValueError:
+                raise ValueError("Mode must be 'strict' or 'permissive'")
 
         if self.enabled_rules and self.disabled_rules:
             overlap = self.enabled_rules & self.disabled_rules

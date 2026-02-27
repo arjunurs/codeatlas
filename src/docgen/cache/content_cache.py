@@ -148,7 +148,7 @@ class SectionContentCache:
             elif dependency_type == "entities":
                 for entity in sorted(analysis.entities, key=lambda e: e.name):
                     hasher.update(entity.name.encode())
-                    hasher.update(entity.type.encode())
+                    hasher.update(entity.type.value.encode())
                     if entity.docstring:
                         hasher.update(entity.docstring.encode())
 

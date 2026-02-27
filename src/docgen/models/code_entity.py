@@ -7,6 +7,14 @@ This module defines the CodeEntity class that represents a code entity
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
+
+
+class EntityType(Enum):
+    """Types of code entities."""
+
+    CLASS = "class"
+    FUNCTION = "function"
 
 
 @dataclass
@@ -15,7 +23,7 @@ class CodeEntity:
 
     Attributes:
         name: Name of the entity
-        type: Type of entity ('class' or 'function')
+        type: Type of entity (EntityType.CLASS or EntityType.FUNCTION)
         docstring: Entity's docstring
         methods: List of method names for classes, None for functions
         start_line: Starting line number in source file
@@ -25,7 +33,7 @@ class CodeEntity:
     """
 
     name: str
-    type: str
+    type: EntityType
     docstring: str
     methods: list[str] | None = None
     start_line: int = 1
@@ -38,16 +46,20 @@ class CodeEntity:
         if not self.name:
             raise ValueError("Entity name cannot be empty")
 
+        # Auto-convert string to EntityType for backward compatibility
+        if isinstance(self.type, str):
+            try:
+                self.type = EntityType(self.type)
+            except ValueError:
+                raise ValueError("Entity type must be either 'class' or 'function'")
+
         if not isinstance(self.start_line, int) or self.start_line <= 0:
             raise ValueError("Start line number must be a positive integer")
 
         if not isinstance(self.end_line, int) or self.end_line <= 0:
             raise ValueError("End line number must be a positive integer")
 
-        if self.type not in ["class", "function"]:
-            raise ValueError("Entity type must be either 'class' or 'function'")
-
-        if self.type == "function" and self.methods is not None:
+        if self.type == EntityType.FUNCTION and self.methods is not None:
             raise ValueError("Function entities cannot have methods")
 
         if self.end_line < self.start_line:
