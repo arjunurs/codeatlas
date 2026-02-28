@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodeDocumentationGenerator — Architecture Playground</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #242836;
+    --border: #2e3348; --text: #e2e4ed; --text2: #9499b3;
+    --accent: #6c8cff; --accent2: #4a6adf;
+    --blue: #3b82f6; --green: #10b981; --orange: #f97316;
+    --red: #ef4444; --purple: #a78bfa; --pink: #f472b6; --gray: #6b7280;
+    --yellow: #eab308;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text);
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    background: var(--surface); flex-shrink: 0;
+  }
+  header h1 { font-size: 15px; font-weight: 600; }
+  header span { font-size: 12px; color: var(--text2); }
+
+  .main { display: flex; flex: 1; min-height: 0; }
+
+  .sidebar {
+    width: 260px; flex-shrink: 0; border-right: 1px solid var(--border);
+    background: var(--surface); overflow-y: auto; padding: 12px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+
+  .section-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.2px; color: var(--text2); margin-bottom: 6px;
+  }
+
+  .preset-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+  .preset-btn {
+    font-size: 11px; padding: 5px 9px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text2); cursor: pointer; transition: all 0.15s;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--text); }
+  .preset-btn.active { background: var(--accent2); border-color: var(--accent); color: #fff; }
+
+  .toggle-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 3px 0; font-size: 12px; cursor: pointer; user-select: none;
+  }
+  .toggle-row input { display: none; }
+  .toggle-dot {
+    width: 14px; height: 14px; border-radius: 4px;
+    border: 2px solid var(--border); flex-shrink: 0; transition: all 0.15s;
+  }
+  .toggle-row input:checked + .toggle-dot { border-color: currentColor; background: currentColor; }
+  .toggle-row span { flex: 1; }
+  .toggle-count { font-size: 10px; color: var(--text2); }
+
+  .comments-list { display: flex; flex-direction: column; gap: 6px; }
+  .comment-item {
+    padding: 8px; background: var(--surface2); border-radius: 6px;
+    border-left: 3px solid var(--accent); font-size: 11px;
+  }
+  .comment-item .cm-target { font-weight: 600; color: var(--accent); }
+  .comment-item .cm-text { color: var(--text2); margin-top: 2px; }
+  .comment-item .cm-del {
+    font-size: 10px; color: var(--red); cursor: pointer; float: right;
+    opacity: 0.7; border: none; background: none;
+  }
+  .comment-item .cm-del:hover { opacity: 1; }
+
+  .canvas-wrap {
+    flex: 1; display: flex; flex-direction: column; min-width: 0;
+  }
+
+  .toolbar {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-bottom: 1px solid var(--border);
+    background: var(--surface); flex-shrink: 0;
+  }
+  .tb-btn {
+    width: 28px; height: 28px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text2); cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tb-btn:hover { border-color: var(--accent); color: var(--text); }
+  .zoom-label { font-size: 11px; color: var(--text2); min-width: 38px; text-align: center; }
+  .tb-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+  .mode-info { font-size: 11px; color: var(--text2); margin-left: auto; }
+
+  .canvas-container {
+    flex: 1; overflow: hidden; position: relative; cursor: grab;
+  }
+  .canvas-container.dragging { cursor: grabbing; }
+
+  svg { display: block; }
+
+  .prompt-bar {
+    border-top: 1px solid var(--border); background: var(--surface);
+    padding: 10px 16px; flex-shrink: 0; max-height: 180px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .prompt-header {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .prompt-header span { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); }
+  .copy-btn {
+    font-size: 11px; padding: 4px 10px; border-radius: 5px;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text2); cursor: pointer;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--text); }
+  .prompt-text {
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px;
+    color: var(--text2); line-height: 1.5; overflow-y: auto;
+    white-space: pre-wrap; max-height: 110px;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px; width: 380px;
+  }
+  .modal h3 { font-size: 14px; margin-bottom: 4px; }
+  .modal .modal-sub { font-size: 11px; color: var(--text2); margin-bottom: 12px; }
+  .modal textarea {
+    width: 100%; height: 80px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-size: 12px; padding: 8px;
+    resize: vertical; font-family: inherit;
+  }
+  .modal textarea:focus { outline: none; border-color: var(--accent); }
+  .modal-actions { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
+  .modal-actions button {
+    padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; border: none;
+  }
+  .btn-cancel { background: var(--surface2); color: var(--text2); border: 1px solid var(--border) !important; }
+  .btn-save { background: var(--accent2); color: #fff; }
+
+  /* Node tooltip */
+  .node-tooltip {
+    position: fixed; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; font-size: 11px; z-index: 50;
+    pointer-events: none; max-width: 260px; display: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .node-tooltip.visible { display: block; }
+  .node-tooltip .tt-title { font-weight: 600; margin-bottom: 2px; }
+  .node-tooltip .tt-path { color: var(--text2); font-family: monospace; font-size: 10px; }
+  .node-tooltip .tt-desc { color: var(--text2); margin-top: 4px; line-height: 1.4; }
+  .node-tooltip .tt-hint { color: var(--accent); margin-top: 4px; font-size: 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CodeDocumentationGenerator</h1>
+  <span>Architecture Playground</span>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+    <div>
+      <div class="section-title">View Presets</div>
+      <div class="preset-grid" id="presets"></div>
+    </div>
+    <div>
+      <div class="section-title">Layers</div>
+      <div id="layer-toggles"></div>
+    </div>
+    <div>
+      <div class="section-title">Connections</div>
+      <div id="conn-toggles"></div>
+    </div>
+    <div>
+      <div class="section-title">Special Modes</div>
+      <div id="mode-toggles"></div>
+    </div>
+    <div>
+      <div class="section-title">Comments (<span id="comment-count">0</span>)</div>
+      <div class="comments-list" id="comments-list"></div>
+    </div>
+  </div>
+
+  <div class="canvas-wrap">
+    <div class="toolbar">
+      <button class="tb-btn" onclick="zoomIn()" title="Zoom in">+</button>
+      <span class="zoom-label" id="zoom-label">100%</span>
+      <button class="tb-btn" onclick="zoomOut()" title="Zoom out">&minus;</button>
+      <button class="tb-btn" onclick="resetView()" title="Reset view" style="font-size:11px">&#x27F2;</button>
+      <button class="tb-btn" onclick="fitView()" title="Fit to view" style="font-size:11px">&#x229E;</button>
+      <div class="tb-sep"></div>
+      <span class="mode-info" id="mode-info">Full System</span>
+    </div>
+    <div class="canvas-container" id="canvas-container">
+      <svg id="canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </div>
+</div>
+
+<div class="prompt-bar">
+  <div class="prompt-header">
+    <span>Generated Prompt</span>
+    <button class="copy-btn" id="copy-btn" onclick="copyPrompt()">Copy</button>
+  </div>
+  <div class="prompt-text" id="prompt-output"></div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3 id="modal-title"></h3>
+    <div class="modal-sub" id="modal-sub"></div>
+    <textarea id="modal-text" placeholder="Add your feedback or change request..."></textarea>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveComment()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="node-tooltip" id="tooltip">
+  <div class="tt-title" id="tt-title"></div>
+  <div class="tt-path" id="tt-path"></div>
+  <div class="tt-desc" id="tt-desc"></div>
+  <div class="tt-hint">Click to add comment</div>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────
+const LAYERS = {
+  entry:     { label: 'Entry / CLI',         color: '#fbbf24', fill: '#422006' },
+  core:      { label: 'Core Pipeline',       color: '#6c8cff', fill: '#1e2a4a' },
+  providers: { label: 'Providers',           color: '#a78bfa', fill: '#2d1f54' },
+  cache:     { label: 'Cache Layer',         color: '#f472b6', fill: '#3d1535' },
+  models:    { label: 'Models / Config',     color: '#10b981', fill: '#0d3328' },
+  prompts:   { label: 'Prompts / Templates', color: '#f97316', fill: '#3d1d06' },
+  utils:     { label: 'Utilities',           color: '#6b7280', fill: '#1f2229' },
+  external:  { label: 'External Services',   color: '#ef4444', fill: '#3b1111' },
+};
+
+const CONN_TYPES = {
+  'data-flow':  { label: 'Data Flow',       color: '#3b82f6', dash: '' },
+  'delegates':  { label: 'Delegates To',     color: '#10b981', dash: '6,3' },
+  'uses':       { label: 'Uses / Imports',   color: '#a78bfa', dash: '4,4' },
+  'api-call':   { label: 'API Call',         color: '#ef4444', dash: '8,4' },
+  'produces':   { label: 'Produces',         color: '#f97316', dash: '2,4' },
+};
+
+const nodes = [
+  // Entry
+  { id:'cli', label:'CLI (docgen)', sub:'src/docgen/cli.py', layer:'entry', desc:'Parses args, constructs config objects, invokes generator. Supports --diagrams-only and --dry-run modes.', x:420, y:30, w:160, h:44 },
+
+  // Core Pipeline
+  { id:'analyzer', label:'CodeAnalyzer', sub:'src/docgen/core/analyzer.py', layer:'core', desc:'Parses Python AST to extract classes, functions, imports. Produces FileAnalysis and CodeEntity models.', x:130, y:130, w:150, h:44 },
+  { id:'generator', label:'CodeDocumentationGenerator', sub:'src/docgen/core/generator.py', layer:'core', desc:'Main orchestrator. Thin facade that delegates to RAGPipelineFactory, SectionOrchestrator, DiagramGenerator, DocumentationRenderer.', x:370, y:130, w:240, h:44 },
+  { id:'rag', label:'RAGPipelineFactory', sub:'src/docgen/core/rag_pipeline.py', layer:'core', desc:'Creates ChromaDB vector store and LCEL RAG chain. Handles retriever config (similarity/MMR), text splitting, and cleanup.', x:100, y:240, w:170, h:44 },
+  { id:'sections', label:'SectionOrchestrator', sub:'src/docgen/core/section_orchestrator.py', layer:'core', desc:'Generates doc sections sequential or parallel. Handles section caching, filtering, and cross-reference preprocessing.', x:310, y:240, w:180, h:44 },
+  { id:'diagrams', label:'DiagramGenerator', sub:'src/docgen/core/diagrams.py', layer:'core', desc:'Generates 5 Mermaid diagram types: architecture, class, sequence, dependency, call graph. Validates via DiagramValidator.', x:530, y:240, w:160, h:44 },
+  { id:'renderer', label:'DocumentationRenderer', sub:'src/docgen/core/renderer.py', layer:'core', desc:'Renders HTML output: index, section pages, diagram pages, search page. Uses TemplateManager with Jinja2.', x:730, y:240, w:190, h:44 },
+  { id:'crossref', label:'CrossReferenceAnalyzer', sub:'src/docgen/core/cross_reference.py', layer:'core', desc:'Tracks component definitions and usage across the codebase. Builds import/usage graphs for "where used" analysis.', x:310, y:340, w:195, h:44 },
+
+  // Providers
+  { id:'llm_proto', label:'LLMProvider Protocol', sub:'src/docgen/providers/base.py', layer:'providers', desc:'Narrow protocol: model_name + invoke(). Decoupled from LangChain. Extended by LangChainLLMProvider.', x:50, y:440, w:170, h:44 },
+  { id:'emb_proto', label:'EmbeddingProvider Protocol', sub:'src/docgen/providers/base.py', layer:'providers', desc:'Narrow protocol: model_name + embed_documents/embed_query(). Extended by LangChainEmbeddingProvider.', x:250, y:440, w:200, h:44 },
+  { id:'anthropic', label:'AnthropicProvider', sub:'src/docgen/providers/anthropic.py', layer:'providers', desc:'Claude LLM implementation via langchain-anthropic. Implements LangChainLLMProvider protocol.', x:50, y:530, w:170, h:44 },
+  { id:'openai_emb', label:'OpenAIEmbeddingProvider', sub:'src/docgen/providers/openai.py', layer:'providers', desc:'OpenAI text-embedding-3-small/large implementation. Implements LangChainEmbeddingProvider protocol.', x:250, y:530, w:200, h:44 },
+  { id:'registry', label:'ProviderRegistry', sub:'src/docgen/providers/registry.py', layer:'providers', desc:'Factory registry with lazy imports. create_llm_provider() / create_embedding_provider(). Decouples generator from concrete providers.', x:480, y:440, w:165, h:44 },
+
+  // Cache
+  { id:'content_cache', label:'ContentCache', sub:'src/docgen/cache/content_cache.py', layer:'cache', desc:'Section-level caching. Caches generated section content keyed by section name + dependency hash.', x:540, y:340, w:145, h:44 },
+  { id:'vector_cache', label:'VectorStoreCache', sub:'src/docgen/cache/vector_cache.py', layer:'cache', desc:'Persists ChromaDB vector store. Avoids re-embedding unchanged files across runs.', x:100, y:340, w:165, h:44 },
+  { id:'change_det', label:'FileChangeDetector', sub:'src/docgen/cache/change_detector.py', layer:'cache', desc:'Detects file changes via git diff or filesystem comparison. Uses CacheMetadata for hash/mtime checks.', x:720, y:340, w:175, h:44 },
+  { id:'cache_meta', label:'CacheMetadata', sub:'src/docgen/cache/metadata.py', layer:'cache', desc:'Data class tracking file hashes, mtimes, git commit. Delegates persistence to CacheMetadataStore.', x:730, y:440, w:155, h:44 },
+
+  // Models / Config
+  { id:'file_analysis', label:'FileAnalysis', sub:'src/docgen/models/file_analysis.py', layer:'models', desc:'Pure data container for analyzed files: entities, imports, content. Properties: classes, functions, module_name.', x:50, y:640, w:140, h:44 },
+  { id:'code_entity', label:'CodeEntity', sub:'src/docgen/models/code_entity.py', layer:'models', desc:'Represents a class or function with EntityType enum, docstring, line numbers, methods, parameters, decorators.', x:220, y:640, w:135, h:44 },
+  { id:'diag_models', label:'DiagramType / ValidationConfig', sub:'src/docgen/models/diagram_validation.py', layer:'models', desc:'DiagramType enum, ValidationConfig (mode, disabled_rules, fail_on_warnings), ValidationResult, ValidationError.', x:390, y:640, w:215, h:44 },
+  { id:'config', label:'GeneratorConfig', sub:'src/docgen/config.py', layer:'models', desc:'CacheConfig, GenerationOptions, RAG retriever params. Constructed from CLI args or programmatic API.', x:640, y:640, w:155, h:44 },
+
+  // Prompts / Templates
+  { id:'section_prompts', label:'Section Definitions', sub:'src/docgen/prompts/sections.py', layer:'prompts', desc:'5 core sections (overview, deps, classes, dataflow, integration) + 3 optional (migration, quality, cross-ref).', x:50, y:740, w:165, h:44 },
+  { id:'prompt_tpl', label:'PromptTemplate', sub:'src/docgen/prompts/templates.py', layer:'prompts', desc:'Dataclass with system_prompt, few-shot examples, formatting instructions. Used by SectionOrchestrator.', x:250, y:740, w:150, h:44 },
+  { id:'rag_prompt', label:'RAG Prompt', sub:'src/docgen/prompts/rag_prompt.py', layer:'prompts', desc:'RAG_PROMPT_TEMPLATE string constant. Context + question template for the LCEL chain.', x:430, y:740, w:135, h:44 },
+  { id:'template_mgr', label:'TemplateManager', sub:'src/docgen/templates/html.py', layer:'prompts', desc:'Jinja2 engine. render_to_string() + render_template(). Templates: base, index, section, diagrams, search, nav.', x:600, y:740, w:165, h:44 },
+
+  // Utils
+  { id:'git_client', label:'GitClient', sub:'src/docgen/utils/git_client.py', layer:'utils', desc:'Consolidated git subprocess calls: get_current_commit(), is_git_repo(), get_changed_files().', x:50, y:840, w:135, h:44 },
+  { id:'cost_tracker', label:'CostTracker', sub:'src/docgen/utils/cost_tracker.py', layer:'utils', desc:'Accumulates API usage per model. Estimates costs from pricing table. format_cost_summary() for display.', x:215, y:840, w:145, h:44 },
+  { id:'diag_validator', label:'DiagramValidator', sub:'src/docgen/utils/diagram_validator.py', layer:'utils', desc:'15+ validation rules. create_graph_validator() factory. Strict/permissive modes. Auto-detects diagram type.', x:390, y:840, w:165, h:44 },
+  { id:'error_class', label:'Error Classification', sub:'src/docgen/utils/error_classification.py', layer:'utils', desc:'classify_api_error() matches error strings to categories: rate_limit, auth, timeout, connection, quota.', x:585, y:840, w:175, h:44 },
+  { id:'path_val', label:'Path Validation', sub:'src/docgen/utils/path_validation.py', layer:'utils', desc:'Validates source/output directories. Prevents path traversal. Ensures writability.', x:790, y:840, w:155, h:44 },
+
+  // External
+  { id:'anthropic_api', label:'Anthropic API', sub:'Claude claude-sonnet-4 / claude-haiku-4', layer:'external', desc:'LLM for documentation generation. Called via langchain-anthropic.', x:50, y:940, w:150, h:44 },
+  { id:'openai_api', label:'OpenAI API', sub:'text-embedding-3-small/large', layer:'external', desc:'Embedding model for RAG vector store. Called via langchain-openai.', x:230, y:940, w:145, h:44 },
+  { id:'chromadb', label:'ChromaDB', sub:'Vector store (local)', layer:'external', desc:'Local persistent vector store for code embeddings. Used by RAGPipelineFactory and VectorStoreCache.', x:410, y:940, w:140, h:44 },
+];
+
+const connections = [
+  // Entry to Core
+  { from:'cli', to:'generator', type:'data-flow', label:'invokes' },
+  { from:'cli', to:'config', type:'uses', label:'builds' },
+
+  // Generator delegates
+  { from:'generator', to:'analyzer', type:'delegates', label:'analyze' },
+  { from:'generator', to:'rag', type:'delegates', label:'create RAG' },
+  { from:'generator', to:'sections', type:'delegates', label:'generate' },
+  { from:'generator', to:'diagrams', type:'delegates', label:'diagrams' },
+  { from:'generator', to:'renderer', type:'delegates', label:'render' },
+  { from:'generator', to:'crossref', type:'delegates', label:'cross-ref' },
+
+  // Core internals
+  { from:'analyzer', to:'file_analysis', type:'produces', label:'produces' },
+  { from:'analyzer', to:'code_entity', type:'produces' },
+  { from:'rag', to:'rag_prompt', type:'uses', label:'template' },
+  { from:'rag', to:'vector_cache', type:'uses', label:'cache' },
+  { from:'sections', to:'section_prompts', type:'uses', label:'prompts' },
+  { from:'sections', to:'prompt_tpl', type:'uses' },
+  { from:'sections', to:'content_cache', type:'uses', label:'cache' },
+  { from:'sections', to:'crossref', type:'uses', label:'preprocess' },
+  { from:'diagrams', to:'diag_models', type:'uses', label:'types' },
+  { from:'diagrams', to:'diag_validator', type:'uses', label:'validate' },
+  { from:'renderer', to:'template_mgr', type:'uses', label:'Jinja2' },
+
+  // Providers
+  { from:'generator', to:'registry', type:'uses', label:'lookup' },
+  { from:'registry', to:'llm_proto', type:'produces' },
+  { from:'registry', to:'emb_proto', type:'produces' },
+  { from:'anthropic', to:'llm_proto', type:'data-flow', label:'implements' },
+  { from:'openai_emb', to:'emb_proto', type:'data-flow', label:'implements' },
+  { from:'rag', to:'emb_proto', type:'uses', label:'embed' },
+  { from:'sections', to:'llm_proto', type:'uses', label:'invoke' },
+
+  // Cache connections
+  { from:'change_det', to:'cache_meta', type:'uses', label:'metadata' },
+  { from:'change_det', to:'git_client', type:'uses', label:'git' },
+  { from:'vector_cache', to:'cache_meta', type:'uses' },
+  { from:'vector_cache', to:'chromadb', type:'api-call', label:'persist' },
+
+  // External API calls
+  { from:'anthropic', to:'anthropic_api', type:'api-call', label:'HTTP' },
+  { from:'openai_emb', to:'openai_api', type:'api-call', label:'HTTP' },
+  { from:'rag', to:'chromadb', type:'api-call', label:'store' },
+
+  // Utils
+  { from:'generator', to:'cost_tracker', type:'uses', label:'track' },
+  { from:'anthropic', to:'error_class', type:'uses', label:'classify' },
+  { from:'cli', to:'path_val', type:'uses', label:'validate' },
+];
+
+
+// ── STATE ─────────────────────────────────────────────────────────────
+const DEFAULTS = {
+  layers: Object.fromEntries(Object.keys(LAYERS).map(function(k) { return [k, true]; })),
+  conns: Object.fromEntries(Object.keys(CONN_TYPES).map(function(k) { return [k, true]; })),
+};
+
+const state = {
+  layers: Object.fromEntries(Object.keys(LAYERS).map(function(k) { return [k, true]; })),
+  conns: Object.fromEntries(Object.keys(CONN_TYPES).map(function(k) { return [k, true]; })),
+  mode: 'full',
+  diagramsOnly: false,
+  dryRun: false,
+  zoom: 1,
+  panX: 0, panY: 0,
+  comments: [],
+  modalNode: null,
+};
+
+const PRESETS = {
+  full:     { label: 'Full System', layers: Object.fromEntries(Object.keys(LAYERS).map(function(k){return [k,true]})), conns: Object.fromEntries(Object.keys(CONN_TYPES).map(function(k){return [k,true]})) },
+  pipeline: { label: 'Core Pipeline', layers: { entry:true, core:true, models:false, providers:false, cache:false, prompts:false, utils:false, external:false }, conns: { 'data-flow':true, 'delegates':true, 'uses':false, 'api-call':false, 'produces':true } },
+  rag:      { label: 'RAG Flow', layers: { entry:false, core:true, models:false, providers:true, cache:true, prompts:true, utils:false, external:true }, conns: Object.fromEntries(Object.keys(CONN_TYPES).map(function(k){return [k,true]})) },
+  providers:{ label: 'Providers', layers: { entry:false, core:false, models:false, providers:true, cache:false, prompts:false, utils:true, external:true }, conns: Object.fromEntries(Object.keys(CONN_TYPES).map(function(k){return [k,true]})) },
+  caching:  { label: 'Cache Layer', layers: { entry:false, core:true, models:false, providers:false, cache:true, prompts:false, utils:true, external:true }, conns: Object.fromEntries(Object.keys(CONN_TYPES).map(function(k){return [k,true]})) },
+};
+
+
+// ── SAFE DOM HELPERS ──────────────────────────────────────────────────
+function el(tag, attrs, children) {
+  var e = document.createElement(tag);
+  if (attrs) Object.keys(attrs).forEach(function(k) {
+    if (k === 'style' && typeof attrs[k] === 'object') {
+      Object.assign(e.style, attrs[k]);
+    } else if (k.startsWith('on')) {
+      e.addEventListener(k.slice(2), attrs[k]);
+    } else if (k === 'className') {
+      e.className = attrs[k];
+    } else {
+      e.setAttribute(k, attrs[k]);
+    }
+  });
+  if (children) {
+    if (typeof children === 'string') e.textContent = children;
+    else if (Array.isArray(children)) children.forEach(function(c) { if (c) e.appendChild(c); });
+    else e.appendChild(children);
+  }
+  return e;
+}
+
+function clearEl(e) { while (e.firstChild) e.removeChild(e.firstChild); }
+
+function svgEl(tag, attrs) {
+  var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  if (attrs) Object.keys(attrs).forEach(function(k) { e.setAttribute(k, attrs[k]); });
+  return e;
+}
+
+
+// ── INIT CONTROLS ─────────────────────────────────────────────────────
+function initControls() {
+  var presetsEl = document.getElementById('presets');
+  Object.keys(PRESETS).forEach(function(key) {
+    var p = PRESETS[key];
+    var btn = el('button', { className: 'preset-btn' + (key === state.mode ? ' active' : ''), 'data-key': key, onclick: function() { applyPreset(key); } }, p.label);
+    presetsEl.appendChild(btn);
+  });
+
+  var layersEl = document.getElementById('layer-toggles');
+  Object.keys(LAYERS).forEach(function(key) {
+    var l = LAYERS[key];
+    var count = nodes.filter(function(n) { return n.layer === key; }).length;
+    var cb = el('input', { type: 'checkbox', 'data-layer': key });
+    if (state.layers[key]) cb.checked = true;
+    cb.addEventListener('change', function(e) { state.layers[key] = e.target.checked; state.mode = ''; updateAll(); });
+
+    var dot = el('div', { className: 'toggle-dot', style: { color: l.color } });
+    var label = el('label', { className: 'toggle-row' }, [cb, dot, el('span', null, l.label), el('span', { className: 'toggle-count' }, String(count))]);
+    layersEl.appendChild(label);
+  });
+
+  var connsEl = document.getElementById('conn-toggles');
+  Object.keys(CONN_TYPES).forEach(function(key) {
+    var c = CONN_TYPES[key];
+    var cb = el('input', { type: 'checkbox', 'data-conn': key });
+    if (state.conns[key]) cb.checked = true;
+    cb.addEventListener('change', function(e) { state.conns[key] = e.target.checked; updateAll(); });
+
+    var dot = el('div', { className: 'toggle-dot', style: { color: c.color } });
+    var lineContainer = el('span', null);
+    var lineSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    lineSvg.setAttribute('width', '20'); lineSvg.setAttribute('height', '10');
+    lineSvg.style.verticalAlign = 'middle'; lineSvg.style.marginRight = '4px';
+    var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1','0'); line.setAttribute('y1','5'); line.setAttribute('x2','20'); line.setAttribute('y2','5');
+    line.setAttribute('stroke', c.color); line.setAttribute('stroke-width','2');
+    if (c.dash) line.setAttribute('stroke-dasharray', c.dash);
+    lineSvg.appendChild(line);
+    lineContainer.appendChild(lineSvg);
+    lineContainer.appendChild(document.createTextNode(c.label));
+
+    var label = el('label', { className: 'toggle-row' }, [cb, dot, lineContainer]);
+    connsEl.appendChild(label);
+  });
+
+  var modesEl = document.getElementById('mode-toggles');
+  [{key:'diagramsOnly', label:'--diagrams-only', desc:'Skip RAG chain (no API calls)'}, {key:'dryRun', label:'--dry-run', desc:'Placeholder content only'}].forEach(function(m) {
+    var cb = el('input', { type: 'checkbox', 'data-mode': m.key });
+    cb.addEventListener('change', function(e) { state[m.key] = e.target.checked; updateAll(); });
+    var dot = el('div', { className: 'toggle-dot', style: { color: 'var(--yellow)' } });
+    var span = el('span', { title: m.desc }, m.label);
+    var label = el('label', { className: 'toggle-row' }, [cb, dot, span]);
+    modesEl.appendChild(label);
+  });
+
+  // Initial empty comments placeholder
+  renderComments();
+}
+
+
+// ── RENDERING ─────────────────────────────────────────────────────────
+var svgCanvas = document.getElementById('canvas');
+var container = document.getElementById('canvas-container');
+var tooltipEl = document.getElementById('tooltip');
+
+function getVisibleNodes() {
+  var vis = nodes.filter(function(n) { return state.layers[n.layer]; });
+  if (state.diagramsOnly) {
+    var skip = ['rag','sections','crossref','content_cache','vector_cache','llm_proto','emb_proto','anthropic','openai_emb','anthropic_api','openai_api','chromadb','section_prompts','prompt_tpl','rag_prompt','cost_tracker','error_class'];
+    vis = vis.filter(function(n) { return skip.indexOf(n.id) === -1; });
+  }
+  return vis;
+}
+
+function getVisibleConnections(visNodeIds) {
+  var conns = connections.filter(function(c) {
+    return state.conns[c.type] && visNodeIds.has(c.from) && visNodeIds.has(c.to);
+  });
+  if (state.diagramsOnly) {
+    conns = conns.filter(function(c) { return c.type !== 'api-call'; });
+  }
+  return conns;
+}
+
+function renderDiagram() {
+  var visNodes = getVisibleNodes();
+  var visIds = new Set(visNodes.map(function(n) { return n.id; }));
+  var visConns = getVisibleConnections(visIds);
+
+  // Compute SVG bounds
+  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  visNodes.forEach(function(n) {
+    minX = Math.min(minX, n.x - 10);
+    minY = Math.min(minY, n.y - 10);
+    maxX = Math.max(maxX, n.x + n.w + 10);
+    maxY = Math.max(maxY, n.y + n.h + 10);
+  });
+  if (!visNodes.length) { minX = 0; minY = 0; maxX = 800; maxY = 600; }
+  // Extra left margin for layer labels
+  var labelMargin = 120;
+  var svgW = maxX - minX + 40 + labelMargin;
+  var svgH = maxY - minY + 40;
+
+  // Clear SVG
+  clearEl(svgCanvas);
+
+  // Build defs (markers + glow filter)
+  var defs = svgEl('defs');
+  Object.keys(CONN_TYPES).forEach(function(key) {
+    var c = CONN_TYPES[key];
+    var marker = svgEl('marker', { id: 'arrow-' + key, markerWidth: '8', markerHeight: '6', refX: '7', refY: '3', orient: 'auto' });
+    var poly = svgEl('polygon', { points: '0 0, 8 3, 0 6', fill: c.color, opacity: '0.8' });
+    marker.appendChild(poly);
+    defs.appendChild(marker);
+  });
+  var filter = svgEl('filter', { id: 'glow' });
+  filter.appendChild(svgEl('feGaussianBlur', { stdDeviation: '3', result: 'blur' }));
+  var merge = svgEl('feMerge');
+  merge.appendChild(svgEl('feMergeNode', { 'in': 'blur' }));
+  merge.appendChild(svgEl('feMergeNode', { 'in': 'SourceGraphic' }));
+  filter.appendChild(merge);
+  defs.appendChild(filter);
+  svgCanvas.appendChild(defs);
+
+  // Draw layer bands behind everything
+  var layerBands = {};
+  visNodes.forEach(function(n) {
+    if (!layerBands[n.layer]) layerBands[n.layer] = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+    var b = layerBands[n.layer];
+    b.minX = Math.min(b.minX, n.x);
+    b.minY = Math.min(b.minY, n.y);
+    b.maxX = Math.max(b.maxX, n.x + n.w);
+    b.maxY = Math.max(b.maxY, n.y + n.h);
+  });
+  var layerOrder = Object.keys(LAYERS);
+  layerOrder.forEach(function(key) {
+    if (!layerBands[key]) return;
+    var b = layerBands[key];
+    var layer = LAYERS[key];
+    var pad = 16;
+    var bandG = svgEl('g', { 'data-layer-band': key });
+    bandG.appendChild(svgEl('rect', {
+      x: String(minX - 10), y: String(b.minY - pad),
+      width: String(maxX - minX + 20), height: String(b.maxY - b.minY + pad * 2),
+      rx: '10', fill: layer.color, opacity: '0.04'
+    }));
+    // Layer label on left edge
+    var labelTxt = svgEl('text', {
+      x: String(minX - 18), y: String(b.minY + (b.maxY - b.minY) / 2 + 4),
+      'text-anchor': 'end', fill: layer.color, 'font-size': '11',
+      'font-weight': '700', opacity: '0.6', 'font-family': 'system-ui'
+    });
+    labelTxt.textContent = layer.label;
+    bandG.appendChild(labelTxt);
+    // Thin line at top of band
+    bandG.appendChild(svgEl('line', {
+      x1: String(minX - 10), y1: String(b.minY - pad),
+      x2: String(maxX + 10), y2: String(b.minY - pad),
+      stroke: layer.color, 'stroke-width': '0.5', opacity: '0.15'
+    }));
+    svgCanvas.appendChild(bandG);
+  });
+
+  // Draw connections (wrapped in groups with data attributes for hover highlighting)
+  visConns.forEach(function(c) {
+    var fromNode = nodes.find(function(n) { return n.id === c.from; });
+    var toNode = nodes.find(function(n) { return n.id === c.to; });
+    if (!fromNode || !toNode) return;
+
+    var ct = CONN_TYPES[c.type];
+    var sx, sy, ex, ey, d;
+
+    if (Math.abs(toNode.y - fromNode.y) < 20) {
+      // Same row - horizontal
+      if (toNode.x > fromNode.x) {
+        sx = fromNode.x + fromNode.w; sy = fromNode.y + fromNode.h / 2;
+        ex = toNode.x; ey = toNode.y + toNode.h / 2;
+      } else {
+        sx = fromNode.x; sy = fromNode.y + fromNode.h / 2;
+        ex = toNode.x + toNode.w; ey = toNode.y + toNode.h / 2;
+      }
+      var mx = (sx + ex) / 2;
+      d = 'M' + sx + ',' + sy + ' C' + mx + ',' + sy + ' ' + mx + ',' + ey + ' ' + ex + ',' + ey;
+    } else if (toNode.y > fromNode.y) {
+      // Top to bottom
+      sx = fromNode.x + fromNode.w / 2; sy = fromNode.y + fromNode.h;
+      ex = toNode.x + toNode.w / 2; ey = toNode.y;
+      var my = (sy + ey) / 2;
+      d = 'M' + sx + ',' + sy + ' C' + sx + ',' + my + ' ' + ex + ',' + my + ' ' + ex + ',' + ey;
+    } else {
+      // Bottom to top
+      sx = fromNode.x + fromNode.w / 2; sy = fromNode.y;
+      ex = toNode.x + toNode.w / 2; ey = toNode.y + toNode.h;
+      var my2 = (sy + ey) / 2;
+      d = 'M' + sx + ',' + sy + ' C' + sx + ',' + my2 + ' ' + ex + ',' + my2 + ' ' + ex + ',' + ey;
+    }
+
+    var connG = svgEl('g', { 'data-conn-from': c.from, 'data-conn-to': c.to, class: 'conn-group' });
+    connG.style.transition = 'opacity 0.15s';
+    var pathAttrs = { d: d, fill: 'none', stroke: ct.color, 'stroke-width': '1.5', opacity: '0.5', 'marker-end': 'url(#arrow-' + c.type + ')' };
+    if (ct.dash) pathAttrs['stroke-dasharray'] = ct.dash;
+    var pathEl = svgEl('path', pathAttrs);
+    pathEl.style.transition = 'stroke-width 0.15s, opacity 0.15s';
+    connG.appendChild(pathEl);
+
+    // Connection label
+    if (c.label) {
+      var lx = (sx + ex) / 2, ly = (sy + ey) / 2 - 4;
+      var txt = svgEl('text', { x: String(lx), y: String(ly), 'text-anchor': 'middle', fill: ct.color, 'font-size': '8', opacity: '0.7', 'font-family': 'system-ui' });
+      txt.textContent = c.label;
+      connG.appendChild(txt);
+    }
+    svgCanvas.appendChild(connG);
+  });
+
+  // Draw nodes
+  var commentedIds = new Set(state.comments.map(function(c) { return c.target; }));
+  visNodes.forEach(function(n) {
+    var layer = LAYERS[n.layer];
+    var hasComment = commentedIds.has(n.id);
+    var dimmed = state.diagramsOnly && ['rag', 'sections', 'crossref'].indexOf(n.id) !== -1;
+    var opac = dimmed ? 0.3 : 1;
+
+    var g = svgEl('g', { 'data-id': n.id, class: 'node-group' });
+    g.style.cssText = 'cursor:pointer;opacity:' + opac + ';transition:opacity 0.15s';
+    g.addEventListener('mouseenter', function(e) { showTooltip(e, n.id); applyHoverHighlight(n.id); });
+    g.addEventListener('mouseleave', function() { hideTooltip(); clearHoverHighlight(); });
+    g.addEventListener('click', function() { openModal(n.id); });
+
+    var rectAttrs = { x: String(n.x), y: String(n.y), width: String(n.w), height: String(n.h), rx: '8', fill: layer.fill, stroke: hasComment ? '#eab308' : layer.color, 'stroke-width': hasComment ? '2.5' : '1.2' };
+    if (hasComment) rectAttrs.filter = 'url(#glow)';
+    g.appendChild(svgEl('rect', rectAttrs));
+
+    // Label
+    var labelTxt = svgEl('text', { x: String(n.x + n.w / 2), y: String(n.y + 18), 'text-anchor': 'middle', fill: layer.color, 'font-size': '11', 'font-weight': '600', 'font-family': 'system-ui' });
+    labelTxt.textContent = n.label;
+    g.appendChild(labelTxt);
+
+    // Subtitle
+    var subText = n.sub.length > 28 ? n.sub.slice(0, 26) + '...' : n.sub;
+    var subTxt = svgEl('text', { x: String(n.x + n.w / 2), y: String(n.y + 32), 'text-anchor': 'middle', fill: layer.color, 'font-size': '8', opacity: '0.6', 'font-family': 'monospace' });
+    subTxt.textContent = subText;
+    g.appendChild(subTxt);
+
+    // Comment indicator
+    if (hasComment) {
+      var commentCount = state.comments.filter(function(c) { return c.target === n.id; }).length;
+      g.appendChild(svgEl('circle', { cx: String(n.x + n.w - 8), cy: String(n.y + 8), r: '5', fill: '#eab308' }));
+      var countTxt = svgEl('text', { x: String(n.x + n.w - 8), y: String(n.y + 11), 'text-anchor': 'middle', fill: '#000', 'font-size': '7', 'font-weight': '700' });
+      countTxt.textContent = String(commentCount);
+      g.appendChild(countTxt);
+    }
+
+    svgCanvas.appendChild(g);
+  });
+
+  svgCanvas.setAttribute('viewBox', (minX - 20 - labelMargin) + ' ' + (minY - 20) + ' ' + svgW + ' ' + svgH);
+  svgCanvas.setAttribute('width', svgW * state.zoom);
+  svgCanvas.setAttribute('height', svgH * state.zoom);
+
+  applyPan();
+}
+
+function applyPan() {
+  svgCanvas.style.transform = 'translate(' + state.panX + 'px, ' + state.panY + 'px)';
+}
+
+
+// ── HOVER HIGHLIGHT ───────────────────────────────────────────────────
+function applyHoverHighlight(nodeId) {
+  // Find connected node IDs
+  var connectedIds = new Set();
+  connectedIds.add(nodeId);
+
+  // Highlight connections: incoming (to === nodeId) and outgoing (from === nodeId)
+  var connGroups = svgCanvas.querySelectorAll('.conn-group');
+  connGroups.forEach(function(g) {
+    var from = g.getAttribute('data-conn-from');
+    var to = g.getAttribute('data-conn-to');
+    if (from === nodeId || to === nodeId) {
+      // This connection is related — highlight it
+      connectedIds.add(from);
+      connectedIds.add(to);
+      g.style.opacity = '1';
+      var path = g.querySelector('path');
+      if (path) {
+        path.setAttribute('stroke-width', '2.5');
+        path.setAttribute('opacity', '1');
+      }
+      var label = g.querySelector('text');
+      if (label) label.setAttribute('opacity', '1');
+    } else {
+      // Dim unrelated connections
+      g.style.opacity = '0.08';
+    }
+  });
+
+  // Highlight connected nodes, dim the rest
+  var nodeGroups = svgCanvas.querySelectorAll('.node-group');
+  nodeGroups.forEach(function(g) {
+    var id = g.getAttribute('data-id');
+    if (connectedIds.has(id)) {
+      g.style.opacity = '1';
+      // Brighten the hovered node's rect border
+      var rect = g.querySelector('rect');
+      if (rect && id === nodeId) {
+        rect.setAttribute('stroke-width', '2.5');
+      }
+    } else {
+      g.style.opacity = '0.12';
+    }
+  });
+}
+
+function clearHoverHighlight() {
+  // Restore all connections
+  var connGroups = svgCanvas.querySelectorAll('.conn-group');
+  connGroups.forEach(function(g) {
+    g.style.opacity = '1';
+    var path = g.querySelector('path');
+    if (path) {
+      path.setAttribute('stroke-width', '1.5');
+      path.setAttribute('opacity', '0.5');
+    }
+    var label = g.querySelector('text');
+    if (label) label.setAttribute('opacity', '0.7');
+  });
+
+  // Restore all nodes
+  var commentedIds = new Set(state.comments.map(function(c) { return c.target; }));
+  var nodeGroups = svgCanvas.querySelectorAll('.node-group');
+  nodeGroups.forEach(function(g) {
+    var id = g.getAttribute('data-id');
+    var dimmed = state.diagramsOnly && ['rag', 'sections', 'crossref'].indexOf(id) !== -1;
+    g.style.opacity = dimmed ? '0.3' : '1';
+    // Restore rect stroke width
+    var rect = g.querySelector('rect');
+    if (rect) {
+      var hasComment = commentedIds.has(id);
+      rect.setAttribute('stroke-width', hasComment ? '2.5' : '1.2');
+    }
+  });
+}
+
+
+// ── TOOLTIP ───────────────────────────────────────────────────────────
+function showTooltip(e, id) {
+  var n = nodes.find(function(nd) { return nd.id === id; });
+  if (!n) return;
+  document.getElementById('tt-title').textContent = n.label;
+  document.getElementById('tt-path').textContent = n.sub;
+  document.getElementById('tt-desc').textContent = n.desc;
+  tooltipEl.classList.add('visible');
+  positionTooltip(e);
+}
+function positionTooltip(e) {
+  var x = e.clientX + 14, y = e.clientY + 14;
+  if (x + 270 > window.innerWidth) x = e.clientX - 270;
+  if (y + 120 > window.innerHeight) y = e.clientY - 120;
+  tooltipEl.style.left = x + 'px'; tooltipEl.style.top = y + 'px';
+}
+function hideTooltip() { tooltipEl.classList.remove('visible'); }
+document.addEventListener('mousemove', function(e) { if (tooltipEl.classList.contains('visible')) positionTooltip(e); });
+
+
+// ── MODAL / COMMENTS ──────────────────────────────────────────────────
+function openModal(id) {
+  var n = nodes.find(function(nd) { return nd.id === id; });
+  if (!n) return;
+  hideTooltip();
+  state.modalNode = n;
+  document.getElementById('modal-title').textContent = n.label;
+  document.getElementById('modal-sub').textContent = n.sub;
+  document.getElementById('modal-text').value = '';
+  document.getElementById('modal').classList.add('open');
+  setTimeout(function() { document.getElementById('modal-text').focus(); }, 50);
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  state.modalNode = null;
+}
+function saveComment() {
+  var text = document.getElementById('modal-text').value.trim();
+  if (!text || !state.modalNode) return;
+  state.comments.push({
+    id: Date.now(),
+    target: state.modalNode.id,
+    targetLabel: state.modalNode.label,
+    targetFile: state.modalNode.sub,
+    text: text
+  });
+  closeModal();
+  updateAll();
+}
+function deleteComment(id) {
+  state.comments = state.comments.filter(function(c) { return c.id !== id; });
+  updateAll();
+}
+function renderComments() {
+  var listEl = document.getElementById('comments-list');
+  document.getElementById('comment-count').textContent = String(state.comments.length);
+  clearEl(listEl);
+
+  if (!state.comments.length) {
+    listEl.appendChild(el('div', { style: { fontSize: '11px', color: 'var(--text2)' } }, 'Click a component to add feedback'));
+    return;
+  }
+
+  state.comments.forEach(function(c) {
+    var delBtn = el('button', { className: 'cm-del', onclick: function() { deleteComment(c.id); } }, 'x');
+    var target = el('div', { className: 'cm-target' }, c.targetLabel);
+    var text = el('div', { className: 'cm-text' }, c.text);
+    var item = el('div', { className: 'comment-item' }, [delBtn, target, text]);
+    listEl.appendChild(item);
+  });
+}
+
+
+// ── ZOOM / PAN ────────────────────────────────────────────────────────
+function zoomIn() { state.zoom = Math.min(state.zoom + 0.15, 3); updateAll(); }
+function zoomOut() { state.zoom = Math.max(state.zoom - 0.15, 0.3); updateAll(); }
+function resetView() { state.zoom = 1; state.panX = 0; state.panY = 0; updateAll(); }
+function fitView() {
+  var rect = container.getBoundingClientRect();
+  var visNodes = getVisibleNodes();
+  if (!visNodes.length) return;
+  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  visNodes.forEach(function(n) { minX = Math.min(minX, n.x); minY = Math.min(minY, n.y); maxX = Math.max(maxX, n.x + n.w); maxY = Math.max(maxY, n.y + n.h); });
+  var contentW = maxX - minX + 180, contentH = maxY - minY + 60;
+  state.zoom = Math.min(rect.width / contentW, rect.height / contentH, 2);
+  state.panX = 0; state.panY = 0;
+  updateAll();
+}
+
+// Pan with mouse drag
+var isPanning = false, startPanX = 0, startPanY = 0;
+container.addEventListener('mousedown', function(e) {
+  if (e.target.closest('[data-id]')) return;
+  isPanning = true; startPanX = e.clientX - state.panX; startPanY = e.clientY - state.panY;
+  container.classList.add('dragging');
+});
+window.addEventListener('mousemove', function(e) {
+  if (!isPanning) return;
+  state.panX = e.clientX - startPanX; state.panY = e.clientY - startPanY;
+  applyPan();
+});
+window.addEventListener('mouseup', function() { isPanning = false; container.classList.remove('dragging'); });
+container.addEventListener('wheel', function(e) {
+  e.preventDefault();
+  if (e.deltaY < 0) state.zoom = Math.min(state.zoom + 0.08, 3);
+  else state.zoom = Math.max(state.zoom - 0.08, 0.3);
+  updateAll();
+}, { passive: false });
+
+
+// ── PRESETS ───────────────────────────────────────────────────────────
+function applyPreset(key) {
+  var p = PRESETS[key];
+  state.mode = key;
+  state.layers = Object.assign({}, p.layers);
+  state.conns = Object.assign({}, p.conns);
+  // Sync checkboxes
+  document.querySelectorAll('[data-layer]').forEach(function(cb) { cb.checked = state.layers[cb.dataset.layer] || false; });
+  document.querySelectorAll('[data-conn]').forEach(function(cb) { cb.checked = state.conns[cb.dataset.conn] || false; });
+  document.querySelectorAll('.preset-btn').forEach(function(b) {
+    if (b.dataset.key === key) b.classList.add('active');
+    else b.classList.remove('active');
+  });
+  updateAll();
+}
+
+
+// ── PROMPT ────────────────────────────────────────────────────────────
+function updatePrompt() {
+  var parts = [];
+
+  // View context
+  var visibleLayers = Object.keys(state.layers).filter(function(k) { return state.layers[k]; }).map(function(k) { return LAYERS[k].label; });
+  if (visibleLayers.length < Object.keys(LAYERS).length) {
+    parts.push('Focusing on: ' + visibleLayers.join(', ') + '.');
+  } else {
+    parts.push('Viewing the full CodeDocumentationGenerator architecture.');
+  }
+
+  // Modes
+  if (state.diagramsOnly) parts.push('\nMode: --diagrams-only (RAG chain and LLM calls are skipped).');
+  if (state.dryRun) parts.push('\nMode: --dry-run (RAG chain created but only placeholder content generated).');
+
+  // Comments
+  if (state.comments.length) {
+    parts.push('\nFeedback on specific components:\n');
+    state.comments.forEach(function(c) {
+      parts.push('**' + c.targetLabel + '** (' + c.targetFile + '):\n' + c.text + '\n');
+    });
+  }
+
+  document.getElementById('prompt-output').textContent = parts.join('\n');
+}
+
+function copyPrompt() {
+  var text = document.getElementById('prompt-output').textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+  });
+}
+
+
+// ── UPDATE ALL ────────────────────────────────────────────────────────
+function updateAll() {
+  document.getElementById('zoom-label').textContent = Math.round(state.zoom * 100) + '%';
+  var activePreset = PRESETS[state.mode];
+  document.getElementById('mode-info').textContent = activePreset ? activePreset.label : 'Custom View';
+  renderDiagram();
+  renderComments();
+  updatePrompt();
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === '=' || e.key === '+') zoomIn();
+  if (e.key === '-') zoomOut();
+  if (e.key === '0') resetView();
+});
+
+
+// ── BOOT ──────────────────────────────────────────────────────────────
+initControls();
+updateAll();
+setTimeout(fitView, 100);
+</script>
+</body>
+</html>
