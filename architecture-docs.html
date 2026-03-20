@@ -1,0 +1,1997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architecture Documentation — Code Documentation Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0c0d10;
+    --bg-1:     #12131a;
+    --bg-2:     #1a1c26;
+    --bg-3:     #222433;
+    --border:   #2a2d3e;
+    --border-2: #363a50;
+    --text:     #e0e2ed;
+    --text-2:   #9499b3;
+    --text-3:   #6b7194;
+    --accent:   #7c8cf5;
+    --accent-2: #5b6be0;
+    --input:    #3b82f6;
+    --core:     #22c55e;
+    --analysis: #f59e0b;
+    --llm:      #a855f7;
+    --diagrams: #0ea5e9;
+    --output:   #ec4899;
+    --models:   #64748b;
+    --valid:    #eab308;
+    --external: #ef4444;
+    --cache:    #14b8a6;
+    --error:    #f97316;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'DM Sans', system-ui, sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Layout ─────────────────────────── */
+  .page { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: 280px;
+    height: 100vh;
+    background: var(--bg-1);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-header {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .sidebar-header h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+  }
+
+  .sidebar-header p {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 4px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 0;
+  }
+
+  .nav-group { margin-bottom: 4px; }
+
+  .nav-group-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-3);
+    padding: 12px 20px 6px;
+  }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 20px;
+    font-size: 13px;
+    color: var(--text-2);
+    text-decoration: none;
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+
+  .nav-link:hover { color: var(--text); background: var(--bg-2); }
+
+  .nav-link.active {
+    color: var(--text);
+    background: var(--bg-2);
+    border-left-color: var(--accent);
+  }
+
+  .nav-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .content {
+    margin-left: 280px;
+    flex: 1;
+    max-width: 920px;
+    padding: 48px 56px 120px;
+  }
+
+  /* ── Hero ────────────────────────────── */
+  .hero {
+    margin-bottom: 64px;
+    padding-bottom: 48px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .hero-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 100px;
+    letter-spacing: 0.3px;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    color: #fff;
+    margin-bottom: 16px;
+  }
+
+  .hero-desc {
+    font-size: 17px;
+    color: var(--text-2);
+    line-height: 1.7;
+    max-width: 640px;
+  }
+
+  .hero-meta {
+    display: flex;
+    gap: 24px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+
+  .hero-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-3);
+    font-weight: 500;
+  }
+
+  .hero-meta-item .val { color: var(--text-2); }
+
+  /* ── Pipeline Diagram ───────────────── */
+  .pipeline-diagram {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    margin: 32px 0 48px;
+    overflow-x: auto;
+  }
+
+  .pipeline-diagram h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 24px;
+  }
+
+  .pipeline-flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    min-width: max-content;
+    padding: 8px 0;
+  }
+
+  .pipeline-node {
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    border: 1px solid;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .pipeline-node small {
+    display: block;
+    font-weight: 400;
+    font-size: 10px;
+    opacity: 0.7;
+    margin-top: 2px;
+  }
+
+  .pipeline-arrow {
+    color: var(--text-3);
+    font-size: 18px;
+    padding: 0 6px;
+    flex-shrink: 0;
+  }
+
+  .pipeline-branch {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    border: 1px dashed var(--border-2);
+    border-radius: 10px;
+    background: var(--bg);
+  }
+
+  .pipeline-branch-label {
+    font-size: 10px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+    margin-bottom: 2px;
+  }
+
+  /* ── Sections ───────────────────────── */
+  .layer-section {
+    margin-bottom: 56px;
+    scroll-margin-top: 32px;
+  }
+
+  .layer-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .layer-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .layer-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #fff;
+  }
+
+  .layer-header .layer-tag {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 100px;
+    background: var(--bg-2);
+    color: var(--text-2);
+    border: 1px solid var(--border);
+    margin-left: auto;
+  }
+
+  .layer-desc {
+    color: var(--text-2);
+    margin-bottom: 24px;
+    font-size: 15px;
+  }
+
+  /* ── File cards ─────────────────────── */
+  .file-card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+
+  .file-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .file-card-header:hover { background: var(--bg-3); }
+
+  .file-icon {
+    font-size: 14px;
+    color: var(--text-3);
+    transition: transform 0.2s;
+  }
+
+  .file-card.open .file-icon { transform: rotate(90deg); }
+
+  .file-card-header .filename {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  .file-card-header .filedesc {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-left: auto;
+  }
+
+  .file-card-body {
+    display: none;
+    padding: 16px;
+  }
+
+  .file-card.open .file-card-body { display: block; }
+
+  /* ── Content elements ───────────────── */
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 24px 0 10px;
+    letter-spacing: -0.01em;
+  }
+
+  h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-2);
+    margin: 16px 0 8px;
+  }
+
+  p { margin-bottom: 12px; }
+
+  ul, ol {
+    margin: 8px 0 16px 20px;
+    color: var(--text-2);
+  }
+
+  li {
+    margin-bottom: 4px;
+    line-height: 1.6;
+  }
+
+  li strong { color: var(--text); font-weight: 600; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--bg-2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--accent);
+    border: 1px solid var(--border);
+  }
+
+  pre {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    overflow-x: auto;
+    margin: 12px 0 16px;
+    line-height: 1.6;
+  }
+
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text-2);
+    font-size: 12.5px;
+  }
+
+  .highlight { color: var(--accent); }
+  .comment { color: var(--text-3); }
+
+  /* ── Method signature ───────────────── */
+  .sig {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 8px 0 12px;
+    color: var(--text-2);
+    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.5;
+  }
+
+  .sig .kw { color: #c792ea; }
+  .sig .fn { color: #82aaff; }
+  .sig .ty { color: #ffcb6b; }
+  .sig .str { color: #c3e88d; }
+  .sig .num { color: #f78c6c; }
+  .sig .op { color: #89ddff; }
+  .sig .param { color: var(--text); }
+
+  /* ── Info boxes ─────────────────────── */
+  .info-box {
+    padding: 14px 16px;
+    border-radius: 8px;
+    margin: 16px 0;
+    font-size: 13px;
+    line-height: 1.6;
+    border-left: 3px solid;
+  }
+
+  .info-box.note {
+    background: #1e293b;
+    border-color: var(--input);
+    color: #93c5fd;
+  }
+
+  .info-box.tip {
+    background: #052e16;
+    border-color: var(--core);
+    color: #86efac;
+  }
+
+  .info-box.warn {
+    background: #451a03;
+    border-color: var(--analysis);
+    color: #fcd34d;
+  }
+
+  .info-box strong { color: inherit; }
+
+  /* ── Relationship badges ────────────── */
+  .rel-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 12px 0;
+  }
+
+  .rel-badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: var(--bg-2);
+    color: var(--text-2);
+  }
+
+  .rel-badge.produces { border-color: #22c55e44; color: #86efac; background: #052e1688; }
+  .rel-badge.consumes { border-color: #3b82f644; color: #93c5fd; background: #1e293b88; }
+  .rel-badge.calls    { border-color: #a855f744; color: #c4b5fd; background: #2e1065aa; }
+
+  /* ── Data flow ──────────────────────── */
+  .flow-step {
+    display: flex;
+    gap: 14px;
+    margin: 8px 0;
+    align-items: flex-start;
+  }
+
+  .flow-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--bg-3);
+    border: 1px solid var(--border-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-2);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .flow-content { flex: 1; }
+  .flow-content strong { color: var(--text); }
+
+  /* ── Table ──────────────────────────── */
+  .doc-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px;
+    font-size: 13px;
+  }
+
+  .doc-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--bg-2);
+    color: var(--text-2);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .doc-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-2);
+    vertical-align: top;
+  }
+
+  .doc-table tr:last-child td { border-bottom: none; }
+  .doc-table td code { font-size: 12px; }
+
+  /* ── Exception tree ─────────────────── */
+  .exc-tree {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 2;
+    padding: 16px 20px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 12px 0;
+    color: var(--text-2);
+  }
+
+  .exc-tree .root { color: var(--error); font-weight: 600; }
+  .exc-tree .leaf { color: var(--text-2); }
+  .exc-tree .branch { color: var(--text-3); }
+
+  /* ── Scrollbar ──────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-2); }
+
+  /* ── Responsive ─────────────────────── */
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .content { margin-left: 0; padding: 32px 24px 80px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ════════ SIDEBAR ════════ -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <h2>Code Documentation Generator</h2>
+    <p>Architecture Reference</p>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-group">
+      <div class="nav-group-label">Overview</div>
+      <a href="#overview" class="nav-link active">
+        <span class="nav-dot" style="background:var(--accent)"></span>System Overview
+      </a>
+      <a href="#pipeline" class="nav-link">
+        <span class="nav-dot" style="background:var(--accent)"></span>Pipeline Diagram
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Architectural Layers</div>
+      <a href="#input" class="nav-link">
+        <span class="nav-dot" style="background:var(--input)"></span>Input / CLI
+      </a>
+      <a href="#core" class="nav-link">
+        <span class="nav-dot" style="background:var(--core)"></span>Core Pipeline
+      </a>
+      <a href="#analysis" class="nav-link">
+        <span class="nav-dot" style="background:var(--analysis)"></span>Code Analysis
+      </a>
+      <a href="#llm" class="nav-link">
+        <span class="nav-dot" style="background:var(--llm)"></span>LLM / RAG
+      </a>
+      <a href="#providers" class="nav-link">
+        <span class="nav-dot" style="background:var(--external)"></span>Provider Layer
+      </a>
+      <a href="#prompts" class="nav-link">
+        <span class="nav-dot" style="background:var(--llm)"></span>Prompt Management
+      </a>
+      <a href="#diagrams" class="nav-link">
+        <span class="nav-dot" style="background:var(--diagrams)"></span>Diagram Generation
+      </a>
+      <a href="#validation" class="nav-link">
+        <span class="nav-dot" style="background:var(--valid)"></span>Validation System
+      </a>
+      <a href="#output" class="nav-link">
+        <span class="nav-dot" style="background:var(--output)"></span>Output / Templates
+      </a>
+      <a href="#models" class="nav-link">
+        <span class="nav-dot" style="background:var(--models)"></span>Data Models
+      </a>
+      <a href="#cache" class="nav-link">
+        <span class="nav-dot" style="background:var(--cache)"></span>Cache Layer
+      </a>
+      <a href="#exceptions" class="nav-link">
+        <span class="nav-dot" style="background:var(--error)"></span>Exception Hierarchy
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Reference</div>
+      <a href="#patterns" class="nav-link">
+        <span class="nav-dot" style="background:var(--text-3)"></span>Design Patterns
+      </a>
+      <a href="#data-flow" class="nav-link">
+        <span class="nav-dot" style="background:var(--text-3)"></span>End-to-End Flow
+      </a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Design &amp; Operations</div>
+      <a href="#decisions" class="nav-link">
+        <span class="nav-dot" style="background:var(--accent)"></span>Design Decisions
+      </a>
+      <a href="#cost-latency" class="nav-link">
+        <span class="nav-dot" style="background:var(--core)"></span>Cost &amp; Latency
+      </a>
+      <a href="#failure-modes" class="nav-link">
+        <span class="nav-dot" style="background:var(--error)"></span>Failure Modes
+      </a>
+      <a href="#scale-limits" class="nav-link">
+        <span class="nav-dot" style="background:var(--analysis)"></span>Scale Limits
+      </a>
+    </div>
+  </nav>
+</aside>
+
+<!-- ════════ MAIN CONTENT ════════ -->
+<main class="content">
+
+<!-- ── Hero ──────────────────────────── -->
+<section class="hero" id="overview">
+  <span class="hero-badge">Architecture Documentation</span>
+  <h1>Code Documentation Generator</h1>
+  <p class="hero-desc">
+    A Python CLI tool that automatically generates comprehensive, interactive HTML documentation
+    for Python codebases using LLMs and Retrieval-Augmented Generation. It parses source code via
+    AST analysis, builds a vector store for semantic retrieval, generates contextual documentation
+    sections, produces validated Mermaid diagrams, and renders everything into a searchable HTML site.
+  </p>
+  <div class="hero-meta">
+    <div class="hero-meta-item">Language <span class="val">Python 3.10+</span></div>
+    <div class="hero-meta-item">LLMs <span class="val">Claude &amp; GPT</span></div>
+    <div class="hero-meta-item">Vector Store <span class="val">ChromaDB</span></div>
+    <div class="hero-meta-item">Chain <span class="val">LangChain LCEL</span></div>
+    <div class="hero-meta-item">Tests <span class="val">262+ unit</span></div>
+    <div class="hero-meta-item">Coverage <span class="val">75%+</span></div>
+  </div>
+</section>
+
+<!-- ── Pipeline Diagram ─────────────── -->
+<section id="pipeline">
+  <div class="pipeline-diagram">
+    <h3>Core Data Flow</h3>
+    <div class="pipeline-flow">
+      <div class="pipeline-node" style="background:#1e3a5f;border-color:var(--input);color:#93c5fd;">
+        Source Dir<small>user input</small>
+      </div>
+      <div class="pipeline-arrow">&rarr;</div>
+      <div class="pipeline-node" style="background:#422006;border-color:var(--analysis);color:#fcd34d;">
+        CodeAnalyzer<small>AST parsing</small>
+      </div>
+      <div class="pipeline-arrow">&rarr;</div>
+      <div class="pipeline-node" style="background:#14532d;border-color:var(--core);color:#86efac;">
+        FileAnalysis[]<small>entities + imports</small>
+      </div>
+      <div class="pipeline-arrow">&rarr;</div>
+      <div class="pipeline-node" style="background:#14532d;border-color:var(--core);color:#86efac;">
+        Generator<small>orchestrator</small>
+      </div>
+      <div class="pipeline-arrow">&rarr;</div>
+      <div class="pipeline-branch">
+        <div class="pipeline-branch-label">parallel paths</div>
+        <div class="pipeline-node" style="background:#2e1065;border-color:var(--llm);color:#c4b5fd;">
+          RAG Chain<small>LCEL + ChromaDB</small>
+        </div>
+        <div class="pipeline-node" style="background:#0c4a6e;border-color:var(--diagrams);color:#7dd3fc;">
+          DiagramGenerator<small>5 Mermaid types</small>
+        </div>
+      </div>
+      <div class="pipeline-arrow">&rarr;</div>
+      <div class="pipeline-node" style="background:#500724;border-color:var(--output);color:#f9a8d4;">
+        TemplateManager<small>Jinja2 &rarr; HTML</small>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- LAYER 1: INPUT / CLI               -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="input">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--input)"></span>
+    <h2>Input / CLI Layer</h2>
+    <span class="layer-tag">Layer 1</span>
+  </div>
+  <p class="layer-desc">
+    The entry point for the entire system. Parses command-line arguments, validates paths,
+    handles cache commands, builds configuration objects, and launches the generation pipeline.
+  </p>
+
+  <div class="file-card open">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/cli.py</span>
+      <span class="filedesc">CLI entry point</span>
+    </div>
+    <div class="file-card-body">
+      <h4>Key Functions</h4>
+      <div class="sig"><span class="kw">def</span> <span class="fn">parse_args</span>(<span class="param">args</span>: <span class="ty">list</span>[<span class="ty">str</span>] | <span class="ty">None</span>) <span class="op">-&gt;</span> <span class="ty">argparse.Namespace</span></div>
+      <p>Main argument parser with six argument groups covering source, model, output, cache, RAG, and section selection options.</p>
+
+      <div class="sig"><span class="kw">def</span> <span class="fn">main</span>() <span class="op">-&gt;</span> <span class="ty">None</span></div>
+      <p>Entry point that orchestrates argument parsing, validation, cache command handling, config building, API key retrieval, generator initialization, and documentation generation.</p>
+
+      <h4>Argument Groups</h4>
+      <table class="doc-table">
+        <tr><th>Group</th><th>Key Arguments</th><th>Purpose</th></tr>
+        <tr>
+          <td>Source</td>
+          <td><code>--source</code>, <code>--output</code>, <code>--api-key-env</code></td>
+          <td>Input/output paths and API key file location</td>
+        </tr>
+        <tr>
+          <td>Model</td>
+          <td><code>--temperature</code>, <code>--model</code>, <code>--verbose</code></td>
+          <td>LLM configuration and logging level</td>
+        </tr>
+        <tr>
+          <td>Output</td>
+          <td><code>--exclude</code>, <code>--diagrams</code>, <code>--dry-run</code>, <code>--diagrams-only</code>, <code>--sections</code></td>
+          <td>Filter patterns, diagram selection, execution modes, section selection</td>
+        </tr>
+        <tr>
+          <td>Cache</td>
+          <td><code>--cache-dir</code>, <code>--no-cache</code>, <code>--force-refresh</code>, <code>--clear-cache</code></td>
+          <td>Cache directory, bypass, refresh, and cleanup controls</td>
+        </tr>
+        <tr>
+          <td>RAG</td>
+          <td><code>--retriever-k</code>, <code>--retriever-search-type</code>, <code>--retriever-lambda-mult</code></td>
+          <td>Retrieval strategy tuning (similarity vs. MMR)</td>
+        </tr>
+      </table>
+
+      <h4>Special Execution Modes</h4>
+      <ul>
+        <li><strong><code>--diagrams-only</code></strong> &mdash; Skips the entire RAG chain. No API keys needed, no LLM calls, zero cost. Generates only Mermaid diagrams from static analysis.</li>
+        <li><strong><code>--dry-run</code></strong> &mdash; Creates the RAG chain but generates placeholder content instead of calling LLMs. Useful for testing the pipeline without API costs.</li>
+      </ul>
+
+      <div class="rel-badges">
+        <span class="rel-badge calls">calls &rarr; CodeDocumentationGenerator</span>
+        <span class="rel-badge consumes">uses &rarr; config.py</span>
+        <span class="rel-badge consumes">uses &rarr; utils/api_keys.py</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="file-card">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/config.py</span>
+      <span class="filedesc">Configuration defaults and dataclasses</span>
+    </div>
+    <div class="file-card-body">
+      <h4>Configuration Constants</h4>
+      <pre><code><span class="comment"># DEFAULT_CONFIG</span>
+DEFAULT_TEMPERATURE      = <span class="highlight">0.2</span>
+DEFAULT_ANTHROPIC_MODEL  = <span class="highlight">"claude-3-5-sonnet-20241022"</span>
+DEFAULT_OPENAI_EMBEDDING = <span class="highlight">"text-embedding-3-small"</span>
+DEFAULT_CACHE_DIR        = <span class="highlight">".docgen_cache"</span></code></pre>
+
+      <h4>Key Dataclasses</h4>
+      <ul>
+        <li><strong><code>QualityMode</code></strong> (enum) &mdash; <code>FAST</code> (Haiku), <code>BALANCED</code> (Claude), <code>BEST</code> (Sonnet)</li>
+        <li><strong><code>CacheConfig</code></strong> &mdash; <code>enabled</code>, <code>cache_dir</code>, <code>force_refresh</code></li>
+        <li><strong><code>GenerationOptions</code></strong> &mdash; All generation parameters including exclude patterns, diagram/section selection, quality mode, parallel execution, and cost tracking</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- LAYER 2: CORE PIPELINE             -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="core">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--core)"></span>
+    <h2>Core Pipeline</h2>
+    <span class="layer-tag">Layer 2</span>
+  </div>
+  <p class="layer-desc">
+    The central orchestrator that coordinates every other layer. It drives the end-to-end
+    flow from source analysis through vector indexing, content generation, and HTML output.
+  </p>
+
+  <div class="file-card open">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/core/generator.py</span>
+      <span class="filedesc">Main orchestrator &mdash; 722 lines</span>
+    </div>
+    <div class="file-card-body">
+      <h4>CodeDocumentationGenerator</h4>
+      <p>The God-class orchestrator that coordinates the full documentation pipeline. Accepts all configuration via its constructor and exposes a single <code>generate_documentation()</code> method.</p>
+
+      <div class="sig"><span class="kw">def</span> <span class="fn">generate_documentation</span>(<span class="param">self</span>, <span class="param">source_dir</span>: <span class="ty">str</span>, <span class="param">output_dir</span>: <span class="ty">str</span>) <span class="op">-&gt;</span> <span class="ty">None</span></div>
+
+      <h4>Orchestration Steps</h4>
+      <div class="flow-step">
+        <span class="flow-num">1</span>
+        <div class="flow-content"><strong>Validate source directory</strong> &mdash; checks path exists and is readable</div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">2</span>
+        <div class="flow-content"><strong>Create CodeAnalyzer and analyze files</strong> &mdash; produces <code>FileAnalysis[]</code></div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">3</span>
+        <div class="flow-content"><strong>Create CrossReferenceAnalyzer</strong> (optional) &mdash; builds import/usage graphs</div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">4</span>
+        <div class="flow-content"><strong>Create DiagramGenerator</strong> &mdash; configures validation settings</div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">5</span>
+        <div class="flow-content"><strong>Branch: diagrams-only mode</strong> &mdash; skips RAG entirely, generates only Mermaid diagrams</div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">6</span>
+        <div class="flow-content"><strong>Create vector store</strong> via <code>VectorStoreCache</code> &mdash; embeds code chunks in ChromaDB</div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">7</span>
+        <div class="flow-content"><strong>Build RAG chain</strong> via <code>_build_rag_chain()</code> &mdash; LCEL: retriever | prompt | LLM | parser</div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">8</span>
+        <div class="flow-content"><strong>Generate sections in parallel</strong> via <code>ThreadPoolExecutor</code></div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">9</span>
+        <div class="flow-content"><strong>Render HTML output</strong> via <code>TemplateManager</code></div>
+      </div>
+
+      <h4>Quality Mode Mapping</h4>
+      <table class="doc-table">
+        <tr><th>Mode</th><th>LLM Model</th><th>Use Case</th></tr>
+        <tr><td><code>FAST</code></td><td>Claude Haiku</td><td>Prototyping, lowest cost</td></tr>
+        <tr><td><code>BALANCED</code></td><td>Claude Sonnet (default)</td><td>Production use</td></tr>
+        <tr><td><code>BEST</code></td><td>Claude Sonnet (latest)</td><td>Highest quality output</td></tr>
+      </table>
+
+      <div class="rel-badges">
+        <span class="rel-badge calls">calls &rarr; CodeAnalyzer</span>
+        <span class="rel-badge calls">calls &rarr; CrossReferenceAnalyzer</span>
+        <span class="rel-badge calls">calls &rarr; DiagramGenerator</span>
+        <span class="rel-badge calls">calls &rarr; RAGPipelineFactory</span>
+        <span class="rel-badge calls">calls &rarr; TemplateManager</span>
+        <span class="rel-badge calls">calls &rarr; VectorStoreCache</span>
+        <span class="rel-badge calls">calls &rarr; SectionContentCache</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- LAYER 3: CODE ANALYSIS             -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="analysis">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--analysis)"></span>
+    <h2>Code Analysis</h2>
+    <span class="layer-tag">Layer 3</span>
+  </div>
+  <p class="layer-desc">
+    Statically analyzes Python source code using the built-in <code>ast</code> module. Extracts classes,
+    functions, imports, call graphs, and cross-references without executing any code &mdash; making it safe
+    to run on untrusted codebases.
+  </p>
+
+  <div class="file-card open">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/core/analyzer.py</span>
+      <span class="filedesc">AST-based code analysis</span>
+    </div>
+    <div class="file-card-body">
+      <h4>CodeAnalyzer</h4>
+      <div class="sig"><span class="kw">def</span> <span class="fn">analyze_file</span>(<span class="param">self</span>, <span class="param">file_path</span>: <span class="ty">str</span>) <span class="op">-&gt;</span> <span class="ty">FileAnalysis</span></div>
+      <p>Parses a single Python file. Reads the file, runs <code>ast.parse()</code>, then walks the AST to extract entities and imports. Returns a <code>FileAnalysis</code> containing all structural data.</p>
+
+      <h4>Entity Extraction (<code>_extract_entities</code>)</h4>
+      <p>Walks top-level AST nodes to find:</p>
+      <ul>
+        <li><strong>Classes</strong> (<code>ast.ClassDef</code>) &mdash; name, docstring, methods list, source segment via <code>ast.get_source_segment()</code>, parent class from <code>node.bases[0]</code>, line numbers</li>
+        <li><strong>Functions</strong> (<code>ast.FunctionDef</code>) &mdash; name, docstring, source segment, line numbers</li>
+      </ul>
+
+      <h4>Import Extraction (<code>_extract_imports</code>)</h4>
+      <p>Walks the full tree with <code>ast.walk()</code> to capture both forms:</p>
+      <ul>
+        <li><code>import X</code> &rarr; <code>"X"</code></li>
+        <li><code>from X import Y</code> &rarr; <code>"X.Y"</code></li>
+      </ul>
+
+      <div class="sig"><span class="kw">def</span> <span class="fn">analyze_directory</span>(<span class="param">self</span>, <span class="param">directory</span>: <span class="ty">str</span>, <span class="param">exclude_patterns</span>: <span class="ty">list</span>[<span class="ty">str</span>] | <span class="ty">None</span>, <span class="param">max_files</span>: <span class="ty">int</span> | <span class="ty">None</span>) <span class="op">-&gt;</span> <span class="ty">list</span>[<span class="ty">FileAnalysis</span>]</div>
+      <p>Recursively walks a directory with <code>os.walk</code>, filters by <code>.py</code> extension and glob-based exclude patterns (modifying <code>dirs[:]</code> in-place to prune subdirectories), and analyzes each file.</p>
+
+      <div class="sig"><span class="kw">def</span> <span class="fn">analyze_function_calls</span>(<span class="param">self</span>, <span class="param">analyses</span>: <span class="ty">list</span>[<span class="ty">FileAnalysis</span>]) <span class="op">-&gt;</span> <span class="ty">dict</span>[<span class="ty">str</span>, <span class="ty">set</span>[<span class="ty">str</span>]]</div>
+      <p>Builds a call graph using a custom <code>FunctionCallVisitor(ast.NodeVisitor)</code> that tracks the current function scope and records all <code>ast.Call</code> nodes &mdash; both direct calls (<code>func()</code>) and method calls (<code>obj.method()</code>).</p>
+
+      <div class="sig"><span class="kw">def</span> <span class="fn">analyze_package_dependencies</span>(<span class="param">self</span>) <span class="op">-&gt;</span> <span class="ty">dict</span>[<span class="ty">str</span>, <span class="ty">set</span>[<span class="ty">str</span>]]</div>
+      <p>Combines <code>requirements.txt</code> parsing with import analysis to map module-to-module dependencies.</p>
+
+      <div class="info-box tip">
+        <strong>Design Choice:</strong> Pure static analysis via AST &mdash; no code execution, no dynamic imports. Safe for untrusted codebases with zero side effects.
+      </div>
+
+      <div class="rel-badges">
+        <span class="rel-badge produces">produces &rarr; FileAnalysis</span>
+        <span class="rel-badge produces">produces &rarr; CodeEntity</span>
+        <span class="rel-badge produces">produces &rarr; call graph dict</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="file-card">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/core/cross_reference.py</span>
+      <span class="filedesc">Cross-codebase component tracking</span>
+    </div>
+    <div class="file-card-body">
+      <h4>CrossReferenceAnalyzer</h4>
+      <p>Tracks where each component is defined and where it is used across the entire codebase. Performs a two-pass analysis:</p>
+      <ol>
+        <li><strong>Definition pass</strong> &mdash; Records where each class/function is defined (file + line)</li>
+        <li><strong>Usage pass</strong> &mdash; Scans imports and references to map usage locations</li>
+      </ol>
+      <p>Produces <code>ComponentReference</code> objects that power the optional Cross-Reference Documentation section.</p>
+
+      <div class="rel-badges">
+        <span class="rel-badge consumes">consumes &rarr; FileAnalysis[]</span>
+        <span class="rel-badge produces">produces &rarr; ComponentReference[]</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- LAYER 4: LLM / RAG                 -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="llm">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--llm)"></span>
+    <h2>LLM / RAG Layer</h2>
+    <span class="layer-tag">Layer 4</span>
+  </div>
+  <p class="layer-desc">
+    The semantic engine of the system. Embeds code chunks into a ChromaDB vector store, then uses
+    an LCEL (LangChain Expression Language) chain to retrieve relevant context and generate
+    documentation sections grounded in the actual code.
+  </p>
+
+  <div class="file-card open">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/core/rag_pipeline.py</span>
+      <span class="filedesc">RAG chain construction</span>
+    </div>
+    <div class="file-card-body">
+      <h4>RAGPipelineFactory</h4>
+      <div class="sig"><span class="kw">def</span> <span class="fn">create_rag_chain</span>(<span class="param">vector_store</span>, <span class="param">llm_provider</span>, <span class="param">section_prompt_template</span>, <span class="param">retriever_config</span>) <span class="op">-&gt;</span> <span class="ty">Runnable</span></div>
+
+      <h4>LCEL Chain Architecture</h4>
+      <pre><code>Vector Store Retriever
+    <span class="highlight">&darr;</span>
+{context: [retrieved docs], question: original_prompt}
+    <span class="highlight">&darr;</span>
+Prompt Template (with few-shot examples)
+    <span class="highlight">&darr;</span>
+LLM Provider (Claude or GPT)
+    <span class="highlight">&darr;</span>
+StrOutputParser (extracts text)
+    <span class="highlight">&darr;</span>
+Section content (markdown string)</code></pre>
+
+      <h4>RetrieverConfig</h4>
+      <table class="doc-table">
+        <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Purpose</th></tr>
+        <tr><td><code>k</code></td><td>int</td><td>10</td><td>Number of documents to retrieve</td></tr>
+        <tr><td><code>search_type</code></td><td>"similarity" | "mmr"</td><td>"similarity"</td><td>Retrieval strategy</td></tr>
+        <tr><td><code>score_threshold</code></td><td>float | None</td><td>None</td><td>Minimum similarity score filter</td></tr>
+        <tr><td><code>fetch_k</code></td><td>int</td><td>20</td><td>Documents to fetch before MMR reranking</td></tr>
+        <tr><td><code>lambda_mult</code></td><td>float</td><td>0.5</td><td>MMR diversity: 0 = max diversity, 1 = max relevance</td></tr>
+      </table>
+
+      <h4>Retrieval Strategies</h4>
+      <ul>
+        <li><strong>Similarity Search</strong> (default) &mdash; Direct cosine similarity ranking. Fast and focused on relevance. Best for smaller codebases.</li>
+        <li><strong>MMR (Maximal Marginal Relevance)</strong> &mdash; Two-phase: fetch top <code>fetch_k</code> by similarity, then rerank for diversity using <code>lambda_mult</code>. Avoids context dominated by a single module. Best for large codebases with repetitive patterns.</li>
+      </ul>
+
+      <div class="info-box note">
+        <strong>When to use MMR:</strong> Large codebases with repetitive patterns, when you want diverse examples rather than similar code, or when context is being dominated by a single module.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- LAYER 5: PROVIDER LAYER            -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="providers">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--external)"></span>
+    <h2>Provider Layer</h2>
+    <span class="layer-tag">Layer 5</span>
+  </div>
+  <p class="layer-desc">
+    Protocol-based abstraction for LLM and embedding providers. Enables swapping between
+    Anthropic Claude and OpenAI GPT without changing core logic. Uses lazy initialization
+    and structured error classification.
+  </p>
+
+  <div class="file-card open">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/providers/base.py</span>
+      <span class="filedesc">Protocol definitions and abstract base classes</span>
+    </div>
+    <div class="file-card-body">
+      <h4>Protocols (Runtime-Checkable)</h4>
+      <div class="sig"><span class="kw">class</span> <span class="fn">LLMProvider</span>(<span class="ty">Protocol</span>):
+    <span class="param">model_name</span>: <span class="ty">str</span>
+    <span class="kw">def</span> <span class="fn">invoke</span>(<span class="param">self</span>, <span class="param">prompt</span>: <span class="ty">str</span>) <span class="op">-&gt;</span> <span class="ty">LLMResponse</span></div>
+
+      <div class="sig"><span class="kw">class</span> <span class="fn">LangChainLLMProvider</span>(<span class="ty">LLMProvider</span>, <span class="ty">Protocol</span>):
+    <span class="kw">def</span> <span class="fn">get_langchain_llm</span>(<span class="param">self</span>) <span class="op">-&gt;</span> <span class="ty">BaseChatModel</span></div>
+
+      <div class="sig"><span class="kw">class</span> <span class="fn">EmbeddingProvider</span>(<span class="ty">Protocol</span>):
+    <span class="param">model_name</span>: <span class="ty">str</span>
+    <span class="kw">def</span> <span class="fn">embed_documents</span>(<span class="param">self</span>, <span class="param">texts</span>: <span class="ty">list</span>[<span class="ty">str</span>]) <span class="op">-&gt;</span> <span class="ty">list</span>[<span class="ty">list</span>[<span class="ty">float</span>]]
+    <span class="kw">def</span> <span class="fn">embed_query</span>(<span class="param">self</span>, <span class="param">text</span>: <span class="ty">str</span>) <span class="op">-&gt;</span> <span class="ty">list</span>[<span class="ty">float</span>]</div>
+
+      <h4>Abstract Base Classes</h4>
+      <p><code>BaseLLMProvider(ABC)</code> and <code>BaseEmbeddingProvider(ABC)</code> provide shared validation (API key non-empty, temperature in [0, 1]) and lazy initialization with caching via <code>get_langchain_llm()</code> / <code>get_langchain_embeddings()</code>.</p>
+
+      <div class="info-box tip">
+        <strong>Two-tier protocol design:</strong> Narrow protocols (<code>LLMProvider</code>) for code with no LangChain dependency, and extended protocols (<code>LangChainLLMProvider</code>) for code that needs the LangChain objects. This keeps the dependency boundary clean.
+      </div>
+    </div>
+  </div>
+
+  <div class="file-card">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/providers/anthropic.py</span>
+      <span class="filedesc">Claude implementation</span>
+    </div>
+    <div class="file-card-body">
+      <h4>AnthropicProvider</h4>
+      <p>Wraps <code>ChatAnthropic</code> from <code>langchain-anthropic</code>. Default model: <code>claude-3-5-sonnet-20241022</code>. Handles <code>ApiKeyError</code> and <code>LLMError</code> classification.</p>
+    </div>
+  </div>
+
+  <div class="file-card">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/providers/openai.py</span>
+      <span class="filedesc">GPT + Embeddings implementation</span>
+    </div>
+    <div class="file-card-body">
+      <h4>OpenAIProvider &amp; OpenAIEmbeddingProvider</h4>
+      <p>Wraps <code>ChatOpenAI</code> and <code>OpenAIEmbeddings</code>. Default models: <code>gpt-4o</code> and <code>text-embedding-3-small</code>. Features structured error classification via <code>ERROR_PATTERNS</code> constant mapping error messages to <code>ErrorType</code> enum values (AUTH, RATE_LIMIT, QUOTA, TIMEOUT, CONNECTION, CONTEXT_LENGTH).</p>
+    </div>
+  </div>
+
+  <div class="file-card">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/providers/registry.py</span>
+      <span class="filedesc">Provider factory and registration</span>
+    </div>
+    <div class="file-card-body">
+      <p>Factory pattern for creating provider instances. Allows registration of custom providers and lookup by name.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- LAYER 6: PROMPT MANAGEMENT         -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="prompts">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--llm)"></span>
+    <h2>Prompt Management</h2>
+    <span class="layer-tag">Layer 6</span>
+  </div>
+  <p class="layer-desc">
+    Defines the documentation sections and their prompt templates. Each section has a structured
+    prompt with task description, subsection requirements, and few-shot examples that guide
+    the LLM toward high-quality, consistent output.
+  </p>
+
+  <div class="file-card open">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/prompts/sections.py</span>
+      <span class="filedesc">Section definitions</span>
+    </div>
+    <div class="file-card-body">
+      <h4>Core Sections (Always Generated)</h4>
+      <table class="doc-table">
+        <tr><th>#</th><th>Section</th><th>Covers</th></tr>
+        <tr><td>1</td><td><strong>Overview</strong></td><td>System purpose, core components, architecture, design patterns</td></tr>
+        <tr><td>2</td><td><strong>Dependencies</strong></td><td>Core/optional deps, version constraints, integration rationale</td></tr>
+        <tr><td>3</td><td><strong>Key Classes and Functions</strong></td><td>Public APIs, inheritance, composition, protocol definitions</td></tr>
+        <tr><td>4</td><td><strong>Data Flow</strong></td><td>Input-to-output transformations, error paths, state management</td></tr>
+        <tr><td>5</td><td><strong>Integration Points</strong></td><td>External APIs, auth, rate limits, configuration sources</td></tr>
+      </table>
+
+      <h4>Optional Sections (Require <code>--sections</code> Flag)</h4>
+      <table class="doc-table">
+        <tr><th>Section</th><th>Covers</th><th>Special Handling</th></tr>
+        <tr><td><strong>Migration Guidance</strong></td><td>Deprecated patterns, security issues, modern alternatives</td><td>"all" file dependency for cache</td></tr>
+        <tr><td><strong>Code Quality Insights</strong></td><td>Architectural patterns, trade-offs, improvement suggestions</td><td>"all" file dependency for cache</td></tr>
+        <tr><td><strong>Cross-Reference Documentation</strong></td><td>Where components are defined and used</td><td>Receives pre-analyzed data from CrossReferenceAnalyzer</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="file-card">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/prompts/templates.py</span>
+      <span class="filedesc">PromptTemplate dataclass</span>
+    </div>
+    <div class="file-card-body">
+      <div class="sig"><span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="fn">PromptTemplate</span>:
+    <span class="param">title</span>: <span class="ty">str</span>
+    <span class="param">task</span>: <span class="ty">str</span>                    <span class="comment"># main instruction</span>
+    <span class="param">sections</span>: <span class="ty">list</span>[<span class="ty">str</span>]          <span class="comment"># subsections to cover</span>
+    <span class="param">additional_context</span>: <span class="ty">str</span>       <span class="comment"># background info</span>
+    <span class="param">few_shot_examples</span>: <span class="ty">str</span>        <span class="comment"># example output format</span></div>
+      <p>Each section's prompt template includes few-shot examples that show the LLM the expected output format, leading to consistent and structured documentation across sections.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- LAYER 7: DIAGRAM GENERATION        -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="diagrams">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--diagrams)"></span>
+    <h2>Diagram Generation</h2>
+    <span class="layer-tag">Layer 7</span>
+  </div>
+  <p class="layer-desc">
+    Generates five types of Mermaid diagrams from static code analysis data. Each diagram type
+    has a dedicated generation method that fills templates with analysis results. Diagrams
+    can optionally pass through the validation system before output.
+  </p>
+
+  <div class="file-card open">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/core/diagrams.py</span>
+      <span class="filedesc">DiagramGenerator &mdash; 503 lines</span>
+    </div>
+    <div class="file-card-body">
+      <div class="sig"><span class="kw">def</span> <span class="fn">generate_diagrams</span>(<span class="param">self</span>, <span class="param">analyses</span>: <span class="ty">list</span>[<span class="ty">FileAnalysis</span>], <span class="param">output_dir</span>: <span class="ty">str</span>, <span class="param">selected_diagrams</span>: <span class="ty">list</span>[<span class="ty">str</span>] | <span class="ty">None</span>) <span class="op">-&gt;</span> <span class="ty">dict</span>[<span class="ty">str</span>, <span class="ty">str</span>]</div>
+
+      <h4>Diagram Types</h4>
+      <table class="doc-table">
+        <tr><th>Type</th><th>Mermaid Type</th><th>Content</th></tr>
+        <tr>
+          <td><strong>Architecture</strong></td>
+          <td>Graph LR</td>
+          <td>Top-level modules as nodes, dependencies as edges. Shows module relationships and component isolation.</td>
+        </tr>
+        <tr>
+          <td><strong>Class</strong></td>
+          <td>classDiagram</td>
+          <td>Classes with attributes, methods, visibility modifiers, and inheritance relationships.</td>
+        </tr>
+        <tr>
+          <td><strong>Sequence</strong></td>
+          <td>sequenceDiagram</td>
+          <td>Key workflows as participant interactions with message flows and timing.</td>
+        </tr>
+        <tr>
+          <td><strong>Call Graph</strong></td>
+          <td>Graph LR</td>
+          <td>Functions/methods as nodes, function calls as edges. Shows call dependencies and execution paths.</td>
+        </tr>
+        <tr>
+          <td><strong>Dependency</strong></td>
+          <td>Graph LR</td>
+          <td>Modules as nodes, import relationships as edges. Highlights circular references.</td>
+        </tr>
+      </table>
+
+      <h4>Node ID Sanitization</h4>
+      <p>All node IDs are sanitized to comply with Mermaid syntax: special characters are escaped, and IDs are checked against <code>MERMAID_RESERVED_WORDS</code> to prevent conflicts.</p>
+
+      <div class="rel-badges">
+        <span class="rel-badge consumes">consumes &rarr; FileAnalysis[]</span>
+        <span class="rel-badge calls">calls &rarr; DiagramValidator</span>
+        <span class="rel-badge produces">produces &rarr; Mermaid diagram strings</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- LAYER 8: VALIDATION SYSTEM         -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="validation">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--valid)"></span>
+    <h2>Validation System</h2>
+    <span class="layer-tag">Layer 8</span>
+  </div>
+  <p class="layer-desc">
+    A configurable validation framework with 15+ rules across 5 diagram-specific validators.
+    Supports strict and permissive modes, per-rule disabling, and structured error reporting.
+  </p>
+
+  <div class="file-card open">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/utils/diagram_validator.py</span>
+      <span class="filedesc">Validation orchestrator</span>
+    </div>
+    <div class="file-card-body">
+      <h4>DiagramValidator</h4>
+      <div class="sig"><span class="kw">def</span> <span class="fn">validate</span>(<span class="param">self</span>, <span class="param">diagram_content</span>: <span class="ty">str</span>, <span class="param">diagram_type</span>: <span class="ty">DiagramType</span>) <span class="op">-&gt;</span> <span class="ty">ValidationResult</span></div>
+      <p>Auto-detects diagram type if not specified, creates the appropriate type-specific validator, applies common + type-specific rules, and returns a <code>ValidationResult</code> with errors, warnings, and validity status.</p>
+
+      <h4>Validation Flow</h4>
+      <div class="flow-step">
+        <span class="flow-num">1</span>
+        <div class="flow-content"><strong>Auto-detect diagram type</strong> from content header (or use specified type)</div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">2</span>
+        <div class="flow-content"><strong>Create type-specific validator</strong> via factory method</div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">3</span>
+        <div class="flow-content"><strong>Apply common rules</strong>: syntax header, quote escaping, special chars, node ID format, empty diagram</div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">4</span>
+        <div class="flow-content"><strong>Apply type-specific rules</strong> (graph direction, edge syntax, class declarations, etc.)</div>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">5</span>
+        <div class="flow-content"><strong>Aggregate errors/warnings</strong> by severity; check validity against config</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="file-card">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/utils/diagram_rules.py</span>
+      <span class="filedesc">15+ validation rules</span>
+    </div>
+    <div class="file-card-body">
+      <h4>Common Rules (All Diagram Types)</h4>
+      <ul>
+        <li><strong>SyntaxHeaderRule</strong> &mdash; Validates correct diagram type header</li>
+        <li><strong>QuoteEscapingRule</strong> &mdash; Validates quotes are properly escaped in labels</li>
+        <li><strong>SpecialCharactersRule</strong> &mdash; Validates special characters are properly handled</li>
+        <li><strong>NodeIdFormatRule</strong> &mdash; Validates node IDs follow Mermaid naming (no leading digits)</li>
+        <li><strong>EmptyDiagramRule</strong> &mdash; Validates diagram has content beyond the header</li>
+      </ul>
+      <h4>Graph-Specific Rules (Architecture, Call Graph, Dependency)</h4>
+      <ul>
+        <li><strong>GraphDirectionRule</strong> &mdash; Validates direction (TD, TB, LR, RL, BT)</li>
+        <li><strong>NodeDefinitionRule</strong> &mdash; Validates nodes are defined before use in edges</li>
+        <li><strong>EdgeSyntaxRule</strong> &mdash; Validates edge connector syntax (--&gt;, -.->; ==&gt;, etc.)</li>
+      </ul>
+      <h4>Class-Specific Rules</h4>
+      <ul>
+        <li><strong>ClassDeclarationRule</strong> &mdash; Validates class declaration syntax</li>
+      </ul>
+      <h4>Sequence-Specific Rules</h4>
+      <ul>
+        <li><strong>ParticipantReferenceRule</strong> &mdash; Validates participant definitions</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="file-card">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/utils/diagram_validators.py</span>
+      <span class="filedesc">Type-specific validator classes</span>
+    </div>
+    <div class="file-card-body">
+      <h4>Validators</h4>
+      <ul>
+        <li><strong><code>create_graph_validator()</code></strong> &mdash; Factory for architecture, call graph, and dependency diagrams</li>
+        <li><strong><code>ClassDiagramValidator</code></strong> &mdash; Class diagram-specific validation</li>
+        <li><strong><code>SequenceDiagramValidator</code></strong> &mdash; Sequence diagram-specific validation</li>
+      </ul>
+
+      <h4>Configuration</h4>
+      <pre><code><span class="comment"># Strict mode (default): errors fail validation</span>
+config = ValidationConfig(mode=<span class="highlight">"strict"</span>)
+
+<span class="comment"># Permissive mode: only critical errors fail</span>
+config = ValidationConfig(mode=<span class="highlight">"permissive"</span>)
+
+<span class="comment"># Disable specific rules</span>
+config = ValidationConfig(disabled_rules={<span class="highlight">"empty_diagram"</span>})
+
+<span class="comment"># Fail on warnings too</span>
+config = ValidationConfig(fail_on_warnings=<span class="highlight">True</span>)
+
+<span class="comment"># Disable validation entirely</span>
+generator = DiagramGenerator(validate_diagrams=<span class="highlight">False</span>)</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- LAYER 9: OUTPUT / TEMPLATES        -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="output">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--output)"></span>
+    <h2>Output / Templates</h2>
+    <span class="layer-tag">Layer 9</span>
+  </div>
+  <p class="layer-desc">
+    Jinja2-based HTML generation with a three-tier template loader hierarchy.
+    Renders section content, diagrams, and navigation into a searchable, interactive HTML site.
+  </p>
+
+  <div class="file-card open">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/templates/html.py</span>
+      <span class="filedesc">TemplateManager</span>
+    </div>
+    <div class="file-card-body">
+      <div class="sig"><span class="kw">class</span> <span class="fn">TemplateManager</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="param">self</span>, <span class="param">template_dir</span>: <span class="ty">str</span> | <span class="ty">None</span> = <span class="num">None</span>)</div>
+
+      <h4>Template Loader Hierarchy</h4>
+      <p>Uses Jinja2 <code>ChoiceLoader</code> with three layers:</p>
+      <ol>
+        <li><strong>Custom FileSystemLoader</strong> &mdash; User-provided template directory (if specified)</li>
+        <li><strong>Default FileSystemLoader</strong> &mdash; Bundled templates in <code>templates/files/</code></li>
+        <li><strong>StringTemplateLoader</strong> &mdash; Embedded templates as fallback for backward compatibility</li>
+      </ol>
+
+      <h4>Template Files</h4>
+      <table class="doc-table">
+        <tr><th>Template</th><th>Purpose</th><th>Features</th></tr>
+        <tr><td><code>base.html</code></td><td>Base layout</td><td>Sidebar navigation, search box, Mermaid.js + Tailwind CSS loading</td></tr>
+        <tr><td><code>index.html</code></td><td>Homepage</td><td>Grid layout with section and diagram links, generation warnings</td></tr>
+        <tr><td><code>section.html</code></td><td>Section pages</td><td>Rendered markdown content via <code>|safe</code> filter</td></tr>
+        <tr><td><code>diagrams.html</code></td><td>Diagram display</td><td>Mermaid <code>&lt;pre&gt;</code> blocks with auto-rendering</td></tr>
+        <tr><td><code>search.html</code></td><td>Search results</td><td>JS-populated search container</td></tr>
+        <tr><td><code>navigation.html</code></td><td>Sidebar nav</td><td>Section and diagram links with active state highlighting</td></tr>
+      </table>
+
+      <div class="info-box note">
+        <strong>Security:</strong> Jinja2 is configured with <code>autoescape=True</code> for HTML injection protection. Section content uses <code>|safe</code> filter since it comes from the LLM pipeline.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- LAYER 10: DATA MODELS              -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="models">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--models)"></span>
+    <h2>Data Models</h2>
+    <span class="layer-tag">Layer 10</span>
+  </div>
+  <p class="layer-desc">
+    Dataclass-based models with <code>__post_init__</code> validation. These are the shared data contracts
+    that flow between architectural layers.
+  </p>
+
+  <div class="file-card open">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/models/</span>
+      <span class="filedesc">All data models</span>
+    </div>
+    <div class="file-card-body">
+      <h4>Code Analysis Models</h4>
+      <div class="sig"><span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="fn">CodeEntity</span>:
+    <span class="param">name</span>: <span class="ty">str</span>
+    <span class="param">type</span>: <span class="ty">str</span>                      <span class="comment"># "class" or "function"</span>
+    <span class="param">docstring</span>: <span class="ty">str</span>
+    <span class="param">methods</span>: <span class="ty">list</span>[<span class="ty">str</span>] | <span class="ty">None</span>     <span class="comment"># for classes only</span>
+    <span class="param">start_line</span>: <span class="ty">int</span>
+    <span class="param">end_line</span>: <span class="ty">int</span>
+    <span class="param">source</span>: <span class="ty">str</span>
+    <span class="param">parent_class</span>: <span class="ty">str</span> | <span class="ty">None</span>       <span class="comment"># inheritance</span></div>
+
+      <div class="sig"><span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="fn">FileAnalysis</span>:
+    <span class="param">file_path</span>: <span class="ty">str</span>
+    <span class="param">entities</span>: <span class="ty">list</span>[<span class="ty">CodeEntity</span>]
+    <span class="param">imports</span>: <span class="ty">list</span>[<span class="ty">str</span>]
+    <span class="param">content</span>: <span class="ty">str</span>                    <span class="comment"># full file content</span>
+    <span class="param">_skip_validation</span>: <span class="ty">bool</span> = <span class="num">False</span> <span class="comment"># for testing</span></div>
+
+      <div class="sig"><span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="fn">ComponentReference</span>:
+    <span class="param">name</span>: <span class="ty">str</span>
+    <span class="param">definition_file</span>: <span class="ty">str</span>
+    <span class="param">usage_locations</span>: <span class="ty">list</span>[<span class="ty">str</span>]
+    <span class="param">import_sources</span>: <span class="ty">list</span>[<span class="ty">str</span>]</div>
+
+      <h4>Diagram Validation Models</h4>
+      <div class="sig"><span class="kw">class</span> <span class="fn">DiagramType</span>(<span class="ty">Enum</span>):
+    ARCHITECTURE = <span class="str">"architecture"</span>
+    CLASS        = <span class="str">"class"</span>
+    SEQUENCE     = <span class="str">"sequence"</span>
+    CALL_GRAPH   = <span class="str">"call_graph"</span>
+    DEPENDENCY   = <span class="str">"dependency"</span></div>
+
+      <div class="sig"><span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="fn">ValidationConfig</span>:
+    <span class="param">mode</span>: <span class="ty">Literal</span>[<span class="str">"strict"</span>, <span class="str">"permissive"</span>] = <span class="str">"strict"</span>
+    <span class="param">fail_on_warnings</span>: <span class="ty">bool</span> = <span class="num">False</span>
+    <span class="param">disabled_rules</span>: <span class="ty">set</span>[<span class="ty">str</span>] = field(default_factory=<span class="ty">set</span>)</div>
+
+      <div class="sig"><span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="fn">ValidationResult</span>:
+    <span class="param">errors</span>: <span class="ty">list</span>[<span class="ty">ValidationError</span>]
+    <span class="param">warnings</span>: <span class="ty">list</span>[<span class="ty">ValidationError</span>]
+    <span class="param">is_valid</span>: <span class="ty">bool</span>
+    <span class="param">diagram_type</span>: <span class="ty">DiagramType</span></div>
+
+      <div class="sig"><span class="kw">@dataclass</span>
+<span class="kw">class</span> <span class="fn">ValidationError</span>:
+    <span class="param">severity</span>: <span class="ty">ValidationSeverity</span>   <span class="comment"># ERROR or WARNING</span>
+    <span class="param">message</span>: <span class="ty">str</span>
+    <span class="param">rule_name</span>: <span class="ty">str</span>
+    <span class="param">line_number</span>: <span class="ty">int</span> | <span class="ty">None</span>
+    <span class="param">line_content</span>: <span class="ty">str</span> | <span class="ty">None</span>
+    <span class="param">suggestion</span>: <span class="ty">str</span> | <span class="ty">None</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- LAYER 11: CACHE LAYER              -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="cache">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--cache)"></span>
+    <h2>Cache Layer</h2>
+    <span class="layer-tag">Layer 11</span>
+  </div>
+  <p class="layer-desc">
+    Two-level caching system that persists both vector stores and generated section content.
+    Uses hash-based invalidation with per-section file dependency tracking.
+  </p>
+
+  <div class="file-card open">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/cache/vector_cache.py</span>
+      <span class="filedesc">Persistent ChromaDB management</span>
+    </div>
+    <div class="file-card-body">
+      <h4>VectorStoreCache</h4>
+      <div class="sig"><span class="kw">def</span> <span class="fn">get_or_create_vector_store</span>(<span class="param">self</span>, <span class="param">analyses</span>, <span class="param">documents</span>, <span class="param">current_files</span>) <span class="op">-&gt;</span> <span class="ty">Chroma</span></div>
+      <p>Three-path logic:</p>
+      <ul>
+        <li><strong>force_refresh</strong> &mdash; Delete existing store, create new</li>
+        <li><strong>Store exists</strong> &mdash; Load existing, update with new/modified documents</li>
+        <li><strong>No store</strong> &mdash; Create new persistent Chroma store from scratch</li>
+      </ul>
+      <p>Creates persistent Chroma via <code>Chroma.from_documents()</code> with <code>persist_directory=cache_dir/chromadb</code>. Tracks git commit hash and file metadata for change detection.</p>
+    </div>
+  </div>
+
+  <div class="file-card">
+    <div class="file-card-header" onclick="this.parentElement.classList.toggle('open')">
+      <span class="file-icon">&#9654;</span>
+      <span class="filename">src/docgen/cache/content_cache.py</span>
+      <span class="filedesc">Section content caching</span>
+    </div>
+    <div class="file-card-body">
+      <h4>SectionContentCache</h4>
+      <p>Caches generated section content to avoid redundant LLM calls. Each section's cache entry includes a content hash computed from its dependency files.</p>
+
+      <h4>Section Dependencies</h4>
+      <table class="doc-table">
+        <tr><th>Section</th><th>Dependency</th><th>Meaning</th></tr>
+        <tr><td>Overview</td><td><code>"all"</code></td><td>Hash of all analyzed files</td></tr>
+        <tr><td>Dependencies</td><td><code>"imports"</code></td><td>Hash of import statements only</td></tr>
+        <tr><td>Key Classes</td><td><code>"entities"</code></td><td>Hash of extracted entities</td></tr>
+        <tr><td>Data Flow</td><td><code>"entities"</code></td><td>Hash of extracted entities</td></tr>
+        <tr><td>Integration Points</td><td><code>"imports"</code></td><td>Hash of import statements only</td></tr>
+        <tr><td>Migration/Quality</td><td><code>"all"</code></td><td>Needs full code context</td></tr>
+      </table>
+
+      <div class="info-box tip">
+        <strong>Invalidation strategy:</strong> If the hash of dependency files matches the cached hash, the cached content is used directly. If it differs, the section is regenerated via the RAG chain. This means changes to imports only invalidate import-dependent sections, not entity-dependent ones.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- LAYER 12: EXCEPTION HIERARCHY      -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="exceptions">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--error)"></span>
+    <h2>Exception Hierarchy</h2>
+    <span class="layer-tag">Layer 12</span>
+  </div>
+  <p class="layer-desc">
+    All custom exceptions inherit from <code>DocumentationError</code>, enabling both granular
+    per-layer error handling and broad catch-all recovery at the CLI level.
+  </p>
+
+  <div class="exc-tree">
+<span class="branch">Exception</span>
+<span class="branch"> &boxvr;&boxh;&boxh;</span> <span class="root">DocumentationError</span>          <span class="comment"># base for all custom exceptions</span>
+<span class="branch">     &boxvr;&boxh;&boxh;</span> <span class="leaf">CodeParseError</span>             <span class="comment"># AST parsing failures</span>
+<span class="branch">     &boxvr;&boxh;&boxh;</span> <span class="leaf">DiagramGenerationError</span>     <span class="comment"># diagram generation failures</span>
+<span class="branch">     &boxv;    &boxur;&boxh;&boxh;</span> <span class="leaf">DiagramValidationError</span> <span class="comment"># validation failures</span>
+<span class="branch">     &boxvr;&boxh;&boxh;</span> <span class="leaf">ApiKeyError</span>                <span class="comment"># missing or invalid API keys</span>
+<span class="branch">     &boxvr;&boxh;&boxh;</span> <span class="leaf">VectorStoreError</span>           <span class="comment"># ChromaDB operation failures</span>
+<span class="branch">     &boxvr;&boxh;&boxh;</span> <span class="leaf">FileEncodingError</span>          <span class="comment"># non-UTF-8 file encoding</span>
+<span class="branch">     &boxvr;&boxh;&boxh;</span> <span class="leaf">TemplateError</span>              <span class="comment"># Jinja2 rendering failures</span>
+<span class="branch">     &boxvr;&boxh;&boxh;</span> <span class="leaf">LLMError</span>                   <span class="comment"># LLM invocation failures</span>
+<span class="branch">     &boxvr;&boxh;&boxh;</span> <span class="leaf">EmbeddingError</span>             <span class="comment"># embedding API failures</span>
+<span class="branch">     &boxvr;&boxh;&boxh;</span> <span class="leaf">PathValidationError</span>        <span class="comment"># path traversal / security</span>
+<span class="branch">     &boxur;&boxh;&boxh;</span> <span class="leaf">CacheError</span>                 <span class="comment"># cache operation failures</span>
+  </div>
+
+  <div class="info-box note">
+    <strong>Error handling strategy:</strong> The CLI entry point catches <code>DocumentationError</code>, <code>ApiKeyError</code>, <code>CacheError</code>, and <code>ValueError</code> at the top level with <code>sys.exit(1)</code>. Each layer raises its appropriate exception type with contextual messages (file path, line number, etc.) enabling user-friendly error reporting.
+  </div>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- DESIGN PATTERNS                    -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="patterns">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--text-3)"></span>
+    <h2>Design Patterns</h2>
+    <span class="layer-tag">Reference</span>
+  </div>
+
+  <h3>1. Protocol-Based Provider Abstraction</h3>
+  <p>Narrow protocols (<code>LLMProvider</code>) for code with no LangChain dependency, extended protocols (<code>LangChainLLMProvider</code>) for code that needs LangChain objects. Keeps the dependency boundary clean while enabling provider swapping.</p>
+
+  <h3>2. LCEL Chain Composition</h3>
+  <p>Declarative chain: <code>Retriever | Prompt | LLM | Parser</code>. Enables streaming, async execution, and tool integration with simplified error handling through unified types.</p>
+
+  <h3>3. Two-Level Caching</h3>
+  <p>Vector Store Cache (persistent ChromaDB with metadata tracking) and Content Cache (section-specific with file dependency hashing). <code>force_refresh</code> bypasses all caches.</p>
+
+  <h3>4. Configurable Validation Pipeline</h3>
+  <p>Multiple modes (strict/permissive), per-rule disabling, and configurable severity thresholds. Follows the Rule pattern with a common <code>ValidationRule</code> protocol.</p>
+
+  <h3>5. Template Loader Hierarchy</h3>
+  <p>Custom &rarr; Default &rarr; Embedded fallback. Enables extensibility without breaking backward compatibility.</p>
+
+  <h3>6. Lazy Provider Initialization</h3>
+  <p>LLM and embedding objects created on first use, cached for subsequent calls. Reduces memory overhead and startup time.</p>
+
+  <h3>7. Quality Mode Presets</h3>
+  <p>FAST/BALANCED/BEST map to different Claude models, allowing users to control the cost/quality tradeoff with a single flag.</p>
+
+  <h3>8. Error Classification Pattern</h3>
+  <p>API errors classified into specific types (AUTH, RATE_LIMIT, QUOTA, etc.) via <code>ERROR_PATTERNS</code>, enabling intelligent retry strategies and user-friendly messages.</p>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- END-TO-END DATA FLOW               -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="data-flow">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--text-3)"></span>
+    <h2>End-to-End Data Flow</h2>
+    <span class="layer-tag">Reference</span>
+  </div>
+
+  <pre><code><span class="highlight">1. CLI Input</span> (cli.py)
+   <span class="comment">&darr; parse_args, validate paths, build config</span>
+
+<span class="highlight">2. CodeAnalyzer</span> (analyzer.py)
+   <span class="comment">&darr; AST parsing, entity extraction</span>
+   FileAnalysis[]
+
+<span class="highlight">3a. CrossReferenceAnalyzer</span> (cross_reference.py)  <span class="comment">[parallel]</span>
+   <span class="comment">&darr; two-pass import/usage analysis</span>
+   ComponentReference[]
+
+<span class="highlight">3b. DiagramGenerator</span> (diagrams.py)  <span class="comment">[parallel]</span>
+   <span class="comment">&darr; template-based Mermaid generation + validation</span>
+   diagram_content[] (5 types)
+
+<span class="highlight">4. VectorStoreCache</span> (vector_cache.py)
+   <span class="comment">&darr; chunk FileAnalysis &rarr; documents &rarr; persistent ChromaDB</span>
+   vector_store: Chroma
+
+<span class="highlight">5. RAG Pipeline</span> (rag_pipeline.py)  <span class="comment">[per section, in parallel]</span>
+   <span class="comment">&boxvr; Section Prompt (sections.py)</span>
+   <span class="comment">&boxvr; Retriever: similarity_search() or MMR</span>
+   <span class="comment">&boxvr; LLM Provider (Anthropic or OpenAI)</span>
+   <span class="comment">&boxur; StrOutputParser</span>
+   section_content (markdown)
+
+<span class="highlight">6. SectionContentCache</span> (content_cache.py)
+   <span class="comment">&darr; hash-based invalidation, cache section content</span>
+   cached_sections{}
+
+<span class="highlight">7. TemplateManager</span> (html.py)
+   <span class="comment">&darr; render sections + diagrams + navigation</span>
+   <span class="comment">&boxvr; base.html    (layout)</span>
+   <span class="comment">&boxvr; index.html   (homepage)</span>
+   <span class="comment">&boxvr; section.html (per section)</span>
+   <span class="comment">&boxvr; diagrams.html(per diagram)</span>
+   <span class="comment">&boxur; search.html  (search interface)</span>
+
+<span class="highlight">8. Output</span>
+   output/
+   <span class="comment">&boxvr; index.html</span>
+   <span class="comment">&boxvr; sections/ (overview, dependencies, ...)</span>
+   <span class="comment">&boxvr; diagrams/ (architecture, classes, ...)</span>
+   <span class="comment">&boxur; assets/   (CSS, JS)</span></code></pre>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- DESIGN DECISIONS & TRADEOFFS       -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="decisions">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--accent)"></span>
+    <h2>Design Decisions &amp; Tradeoffs</h2>
+    <span class="layer-tag">Design</span>
+  </div>
+  <p class="layer-desc">
+    The reasoning behind the major architectural choices: vector store selection, chunking and
+    retrieval strategy, chain composition, provider abstraction, caching granularity, validation,
+    and parallelism.
+  </p>
+
+  <h3>1. Vector Store: ChromaDB</h3>
+  <p>ChromaDB was chosen because it is embedded &mdash; it runs in-process with no server &mdash; persists to SQLite so the index survives restarts, integrates natively with LangChain via <code>Chroma.from_documents()</code>, supports both similarity and MMR search, and adds zero infrastructure cost for a CLI tool.</p>
+  <table class="doc-table">
+    <tr><th>Alternative</th><th>Why Not</th></tr>
+    <tr>
+      <td><strong>FAISS</strong></td>
+      <td>Faster for large datasets, but no built-in persistence (serialization/deserialization would be manual) and no native MMR support.</td>
+    </tr>
+    <tr>
+      <td><strong>Pinecone / Weaviate</strong></td>
+      <td>Managed services are overkill for a local CLI tool &mdash; they add a network dependency, latency, and cost.</td>
+    </tr>
+    <tr>
+      <td><strong>Simple cosine similarity</strong></td>
+      <td>No chunking, no overlap, poor for long files. Retrieval would need to be reimplemented from scratch.</td>
+    </tr>
+  </table>
+  <div class="info-box note">
+    <strong>Scaling boundary:</strong> ChromaDB's SQLite backend is single-writer &mdash; fine for a single-user CLI tool, but it would bottleneck under concurrent writes. A hosted service processing many codebases concurrently would call for a managed vector DB like Pinecone for horizontal scaling and multi-tenancy.
+  </div>
+
+  <h3>2. Chunking Strategy</h3>
+  <p>Each <code>FileAnalysis</code> generates two types of documents for embedding:</p>
+  <ul>
+    <li><strong>File content document</strong> &mdash; full source code with file path as metadata</li>
+    <li><strong>Entity documents</strong> &mdash; one per class/function with formatted type, name, description, methods, and inheritance info</li>
+  </ul>
+  <p>All documents are split with <code>RecursiveCharacterTextSplitter(chunk_size=2000, overlap=200)</code>. The 200-char overlap ensures context isn't lost at chunk boundaries.</p>
+  <p>Character-based chunking handles the 80% case well &mdash; most functions and classes fit within 2000 chars. Semantic chunking (per-function) would be more precise but needs custom logic to handle nested classes, decorators, and multiline signatures. A future improvement would be AST-aware chunking that splits on class/function boundaries, so each retrieved chunk is a semantically complete unit; the AST is already available from the analysis layer.</p>
+
+  <h3>3. Retrieval: Similarity vs. MMR</h3>
+  <p>Similarity search is the default: direct cosine ranking is fast and works best for small-to-medium codebases, at the risk of context dominated by a single module. MMR is the alternative for large codebases with repetitive patterns: a two-phase process fetches 20 documents by similarity, then reranks down to 10 for diversity with <code>lambda_mult=0.5</code> balancing relevance against diversity. It is slightly slower (2x retrieval, then filtering). Full parameter reference is in the <a href="#llm">LLM / RAG layer</a>.</p>
+
+  <h3>4. LCEL over Manual Composition</h3>
+  <p>LCEL gives declarative chain composition (<code>retriever | prompt | llm | parser</code>) with built-in streaming support, async execution, and unified error handling. The alternative &mdash; manually calling the retriever, formatting a prompt string, sending to the LLM, and parsing the response &mdash; is more code, more error-prone, and harder to swap components. LCEL also makes the chain testable by mocking individual stages.</p>
+
+  <h3>5. Two-Tier Provider Protocols</h3>
+  <p>The narrow protocol (<code>LLMProvider</code>) keeps the dependency boundary clean: code that only needs to call an LLM (tests, simple scripts) doesn't need to import LangChain, while code that builds chains (the RAG pipeline) uses the extended protocol (<code>LangChainLLMProvider</code>). This also means a non-LangChain provider (e.g. calling the Anthropic API directly) could be added without breaking the core pipeline.</p>
+  <p><strong>Lazy initialization:</strong> LLM and embedding objects are created on first use via <code>get_langchain_llm()</code> / <code>get_langchain_embeddings()</code>, then cached. This avoids creating expensive API clients at import time, reduces memory for unused providers, and makes testing faster since mocked providers skip real initialization.</p>
+  <h4>Error Classification</h4>
+  <p>API errors are classified into types via <code>ERROR_PATTERNS</code>:</p>
+  <table class="doc-table">
+    <tr><th>ErrorType</th><th>Action</th><th>Example</th></tr>
+    <tr><td><code>AUTH</code></td><td>Fail immediately, surface to user</td><td>Invalid API key</td></tr>
+    <tr><td><code>RATE_LIMIT</code></td><td>Could retry with backoff</td><td>429 Too Many Requests</td></tr>
+    <tr><td><code>QUOTA</code></td><td>Fail, suggest billing check</td><td>Insufficient credits</td></tr>
+    <tr><td><code>CONTEXT_LENGTH</code></td><td>Could truncate and retry</td><td>Max tokens exceeded</td></tr>
+    <tr><td><code>TIMEOUT</code></td><td>Could retry once</td><td>Connection timeout</td></tr>
+    <tr><td><code>CONNECTION</code></td><td>Could retry with backoff</td><td>Network unreachable</td></tr>
+  </table>
+
+  <h3>6. Two-Level Cache Granularity</h3>
+  <p>On-disk layout of the cache (see the <a href="#cache">Cache Layer</a> for the per-section dependency table):</p>
+  <pre><code>.docgen_cache/
+└── <span class="highlight">df19a22d180ba003</span>/          <span class="comment"># SHA-256[:16] of source path</span>
+    ├── chromadb/
+    │   ├── chroma.sqlite3          <span class="comment"># vector embeddings (Level 1)</span>
+    │   └── [uuid]/                 <span class="comment"># partition data</span>
+    ├── file_metadata.json          <span class="comment"># per-file content hashes + mtimes</span>
+    └── section_cache.json          <span class="comment"># generated section content (Level 2)</span></code></pre>
+  <p><strong>Why per-section dependency tracking instead of invalidating everything:</strong> LLM calls are the most expensive operation (~$0.03&ndash;$0.15 per section depending on model). If only a function's docstring changed, that affects "Key Classes" but not "Dependencies" or "Integration Points." The dependency system regenerates only what's actually stale &mdash; typically saving 60&ndash;80% of API costs on incremental runs.</p>
+  <p><strong>Cache key:</strong> The project hash is <code>SHA-256(absolute_source_path)[:16]</code>, so the same directory always maps to the same cache. Branch switching isn't handled explicitly &mdash; the file content hashes catch it: if files change after switching branches, those sections get regenerated. The git commit is tracked in metadata for debugging but isn't part of the cache key. A future improvement would be git-aware caching keyed by branch + commit.</p>
+
+  <h3>7. Configurable Validation</h3>
+  <p>LLM-generated Mermaid diagrams frequently have syntax errors: unescaped quotes in labels, reserved words as node IDs, missing direction declarations. Rather than shipping broken diagrams, the validation layer catches errors before output.</p>
+  <p>Strict mode is the default for production &mdash; errors fail validation. But during development, or when processing codebases with unusual naming (e.g. node IDs starting with digits), permissive mode lets non-critical issues pass as warnings. Individual rules can also be disabled by name. This avoids the "validation is too annoying so I'll just turn it off" problem.</p>
+
+  <h3>8. Parallel Section Generation</h3>
+  <pre><code><span class="comment"># section_orchestrator.py</span>
+max_workers = min(len(section_names), <span class="highlight">MAX_PARALLEL_WORKERS</span>)  <span class="comment"># MAX = 5</span>
+
+with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    futures = {
+        executor.submit(generate_section, name): name
+        for name in section_names
+    }
+    for future in as_completed(futures):
+        <span class="comment"># each future independently succeeds or fails</span></code></pre>
+  <p><strong>ThreadPoolExecutor over asyncio:</strong> The work is I/O-bound (waiting for LLM API responses), so threads are appropriate. ThreadPoolExecutor is simpler than async &mdash; no need to refactor the entire codebase to be async or use async-compatible LangChain calls. With 5 workers and 5&ndash;8 sections, speedup is near-linear since each section is an independent API call. The GIL isn't a bottleneck because the time is spent waiting on network I/O, not CPU work.</p>
+  <p><strong>Why cap at 5 workers:</strong> LLM API rate limits. Both Anthropic and OpenAI have per-minute request limits. Five concurrent requests is a safe default that provides good throughput without triggering rate limits; users on higher API tiers could increase this.</p>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- COST & LATENCY CHARACTERISTICS     -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="cost-latency">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--core)"></span>
+    <h2>Cost &amp; Latency Characteristics</h2>
+    <span class="layer-tag">Operations</span>
+  </div>
+  <p class="layer-desc">
+    The system includes a built-in <code>CostTracker</code> that records per-model token usage
+    and computes costs. This section covers per-model pricing, typical run costs, and where
+    wall-clock time actually goes.
+  </p>
+
+  <h3>Per-Model Pricing (per million tokens)</h3>
+  <table class="doc-table">
+    <tr><th>Model</th><th>Input</th><th>Output</th><th>Quality Mode</th></tr>
+    <tr><td>Claude Opus</td><td>$15.00</td><td>$75.00</td><td>&mdash;</td></tr>
+    <tr><td>Claude Sonnet</td><td>$3.00</td><td>$15.00</td><td>BALANCED / BEST</td></tr>
+    <tr><td>Claude Haiku</td><td>$0.25</td><td>$1.25</td><td>FAST</td></tr>
+    <tr><td>text-embedding-3-small</td><td>$0.02</td><td>&mdash;</td><td>All modes</td></tr>
+    <tr><td>text-embedding-3-large</td><td>$0.13</td><td>&mdash;</td><td>&mdash;</td></tr>
+  </table>
+
+  <h3>Typical Run Cost Estimates</h3>
+  <table class="doc-table">
+    <tr><th>Scenario</th><th>Sections</th><th>Embeddings</th><th>Total</th></tr>
+    <tr><td>Small project (50 files), FAST mode</td><td>~$0.02</td><td>~$0.001</td><td><strong>~$0.02</strong></td></tr>
+    <tr><td>Medium project (200 files), BALANCED</td><td>~$0.15</td><td>~$0.003</td><td><strong>~$0.15</strong></td></tr>
+    <tr><td>Large project (1000 files), BEST</td><td>~$0.40</td><td>~$0.01</td><td><strong>~$0.41</strong></td></tr>
+    <tr><td>Cached incremental run (few changes)</td><td>~$0.03</td><td>~$0.001</td><td><strong>~$0.03</strong></td></tr>
+  </table>
+
+  <div class="info-box tip">
+    <strong>Key insight:</strong> Embedding costs are negligible (~1% of total). LLM section generation dominates.
+    The quality mode switch gives users a 10&ndash;60x cost lever, and caching means incremental runs cost 80% less than full runs.
+  </div>
+
+  <h3>Zero-Cost Modes</h3>
+  <ul>
+    <li><strong><code>--diagrams-only</code></strong> &mdash; $0.00. Generates Mermaid diagrams from pure static analysis. No API calls at all.</li>
+    <li><strong><code>--dry-run</code></strong> &mdash; $0.00 for LLM, but may still embed if the vector store doesn't exist. Emits placeholder section content.</li>
+  </ul>
+
+  <h3>Latency Breakdown</h3>
+  <p>Where time actually goes, for a medium-sized project (~200 files):</p>
+  <table class="doc-table">
+    <tr><th>Phase</th><th>Time</th><th>% of Total</th><th>Bottleneck</th></tr>
+    <tr><td>AST analysis (200 files)</td><td>~0.5s</td><td>~1%</td><td>CPU (ast.parse is fast)</td></tr>
+    <tr><td>Document chunking</td><td>~0.2s</td><td>&lt;1%</td><td>CPU (string splitting)</td></tr>
+    <tr><td>Embedding (cold, ~1000 chunks)</td><td>~5-10s</td><td>~15%</td><td>Network (OpenAI API)</td></tr>
+    <tr><td>Embedding (cached)</td><td>~0.1s</td><td>&lt;1%</td><td>Disk (ChromaDB load)</td></tr>
+    <tr><td>Section generation (5 sections, parallel)</td><td>~15-30s</td><td>~70%</td><td>Network (LLM API, longest section)</td></tr>
+    <tr><td>Diagram generation (5 types)</td><td>~0.3s</td><td>~1%</td><td>CPU (template filling)</td></tr>
+    <tr><td>Diagram validation</td><td>~0.05s</td><td>&lt;1%</td><td>CPU (regex matching)</td></tr>
+    <tr><td>HTML rendering</td><td>~0.1s</td><td>&lt;1%</td><td>CPU (Jinja2)</td></tr>
+    <tr><td><strong>Total (cold)</strong></td><td><strong>~25-45s</strong></td><td></td><td></td></tr>
+    <tr><td><strong>Total (cached, few changes)</strong></td><td><strong>~5-10s</strong></td><td></td><td></td></tr>
+  </table>
+
+  <div class="info-box note">
+    <strong>The 70% insight:</strong> Section generation (LLM calls) dominates total latency. This is why parallel execution
+    matters &mdash; 5 sections in parallel means wall-clock time is bound by the slowest section, not the sum.
+    Without parallelism, a 5-section run would take ~60-150s instead of ~15-30s.
+  </div>
+
+  <p>Further optimization has limited headroom: the hot path (LLM calls) is network-bound and already parallelized, and the caching layer eliminates it on incremental runs. The main remaining improvement would be LLM response streaming so partial results appear sooner in the HTML output &mdash; that improves perceived latency but doesn't reduce total time.</p>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- FAILURE MODES                      -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="failure-modes">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--error)"></span>
+    <h2>Failure Modes &amp; Recovery</h2>
+    <span class="layer-tag">Operations</span>
+  </div>
+  <p class="layer-desc">
+    How the system behaves when things go wrong: partial-success design for section generation,
+    a taxonomy of failure scenarios, and known gaps in recovery.
+  </p>
+
+  <h3>Partial Failure: Section Generation</h3>
+  <p>The system is designed for <strong>partial success</strong>. Each section is generated independently (separate futures in ThreadPoolExecutor). If one section fails:</p>
+  <ul>
+    <li>The error is caught and the section is replaced with <code>"*Error generating this section: {error}*"</code></li>
+    <li>Other sections continue generating normally</li>
+    <li>The error list is returned to the caller alongside successful sections</li>
+    <li>HTML output is generated with whatever succeeded</li>
+  </ul>
+
+  <h3>Failure Taxonomy</h3>
+  <table class="doc-table">
+    <tr><th>Failure</th><th>Impact</th><th>Recovery</th></tr>
+    <tr>
+      <td>LLM returns garbage/hallucinated content</td>
+      <td>Section content is wrong but syntactically valid</td>
+      <td><strong>No automatic detection.</strong> This is a known limitation. The RAG chain grounds output in retrieved code, which reduces hallucination, but doesn't eliminate it. Future: add an LLM-as-judge validation pass.</td>
+    </tr>
+    <tr>
+      <td>LLM rate limit (429)</td>
+      <td>Section generation fails</td>
+      <td>Error classified as RATE_LIMIT. Currently fails the section. Future: exponential backoff retry.</td>
+    </tr>
+    <tr>
+      <td>Invalid API key</td>
+      <td>All LLM calls fail</td>
+      <td>Detected early in provider initialization. Raises <code>ApiKeyError</code>, CLI exits with a clear message.</td>
+    </tr>
+    <tr>
+      <td>Syntax error in source file</td>
+      <td>One file skipped</td>
+      <td><code>ast.parse()</code> failure caught per-file. Warning logged, other files continue.</td>
+    </tr>
+    <tr>
+      <td>Diagram validation failure</td>
+      <td>Diagram not included in output</td>
+      <td>In strict mode, failed diagrams are omitted. In permissive mode, warnings are logged but the diagram is included.</td>
+    </tr>
+    <tr>
+      <td>Cache corruption</td>
+      <td>Stale or broken content</td>
+      <td><code>--force-refresh</code> rebuilds from scratch. <code>--clear-cache</code> deletes the cache entirely.</td>
+    </tr>
+    <tr>
+      <td>Stale cache (subtle)</td>
+      <td>Section doesn't reflect recent changes</td>
+      <td>Hash-based invalidation catches file-level changes. But if the LLM prompt changes (code update), cached sections won't regenerate. Future: include the prompt hash in the cache key.</td>
+    </tr>
+  </table>
+
+  <div class="info-box warn">
+    <strong>Known limitation:</strong> There is no retry logic for transient API failures. The error classification infrastructure
+    exists (the <code>ErrorType</code> enum) but retries aren't implemented &mdash; the system fails fast instead of retrying.
+    For a CLI tool this is acceptable since the user can re-run; for a hosted service, retry with backoff would be essential.
+  </div>
+</section>
+
+<!-- ════════════════════════════════════ -->
+<!-- SCALE LIMITS                       -->
+<!-- ════════════════════════════════════ -->
+<section class="layer-section" id="scale-limits">
+  <div class="layer-header">
+    <span class="layer-dot" style="background:var(--analysis)"></span>
+    <h2>Scale Limits</h2>
+    <span class="layer-tag">Operations</span>
+  </div>
+  <p class="layer-desc">
+    Current capacity across key dimensions, what breaks first as codebases grow, and the
+    infrastructure changes a hosted deployment would require.
+  </p>
+
+  <h3>Current Scale Profile</h3>
+  <table class="doc-table">
+    <tr><th>Dimension</th><th>Current Capacity</th><th>Limiting Factor</th></tr>
+    <tr><td>Codebase size</td><td>~1000 files comfortably</td><td>Memory for in-process ChromaDB + all FileAnalysis objects</td></tr>
+    <tr><td>File size</td><td>No explicit limit</td><td>ast.parse() handles large files; chunking keeps embeddings manageable</td></tr>
+    <tr><td>Concurrent users</td><td>1 (CLI tool)</td><td>SQLite is single-writer; ChromaDB uses file locks</td></tr>
+    <tr><td>Section generation</td><td>5 parallel</td><td>API rate limits, ThreadPoolExecutor cap</td></tr>
+  </table>
+
+  <h3>What Breaks at 10K Files</h3>
+  <ul>
+    <li><strong>Memory</strong> &mdash; All <code>FileAnalysis</code> objects are held in memory simultaneously. With full source content per file, a 10K-file codebase could need 1&ndash;2 GB. <em>Mitigation: stream-process files, keep only metadata in memory, write content to disk.</em></li>
+    <li><strong>Vector store size</strong> &mdash; ChromaDB with 10K files &times; ~5 chunks each = 50K vectors. ChromaDB handles this, but initial indexing takes minutes. <em>Mitigation: incremental indexing via VectorStoreCache already handles this &mdash; only changed files are reindexed.</em></li>
+    <li><strong>Context window saturation</strong> &mdash; Retrieving 10 chunks of 2000 chars = ~20K chars of context. With the prompt template overhead, this approaches Claude's useful context. <em>Mitigation: reduce retriever_k or switch to MMR for diverse but smaller context.</em></li>
+    <li><strong>Cost</strong> &mdash; More files means more embedding calls. At $0.02/M tokens for text-embedding-3-small, 50K chunks is still under $0.10, so cost scales linearly but stays cheap for embeddings. LLM costs are per-section, not per-file.</li>
+  </ul>
+
+  <h3>The <code>max_files</code> Safety Valve</h3>
+  <p>The <code>analyze_directory(..., max_files=N)</code> parameter stops analysis after N files. This prevents accidental processing of huge monorepos and keeps memory bounded. Combined with <code>--exclude</code> patterns, users can target the relevant subset of a large codebase.</p>
+
+  <h3>Path to a Hosted Multi-Tenant Service</h3>
+  <p>Scaling to a hosted multi-tenant service would require three changes: (1) replace ChromaDB with a managed vector DB (e.g. Pinecone) for multi-tenancy and horizontal read scaling; (2) move section generation to a task queue (Celery/SQS) with per-tenant rate limiting; (3) add a caching layer (Redis) in front of the vector store for hot codebases. The pipeline architecture stays the same &mdash; these are infrastructure swaps, not redesigns.</p>
+</section>
+
+</main>
+</div>
+
+<!-- ════════ Sidebar Active State JS ════════ -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var links = document.querySelectorAll('.nav-link');
+  var sections = [];
+  links.forEach(function(link) {
+    var id = link.getAttribute('href');
+    if (id && id.startsWith('#')) {
+      var el = document.getElementById(id.slice(1));
+      if (el) sections.push({ el: el, link: link });
+    }
+  });
+
+  function updateActive() {
+    var scrollY = window.scrollY + 80;
+    var active = sections[0];
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].el.offsetTop <= scrollY) active = sections[i];
+    }
+    links.forEach(function(l) { l.classList.remove('active'); });
+    if (active) active.link.classList.add('active');
+  }
+
+  window.addEventListener('scroll', updateActive, { passive: true });
+  updateActive();
+});
+</script>
+</body>
+</html>
