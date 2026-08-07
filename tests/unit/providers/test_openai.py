@@ -41,9 +41,23 @@ class TestOpenAIProvider:
             mock_chat.assert_called_once_with(
                 api_key="test-key",
                 model=OpenAIProvider.DEFAULT_MODEL,
-                temperature=0.2,
             )
             assert llm is mock_llm
+
+    def test_create_llm_with_temperature(self):
+        """Test that an explicit temperature is passed through."""
+        mock_llm = MagicMock()
+        with patch(
+            "docgen.providers.openai.ChatOpenAI", return_value=mock_llm
+        ) as mock_chat:
+            provider = OpenAIProvider(api_key="test-key", temperature=0.2)
+            provider.get_langchain_llm()
+
+            mock_chat.assert_called_once_with(
+                api_key="test-key",
+                model=OpenAIProvider.DEFAULT_MODEL,
+                temperature=0.2,
+            )
 
     def test_create_llm_failure(self):
         """Test LLM creation failure raises LLMError."""

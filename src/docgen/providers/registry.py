@@ -98,7 +98,7 @@ class ProviderRegistry:
         name: str,
         api_key: str,
         model: str | None = None,
-        temperature: float = 0.2,
+        temperature: float | None = None,
         **kwargs,
     ) -> LLMProvider:
         """Create an LLM provider instance by name.

@@ -59,8 +59,10 @@ class GeneratorConfig:
     CHUNK_OVERLAP: int = 200
 
     # LLM settings
-    DEFAULT_TEMPERATURE: float = 0.2
-    DEFAULT_ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
+    # None = use the model's default sampling. Claude Sonnet 5+ rejects
+    # non-default temperature values, so only set this for older models.
+    DEFAULT_TEMPERATURE: float | None = None
+    DEFAULT_ANTHROPIC_MODEL: str = "claude-sonnet-5"
     DEFAULT_OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
 
     # Diagram settings
@@ -93,7 +95,9 @@ class GeneratorConfig:
 
     def __post_init__(self):
         """Validate configuration values."""
-        if not 0 <= self.DEFAULT_TEMPERATURE <= 1:
+        if self.DEFAULT_TEMPERATURE is not None and not (
+            0 <= self.DEFAULT_TEMPERATURE <= 1
+        ):
             raise ValueError("Temperature must be between 0 and 1")
         if self.CHUNK_SIZE <= 0:
             raise ValueError("Chunk size must be positive")
@@ -136,8 +140,8 @@ def get_model_for_quality_mode(quality_mode: QualityMode, task: str = "general")
     Returns:
         Model name
     """
-    haiku = "claude-haiku-4"
-    sonnet = "claude-sonnet-4-20250514"
+    haiku = "claude-haiku-4-5"
+    sonnet = "claude-sonnet-5"
 
     if quality_mode == QualityMode.FAST:
         return haiku

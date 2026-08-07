@@ -5,6 +5,7 @@ interface.
 """
 
 import logging
+from typing import Any
 
 from langchain_anthropic import ChatAnthropic
 
@@ -21,20 +22,22 @@ class AnthropicProvider(BaseLLMProvider):
     providing a consistent interface for the documentation generator.
     """
 
-    DEFAULT_MODEL = "claude-sonnet-4-20250514"
+    DEFAULT_MODEL = "claude-sonnet-5"
 
     def __init__(
         self,
         api_key: str,
         model: str | None = None,
-        temperature: float = 0.2,
+        temperature: float | None = None,
     ) -> None:
         """Initialize the Anthropic provider.
 
         Args:
             api_key: Anthropic API key
-            model: Model name to use (defaults to claude-sonnet-4-20250514)
-            temperature: Temperature for generation (0.0 to 1.0)
+            model: Model name to use (defaults to claude-sonnet-5)
+            temperature: Temperature for generation (0.0 to 1.0), or None to
+                use the model's default. Claude Sonnet 5 and newer reject
+                non-default temperature values.
         """
         super().__init__(
             api_key=api_key,
@@ -53,11 +56,13 @@ class AnthropicProvider(BaseLLMProvider):
             ApiKeyError: If API key is invalid
         """
         try:
-            return ChatAnthropic(
-                api_key=self._api_key,
-                model=self._model,
-                temperature=self._temperature,
-            )
+            kwargs: dict[str, Any] = {
+                "api_key": self._api_key,
+                "model": self._model,
+            }
+            if self._temperature is not None:
+                kwargs["temperature"] = self._temperature
+            return ChatAnthropic(**kwargs)
         except ValueError as e:
             # Configuration errors (invalid parameters)
             raise LLMError(f"Invalid Anthropic configuration: {str(e)}") from e

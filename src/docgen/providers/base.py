@@ -81,18 +81,19 @@ class BaseLLMProvider(ABC):
         self,
         api_key: str,
         model: str,
-        temperature: float = 0.2,
+        temperature: float | None = None,
     ) -> None:
         """Initialize the LLM provider.
 
         Args:
             api_key: API key for the provider
             model: Model name/identifier to use
-            temperature: Temperature for generation (0.0 to 1.0)
+            temperature: Temperature for generation (0.0 to 1.0), or None to
+                use the model's default sampling
         """
         if not api_key:
             raise ValueError("API key cannot be empty")
-        if not 0 <= temperature <= 1:
+        if temperature is not None and not 0 <= temperature <= 1:
             raise ValueError("Temperature must be between 0 and 1")
 
         self._api_key = api_key
@@ -106,8 +107,8 @@ class BaseLLMProvider(ABC):
         return self._model
 
     @property
-    def temperature(self) -> float:
-        """Get the temperature setting."""
+    def temperature(self) -> float | None:
+        """Get the temperature setting (None = model default)."""
         return self._temperature
 
     @abstractmethod

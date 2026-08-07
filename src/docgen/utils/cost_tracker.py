@@ -10,9 +10,13 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
-# Pricing per 1M tokens (as of January 2025)
+# Pricing per 1M tokens (as of August 2026)
 PRICING = {
     # Anthropic Claude models
+    "claude-sonnet-5": {"input": 3.00, "output": 15.00},
+    "claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
+    "claude-haiku-4-5": {"input": 1.00, "output": 5.00},
+    "claude-opus-5": {"input": 5.00, "output": 25.00},
     "claude-opus-4": {"input": 15.00, "output": 75.00},
     "claude-sonnet-4": {"input": 3.00, "output": 15.00},
     "claude-sonnet-4-20250514": {"input": 3.00, "output": 15.00},

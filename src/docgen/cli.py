@@ -54,7 +54,10 @@ def _add_model_args(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=DEFAULT_CONFIG.DEFAULT_TEMPERATURE,
         metavar="TEMP",
-        help=f"Temperature for LLM generation (0.0-1.0, default: {DEFAULT_CONFIG.DEFAULT_TEMPERATURE})",
+        help=(
+            "Temperature for LLM generation (0.0-1.0, default: model default; "
+            "not supported by Claude Sonnet 5 and newer)"
+        ),
     )
     parser.add_argument(
         "--anthropic-model",

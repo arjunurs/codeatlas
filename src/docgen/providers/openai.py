@@ -5,7 +5,7 @@ EmbeddingProvider interfaces.
 """
 
 import logging
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
@@ -64,14 +64,15 @@ class OpenAIProvider(BaseLLMProvider):
         self,
         api_key: str,
         model: str | None = None,
-        temperature: float = 0.2,
+        temperature: float | None = None,
     ) -> None:
         """Initialize the OpenAI provider.
 
         Args:
             api_key: OpenAI API key
             model: Model name to use (defaults to gpt-4o)
-            temperature: Temperature for generation (0.0 to 1.0)
+            temperature: Temperature for generation (0.0 to 1.0), or None to
+                use the model's default
         """
         super().__init__(
             api_key=api_key,
@@ -90,11 +91,13 @@ class OpenAIProvider(BaseLLMProvider):
             ApiKeyError: If API key is invalid
         """
         try:
-            return ChatOpenAI(
-                api_key=self._api_key,
-                model=self._model,
-                temperature=self._temperature,
-            )
+            kwargs: dict[str, Any] = {
+                "api_key": self._api_key,
+                "model": self._model,
+            }
+            if self._temperature is not None:
+                kwargs["temperature"] = self._temperature
+            return ChatOpenAI(**kwargs)
         except ValueError as e:
             raise LLMError(f"Invalid OpenAI configuration: {e}") from e
         except TypeError as e:

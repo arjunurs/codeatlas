@@ -192,7 +192,7 @@ class CodeDocumentationGenerator:
             openai_embedding_model or self.config.DEFAULT_OPENAI_EMBEDDING_MODEL
         )
 
-        if not 0 <= final_temperature <= 1:
+        if final_temperature is not None and not 0 <= final_temperature <= 1:
             raise ValueError("Temperature must be between 0 and 1")
 
         self.temperature = final_temperature
