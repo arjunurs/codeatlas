@@ -69,4 +69,5 @@ spec.md
 Thumbs.db
 *.log
 *.bak
-*.tmp
+*.tmp.docgen_cache/
+cleaned_html.html
