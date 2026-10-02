@@ -18,11 +18,7 @@ from ..cache.content_cache import SectionContentCache
 from ..config import GeneratorConfig, QualityMode, get_model_for_quality_mode
 from ..exceptions.errors import LLMError
 from ..models.file_analysis import FileAnalysis
-from ..prompts.sections import (
-    SECTION_ORDER,
-    get_all_available_sections,
-    get_section_prompt,
-)
+from ..prompts.sections import get_section_prompt, select_sections
 from ..utils.cost_tracker import CostTracker
 
 logger = logging.getLogger(__name__)
@@ -74,11 +70,7 @@ class SectionOrchestrator:
         """
         logger.info("Generating documentation content...")
 
-        if self.selected_sections:
-            all_sections = get_all_available_sections()
-            sections_to_generate = self._filter_sections(all_sections)
-        else:
-            sections_to_generate = SECTION_ORDER
+        sections_to_generate = select_sections(self.selected_sections)
         if self.selected_sections:
             logger.info(f"Generating selected sections: {sections_to_generate}")
 
@@ -238,34 +230,3 @@ class SectionOrchestrator:
             raise LLMError(
                 f"Failed to generate section '{section_name}': {str(e)}"
             ) from e
-
-    def _filter_sections(self, available_sections: list[str]) -> list[str]:
-        """Filter sections based on user selection."""
-        if not self.selected_sections:
-            return available_sections
-
-        selected_lower = [sel.lower() for sel in self.selected_sections]
-
-        def matches_selection(section: str) -> bool:
-            normalized = section.lower().replace(" ", "_").replace("_and_", "_")
-            section_lower = section.lower()
-
-            for sel in selected_lower:
-                sel_normalized = sel.replace("_", "").replace("-", "")
-                section_normalized = normalized.replace("_", "").replace("-", "")
-
-                if (
-                    section in self.selected_sections
-                    or section_lower == sel
-                    or normalized == sel
-                    or sel_normalized == section_normalized
-                    or section_lower.startswith(sel)
-                    or sel in section_lower
-                    or section_normalized.startswith(sel_normalized)
-                    or sel_normalized in section_normalized
-                ):
-                    return True
-
-            return False
-
-        return [s for s in available_sections if matches_selection(s)]

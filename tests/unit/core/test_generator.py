@@ -383,3 +383,29 @@ def test_documentation_content_structure(generator, tmp_path):
         assert "documentation" in context
         assert "sections" in context["documentation"]
         assert len(context["documentation"]["sections"]) == 5
+
+
+@pytest.mark.parametrize(
+    ("selection", "expected_file"),
+    [
+        (["overview"], "overview.html"),
+        (["code_quality"], "code_quality_insights.html"),
+    ],
+)
+def test_dry_run_writes_only_selected_sections(
+    temp_source_dir, tmp_path, selection, expected_file
+):
+    """A dry run matches --sections the same way as a real run."""
+    output_dir = tmp_path / "docs"
+    generator = CodeDocumentationGenerator(
+        llm_provider=MagicMock(),
+        embedding_provider=MagicMock(),
+        sections=selection,
+        skip_diagrams=True,
+        dry_run=True,
+    )
+
+    generator.generate_documentation(str(temp_source_dir), str(output_dir))
+
+    section_files = sorted(p.name for p in (output_dir / "sections").iterdir())
+    assert section_files == [expected_file]

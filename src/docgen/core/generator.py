@@ -30,7 +30,7 @@ from ..exceptions.errors import (
     TemplateError,
 )
 from ..models.file_analysis import FileAnalysis
-from ..prompts.sections import SECTION_ORDER
+from ..prompts.sections import select_sections
 from ..providers.base import EmbeddingProvider, LLMProvider
 from ..providers.registry import get_default_registry
 from ..templates.html import get_template_manager
@@ -458,8 +458,7 @@ class CodeDocumentationGenerator:
                             "title": name,
                             "content": "*Dry-run mode: LLM content not generated*",
                         }
-                        for name in (self.selected_sections or SECTION_ORDER)
-                        if name in SECTION_ORDER
+                        for name in select_sections(self.selected_sections)
                     ],
                 }
                 section_errors = []
@@ -694,14 +693,6 @@ class CodeDocumentationGenerator:
             convert_markdown_to_html=self._renderer.convert_markdown_to_html,
         )
         return orchestrator._generate_section(rag_chain, section_name)
-
-    def _filter_sections(self, available_sections: list[str]) -> list[str]:
-        """Filter sections (delegates to SectionOrchestrator)."""
-        orchestrator = SectionOrchestrator(
-            config=self.config,
-            selected_sections=self.selected_sections,
-        )
-        return orchestrator._filter_sections(available_sections)
 
     def _create_final_html_output(
         self,

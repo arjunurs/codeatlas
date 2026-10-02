@@ -226,3 +226,48 @@ def get_all_available_sections() -> list[str]:
         List of all section names that can be generated
     """
     return SECTION_ORDER + list(OPTIONAL_SECTION_PROMPTS.keys())
+
+
+def _matches_selection(section: str, selection: str) -> bool:
+    """Check whether a user-supplied section name refers to a section.
+
+    Matching is loose: case-insensitive and by substring, and also with spaces,
+    "_", "-", and a joining "and" removed, so "dataflow", "code_quality", and
+    "classes" all match.
+
+    Args:
+        section: Section name, e.g. "Key Classes and Functions"
+        selection: Name as the user typed it, e.g. "classes"
+
+    Returns:
+        True if the selection refers to the section
+    """
+    section_lower = section.lower()
+    selection_lower = selection.lower()
+    section_squashed = (
+        section_lower.replace(" ", "_")
+        .replace("_and_", "_")
+        .replace("_", "")
+        .replace("-", "")
+    )
+    selection_squashed = selection_lower.replace("_", "").replace("-", "")
+    return selection_lower in section_lower or selection_squashed in section_squashed
+
+
+def select_sections(selected: list[str] | None) -> list[str]:
+    """Resolve a section selection to section names in documentation order.
+
+    Args:
+        selected: Section names as the user gave them, or None for the default
+
+    Returns:
+        The core sections when nothing is selected; otherwise every core or
+        optional section that matches any selected name
+    """
+    if not selected:
+        return list(SECTION_ORDER)
+    return [
+        section
+        for section in get_all_available_sections()
+        if any(_matches_selection(section, selection) for selection in selected)
+    ]
