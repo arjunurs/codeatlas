@@ -1,294 +1,135 @@
 # codeatlas
 
-codeatlas maps a Python codebase and generates browsable documentation for it. It parses the AST to extract classes, functions, imports, and call relationships, renders architecture, class, sequence, call graph, and dependency diagrams, and uses an LLM with retrieval over the code to write the narrative sections.
+[![Test and Lint](https://github.com/arjunurs/codeatlas/actions/workflows/test.yml/badge.svg)](https://github.com/arjunurs/codeatlas/actions/workflows/test.yml)
 
-The command is installed as `codeatlas`. The Python package is still named `docgen`, and `docgen` remains available as a command alias.
+codeatlas maps a Python codebase and generates browsable HTML documentation for it. It parses
+the code with Python's `ast` module, draws Mermaid diagrams of the structure, and uses an LLM with
+retrieval over the code (RAG) to write the narrative sections.
 
-## Features
+![Class diagram generated for codeatlas's own providers package](docs/images/class-diagram.jpg)
 
-- **Automatic code analysis** with AST parsing and entity extraction
-- **Enhanced documentation** with LLM-powered insights and explanations
-- **5 core documentation sections** (Overview, Dependencies, Key Classes, Data Flow, Integration Points)
-- **3 optional sections** for deeper analysis:
-  - Migration Guidance (deprecated patterns, security issues, modern alternatives)
-  - Code Quality Insights (architectural patterns, trade-offs, improvement suggestions)
-  - Cross-Reference Documentation (where components are defined and used)
-- **Interactive system diagrams**: architecture, class, sequence, call graph, dependencies
-- **Diagram validation** with 15+ rules to catch syntax errors before HTML generation
-- **Advanced caching** for incremental updates and cost savings
-- **Configurable RAG retrieval** (similarity search, MMR diversity, score thresholds)
-- **Rich HTML output** with search and navigation
-- **Integration** with Anthropic Claude and OpenAI
+*The class diagram codeatlas generates for its own `providers` package.*
 
-## Installation
+## Try it without API keys
 
-Using [uv](https://docs.astral.sh/uv/) (recommended):
+Diagrams need no API keys and make no LLM calls. With Python 3.10+ and
+[uv](https://docs.astral.sh/uv/):
 
 ```bash
 git clone https://github.com/arjunurs/codeatlas.git
 cd codeatlas
 uv sync
+uv run codeatlas --source . --diagrams-only
 ```
 
-Or install with pip:
+Then open `output/index.html` in a browser. On this repository it takes a few seconds.
+Virtualenvs, `.git`, and build and tool directories are skipped automatically.
+
+## What it generates
+
+**Diagrams** (no API keys needed)
+
+- **Architecture**: each module and what it imports
+- **Class**: classes, their methods, and inheritance
+- **Dependencies**: the import graph between packages and the libraries they use
+- **Call graph**: which functions call which
+- **Sequence**: calls between functions, taken from the call graph (not yet grouped into
+  workflows)
+
+Each diagram is checked against 10 validation rules (syntax header, quoting, node IDs, edge
+syntax, and so on) before it is written. Large diagrams are cut off at 50 nodes.
+
+**Sections** (written by Claude, using code retrieved from a vector store)
+
+- Core: Overview, Dependencies, Key Classes and Functions, Data Flow, Integration Points
+- Optional, via `--sections`: Migration Guidance, Code Quality Insights, Cross-Reference
+  Documentation
+
+## Full documentation (needs API keys)
+
+Sections need an Anthropic API key (for Claude) and an OpenAI API key (for embeddings).
 
 ```bash
-pip install git+https://github.com/arjunurs/codeatlas.git
+export ANTHROPIC_API_KEY=...
+export OPENAI_API_KEY=...
+uv run codeatlas --source ./my_project -o ./docs
 ```
 
-## Requirements
+Or put both keys in a `.env` file and pass it with `--api-key-env .env`. A `.env` file is not
+read unless you pass it.
 
-- Python 3.10 or higher
-- Anthropic API key (default model: `claude-sonnet-5`)
-- OpenAI API key (for embeddings)
+At the end of a run, codeatlas prints the token usage and estimated cost per model. LLM tokens
+are the counts the API reports; embedding tokens are estimated from text length, because
+LangChain does not expose the embedding API's usage.
 
-## Usage
+Runs are cached in `.docgen_cache` in the current directory (change it with `--cache-dir`): the
+vector store is updated incrementally, and a section is reused while its code, the model, and its
+prompt are unchanged.
 
-### 1. Set up your API keys
+## Useful options
 
-```bash
-# Using environment variables (recommended)
-export ANTHROPIC_API_KEY=your-key-here
-export OPENAI_API_KEY=your-key-here
+| Option | What it does |
+|---|---|
+| `--source PATH` | Directory to document (required) |
+| `-o, --output PATH` | Output directory (default: `output`) |
+| `--diagrams-only` | Diagrams only: no LLM calls, no API keys |
+| `--dry-run` | Full output with placeholder sections: no API calls |
+| `--sections LIST` | Sections to generate, for example `overview,dependencies,code_quality` |
+| `--exclude PATTERN` | Glob of files or directories to skip (repeatable) |
+| `--quality-mode MODE` | `fast` (Claude Haiku), `balanced` (Claude Sonnet, default), or `best` (Claude Opus) |
+| `--force-refresh` | Ignore the cache and regenerate everything |
 
-# Or create a .env file
-echo "ANTHROPIC_API_KEY=your-key-here" > .env
-echo "OPENAI_API_KEY=your-key-here" >> .env
-```
+`uv run codeatlas --help` lists every option, including model selection, diagram selection,
+cache control, and retrieval tuning (`--retriever-k`, MMR search).
 
-### 2. Generate documentation
+## How it works
 
-```bash
-# Basic usage (API keys from environment)
-codeatlas --source ./my_project
+1. **Analyze**: walk the source tree and parse each file's AST into classes, functions, imports,
+   and calls.
+2. **Diagram**: build Mermaid source for each diagram type and validate it.
+3. **Index**: split the code into chunks, embed them with OpenAI, and store them in Chroma.
+4. **Write**: for each section, retrieve the most relevant chunks and ask Claude to write it.
+   Sections run in parallel.
+5. **Render**: convert the Markdown to HTML, sanitize it, and render the site with Jinja
+   templates.
 
-# Specify output directory
-codeatlas --source ./my_project -o ./my-docs
+More detail: [architecture notes](docs/architecture/architecture-docs.html).
 
-# With .env file for API keys
-codeatlas --source ./my_project --api-key-env ./.env
+## Limitations
 
-# With verbose logging
-codeatlas --source ./my_project -v
-```
+- Python only.
+- Full documentation needs keys from two providers: Anthropic for writing and OpenAI for
+  embeddings.
+- Section text is LLM output. Review it before relying on it.
+- The cache has known gaps. In a git repository, uncommitted edits (and any edits when `--source`
+  is a subdirectory of the repository) are not detected, and changing the `--retriever-*`
+  options does not invalidate cached sections. Use `--force-refresh` after such changes.
+- The search box in the generated site is not wired up yet.
+- Directories named `build` or `dist` are skipped along with virtualenvs, as ruff does.
+- codeatlas is not published on PyPI, and the `codeatlas` name there belongs to an unrelated
+  project. Install from GitHub: `pip install git+https://github.com/arjunurs/codeatlas.git`.
 
-### 3. View the generated documentation
-
-Open `output/index.html` in your browser (or your specified output directory).
-
-## CLI Options
-
-```
-usage: codeatlas [-h] [--version] --source SOURCE [--output OUTPUT]
-                 [--api-key-env PATH] [--temperature TEMP]
-                 [--anthropic-model MODEL] [--openai-embedding-model MODEL]
-                 [--verbose] [--quiet] [--exclude PATTERN] [--no-diagrams]
-                 [--diagrams-only] [--sections LIST] [--diagrams LIST]
-                 [--template-dir PATH] [--dry-run] [--max-files N]
-                 [--quality-mode {fast,balanced,best}] [--no-parallel]
-                 [--no-cost-tracking] [--cache-dir PATH] [--no-cache]
-                 [--force-refresh] [--clear-cache] [--cache-stats]
-                 [--retriever-k N] [--retriever-search-type {similarity,mmr}]
-                 [--retriever-score-threshold FLOAT] [--retriever-fetch-k N]
-                 [--retriever-lambda-mult FLOAT]
-
-Generate comprehensive documentation for Python codebases
-
-options:
-  -h, --help            show this help message and exit
-  --version, -V         show program's version number and exit
-  --source SOURCE       Source directory containing Python files
-  -o, --output OUTPUT   Output directory (default: output)
-
-API Keys:
-  --api-key-env PATH    Path to .env file containing API keys
-                        (Or set ANTHROPIC_API_KEY and OPENAI_API_KEY env vars)
-
-Model Options:
-  --temperature TEMP    LLM temperature 0.0-1.0 (default: model default;
-                        not supported by Claude Sonnet 5 and newer)
-  --anthropic-model     Anthropic model; overrides --quality-mode
-  --openai-embedding-model  Embedding model (default: text-embedding-3-small)
-
-Output Options:
-  -v, --verbose         Enable verbose logging
-  -q, --quiet           Minimal output (errors only)
-  --template-dir PATH   Custom HTML template directory
-
-Generation Options:
-  --exclude PATTERN     Exclude files matching glob (repeatable)
-  --no-diagrams         Skip diagram generation
-  --diagrams-only       Generate ONLY diagrams (no LLM calls, no API costs)
-  --sections LIST       Sections to generate (comma-separated):
-                        Core: overview,dependencies,classes,dataflow,integration
-                        Optional: migration_guidance,code_quality,cross_reference
-  --diagrams LIST       Generate only: architecture,class,sequence,callgraph,dependency
-  --dry-run             Analyze without LLM calls
-  --max-files N         Limit files to analyze
-
-Performance and Cache Options:
-  --quality-mode {fast,balanced,best}
-                        Model preset: fast (claude-haiku-4-5), balanced
-                        (claude-sonnet-5, default), best (claude-opus-5)
-  --no-parallel         Disable parallel section generation
-  --no-cost-tracking    Disable API cost tracking and summary
-  --cache-dir PATH      Cache directory (default: .docgen_cache)
-  --no-cache            Disable caching (regenerate everything)
-  --force-refresh       Ignore cache and regenerate all content
-  --clear-cache         Clear cache and exit
-  --cache-stats         Show cache statistics and exit
-
-RAG Retrieval Options:
-  --retriever-k N       Number of documents to retrieve (default: 10)
-  --retriever-search-type {similarity,mmr}
-                        Retrieval method: similarity (default) or mmr (diversity)
-  --retriever-score-threshold FLOAT
-                        Minimum similarity score (0.0-1.0, optional)
-  --retriever-fetch-k N Documents to fetch before MMR reranking (default: 20)
-  --retriever-lambda-mult FLOAT
-                        MMR diversity: 0=max diversity, 1=max relevance (default: 0.5)
-```
-
-## Advanced Usage
-
-### Exclude files and directories
-
-```bash
-# Exclude test files
-codeatlas --source ./src --exclude "*_test.py" --exclude "test_*.py"
-
-# Exclude multiple patterns
-codeatlas --source ./src --exclude "__pycache__" --exclude "*.pyc" --exclude "migrations/*"
-```
-
-### Generate specific sections or diagrams
-
-```bash
-# Only generate overview and dependencies sections
-codeatlas --source ./src --sections overview,dependencies
-
-# Generate with optional sections
-codeatlas --source ./src --sections "overview,dependencies,migration_guidance"
-
-# Generate code quality analysis
-codeatlas --source ./src --sections "overview,code_quality,cross_reference"
-
-# Only generate architecture and class diagrams
-codeatlas --source ./src --diagrams architecture,class
-
-# Skip diagram generation entirely (faster)
-codeatlas --source ./src --no-diagrams
-```
-
-### Preview mode (no API costs)
-
-```bash
-# Dry-run mode: analyze code without making LLM calls
-codeatlas --source ./src --dry-run
-
-# Diagrams-only mode: generate only diagrams (no API costs, no LLM calls)
-# Perfect for visualizing code structure without text documentation
-codeatlas --source ./src --diagrams-only
-
-# Combine with --diagrams to select specific diagram types
-codeatlas --source ./src --diagrams-only --diagrams architecture,class
-```
-
-### Limit analysis scope
-
-```bash
-# Analyze only the first 50 files (useful for large codebases)
-codeatlas --source ./src --max-files 50
-```
-
-### Configure RAG retrieval
-
-```bash
-# Use MMR (Maximal Marginal Relevance) for diverse context
-codeatlas --source ./src --retriever-search-type mmr --retriever-k 15
-
-# Fine-tune MMR diversity (0=max diversity, 1=max relevance)
-codeatlas --source ./src --retriever-search-type mmr --retriever-lambda-mult 0.7
-
-# Set minimum similarity threshold
-codeatlas --source ./src --retriever-score-threshold 0.75
-```
-
-## Documentation Features
-
-The generated documentation includes:
-
-### Diagrams
-- **System Architecture**: High-level view of system components and their relationships
-- **Package Dependencies**: Visualization of package dependencies and their versions
-- **Function Call Graph**: Interactive graph showing function calls and relationships
-- **Class Diagram**: UML-style class diagram showing inheritance and composition
-- **Sequence Diagrams**: Illustrating key system workflows
-
-### Core Sections (always generated)
-- **Overview**: System purpose, components, and architecture
-- **Dependencies**: Core/optional dependencies, versions, and integrations
-- **Key Classes and Functions**: Public APIs with usage examples
-- **Data Flow**: Processing pipeline and data structures
-- **Integration Points**: External systems and authentication
-
-### Optional Sections (via `--sections` flag)
-- **Migration Guidance**: Deprecated patterns, security issues, modern alternatives
-- **Code Quality Insights**: Architectural patterns, trade-offs, improvement suggestions
-- **Cross-Reference Documentation**: Where components are defined and used throughout the codebase
-
-## Documentation
-
-### For Users
-
-- **[README](README.md)** - You're reading it! Installation and usage guide
-
-### For Contributors
-
-- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
-- **[Pre-Commit Hooks Setup](docs/development/pre-commit.md)** - Detailed pre-commit configuration
-- **[Implementation Notes](docs/development/implementation.md)** - Implementation details and decisions
-- **[Architecture Overview](docs/architecture/architecture-docs.html)** - Architecture notes and an interactive diagram playground
-
-### Features & Design
-
-- **[Diagrams-Only Mode](docs/features/diagrams-only.md)** - Generate diagrams without API costs
-- **[Cost Optimization](docs/design/cost-optimization.md)** - Caching and cost reduction strategies
+The command is `codeatlas`. The Python package is named `docgen`, and `docgen` also works as a
+command.
 
 ## Development
 
-### Quick Start
-
 ```bash
-# Clone and setup
-git clone https://github.com/arjunurs/codeatlas.git
-cd codeatlas
 uv sync
-
-# Install pre-commit hooks
 uv run pre-commit install
-
-# Run tests
-uv run pytest tests/ -v
+uv run pytest
 ```
 
-### Development Workflow
+There are 400+ unit and integration tests with about 89% line coverage. CI runs ruff and the
+tests on Python 3.10 to 3.13. See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and code
+style.
 
-1. **Make changes** and run code simplifier
-2. **Commit** - Pre-commit hooks run automatically (0.25s)
-3. **Test** - Run `uv run pytest tests/ -v` before pushing
-4. **Push** - When all tests pass
-
-**See [CONTRIBUTING.md](CONTRIBUTING.md) for complete developer guide**, including:
-- Detailed setup instructions
-- Code style requirements
-- Testing guidelines
-- Pull request process
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+More documentation:
+[diagrams-only mode](docs/features/diagrams-only.md),
+[cost optimization](docs/design/cost-optimization.md),
+[pre-commit hooks](docs/development/pre-commit.md),
+[implementation notes](docs/development/implementation.md).
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT. See [LICENSE](LICENSE).
