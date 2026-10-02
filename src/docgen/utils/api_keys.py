@@ -11,6 +11,8 @@ Passing secrets on command line exposes them in shell history, `ps` output, and 
 import logging
 import os
 
+from dotenv import dotenv_values
+
 from ..exceptions.errors import ApiKeyError
 from .path_validation import PathValidationError, validate_env_file_path
 
@@ -48,16 +50,17 @@ def get_api_keys(custom_env_file: str | None = None) -> tuple[str, str]:
             # Validate the path before reading to prevent path traversal
             validated_path = validate_env_file_path(custom_env_file)
 
-            with open(validated_path) as f:
-                for line in f:
-                    if "=" in line:
-                        key, value = line.strip().split("=", 1)
-                        if key == "ANTHROPIC_API_KEY" and not final_anthropic_key:
-                            final_anthropic_key = value
-                            logger.debug("Using Anthropic API key from custom env file")
-                        elif key == "OPENAI_API_KEY" and not final_openai_key:
-                            final_openai_key = value
-                            logger.debug("Using OpenAI API key from custom env file")
+            # Open the file ourselves: given a path, dotenv_values returns an
+            # empty dict for a missing file instead of raising
+            with open(validated_path, encoding="utf-8") as f:
+                file_values = dotenv_values(stream=f, interpolate=False)
+
+            if not final_anthropic_key and file_values.get("ANTHROPIC_API_KEY"):
+                final_anthropic_key = file_values["ANTHROPIC_API_KEY"]
+                logger.debug("Using Anthropic API key from custom env file")
+            if not final_openai_key and file_values.get("OPENAI_API_KEY"):
+                final_openai_key = file_values["OPENAI_API_KEY"]
+                logger.debug("Using OpenAI API key from custom env file")
         except PathValidationError as e:
             raise ApiKeyError(f"Invalid env file path '{custom_env_file}': {e}") from e
         except FileNotFoundError:

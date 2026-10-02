@@ -95,3 +95,50 @@ def test_get_api_keys_custom_env_file_not_found(clean_env):
     assert "not found" in str(exc_info.value).lower() or "Invalid env file path" in str(
         exc_info.value
     )
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "OPENAI_API_KEY=sk-file",
+        'OPENAI_API_KEY="sk-file"',
+        "OPENAI_API_KEY='sk-file'",
+        "export OPENAI_API_KEY=sk-file",
+        "OPENAI_API_KEY = sk-file",
+        "OPENAI_API_KEY=sk-file  # inline comment",
+    ],
+)
+def test_env_file_value_forms(clean_env, tmp_path, monkeypatch, line):
+    """Common .env forms load the bare value, without quotes or comments."""
+    os.environ["ANTHROPIC_API_KEY"] = "env-anthropic"
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text(f"# comment line\n{line}\n")
+
+    assert get_api_keys(custom_env_file=".env") == ("env-anthropic", "sk-file")
+
+
+def test_env_file_values_are_not_interpolated(clean_env, tmp_path, monkeypatch):
+    """A "$" in a value is kept literally, not expanded from the environment."""
+    os.environ["ANTHROPIC_API_KEY"] = "env-anthropic"
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text("OPENAI_API_KEY=sk-${HOME}\n")
+
+    assert get_api_keys(custom_env_file=".env") == ("env-anthropic", "sk-${HOME}")
+
+
+def test_env_file_key_without_value_is_missing(clean_env, tmp_path, monkeypatch):
+    """A key with no value counts as missing."""
+    os.environ["ANTHROPIC_API_KEY"] = "env-anthropic"
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text("OPENAI_API_KEY\n")
+
+    with pytest.raises(ApiKeyError, match="OpenAI API key not found"):
+        get_api_keys(custom_env_file=".env")
+
+
+def test_missing_env_file_in_allowed_directory(clean_env, tmp_path, monkeypatch):
+    """A missing env file is an error, not an empty set of keys."""
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(ApiKeyError, match="Custom env file not found"):
+        get_api_keys(custom_env_file=".env")
