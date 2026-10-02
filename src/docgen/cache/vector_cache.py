@@ -5,9 +5,11 @@ regenerating embeddings on every run.
 """
 
 import logging
+import shutil
 from collections.abc import Sequence
 from pathlib import Path
 
+from chromadb.api.client import SharedSystemClient
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
@@ -19,6 +21,10 @@ from .change_detector import ChangeDetectionResult, FileChangeDetector
 from .metadata import CacheMetadata
 
 logger = logging.getLogger(__name__)
+
+# Documents added per call during incremental updates. Chroma rejects a single
+# add above its max batch size (5461 for the default SQLite backend).
+ADD_BATCH_SIZE = 1000
 
 
 class VectorStoreCache:
@@ -84,10 +90,8 @@ class VectorStoreCache:
             # If force refresh, treat as new vector store creation
             if self.force_refresh:
                 logger.info("Force refresh: recreating vector store from scratch")
-                if self.vector_dir.exists():
-                    import shutil
-
-                    shutil.rmtree(self.vector_dir)
+                if self._vector_store_exists():
+                    self._drop_vector_store()
                 self.vector_dir.mkdir(parents=True, exist_ok=True)
                 return self._create_new_vector_store(analyses, documents, current_files)
 
@@ -214,54 +218,39 @@ class VectorStoreCache:
             changes: Change detection result
             current_files: List of current files
         """
-        # Build map of file path -> documents
-        doc_map = {}
-        for doc in documents:
-            file_path = doc.metadata.get("file_path", "")
-            if file_path not in doc_map:
-                doc_map[file_path] = []
-            doc_map[file_path].append(doc)
-
-        # Remove deleted files from vector store
-        for deleted_file in changes.deleted_files:
-            logger.info(f"Removing deleted file from vector store: {deleted_file}")
-            try:
-                # Delete documents with this file path
-                vector_store.delete(where={"file_path": deleted_file})
-                self.metadata.remove_file(deleted_file)
-            except Exception as e:
-                logger.warning(f"Failed to remove {deleted_file}: {e}")
-
-        # Add/update changed and new files
         changed_and_new = changes.changed_files | changes.new_files
 
-        if changed_and_new:
-            # Collect documents for changed/new files
-            docs_to_add = []
-            for file_path in changed_and_new:
-                if file_path in doc_map:
-                    docs_to_add.extend(doc_map[file_path])
+        # Remove every stored chunk that does not belong to an unchanged file:
+        # chunks of changed, new, and deleted files, plus any orphans
+        stored = vector_store.get(include=["metadatas"])
+        stale_ids = [
+            doc_id
+            for doc_id, meta in zip(stored["ids"], stored["metadatas"])
+            if self._relative_source(meta) not in changes.unchanged_files
+        ]
+        if stale_ids:
+            logger.info(f"Removing {len(stale_ids)} stale documents from vector store")
+            vector_store.delete(ids=stale_ids)
 
-            if docs_to_add:
-                logger.info(
-                    f"Updating vector store with {len(docs_to_add)} documents from {len(changed_and_new)} files"
-                )
+        docs_to_add = [
+            doc
+            for doc in documents
+            if self._relative_source(doc.metadata) in changed_and_new
+        ]
+        if docs_to_add:
+            logger.info(
+                f"Adding {len(docs_to_add)} documents from {len(changed_and_new)} files"
+            )
+            for start in range(0, len(docs_to_add), ADD_BATCH_SIZE):
+                vector_store.add_documents(docs_to_add[start : start + ADD_BATCH_SIZE])
 
-                # Remove old versions first
-                for file_path in changed_and_new:
-                    try:
-                        vector_store.delete(where={"file_path": file_path})
-                    except Exception as e:
-                        logger.debug(f"No existing docs to delete for {file_path}: {e}")
-
-                # Add new versions
-                vector_store.add_documents(docs_to_add)
-
-                # Update metadata for changed/new files
-                for file_path in current_files:
-                    relative_path = file_path.relative_to(self.source_dir).as_posix()
-                    if relative_path in changed_and_new:
-                        self.metadata.update_file(file_path, self.source_dir)
+        # Record the new file state, including files that produced no
+        # documents, so they are not reported as changed again
+        for deleted_file in changes.deleted_files:
+            self.metadata.remove_file(deleted_file)
+        for file_path in current_files:
+            if file_path.relative_to(self.source_dir).as_posix() in changed_and_new:
+                self.metadata.update_file(file_path, self.source_dir)
 
         # Update git commit
         self.metadata.git_commit = self._get_git_commit()
@@ -270,6 +259,50 @@ class VectorStoreCache:
         self.metadata.save(self.cache_dir)
 
         logger.info("Vector store updated successfully")
+
+    def _relative_source(self, metadata: dict | None) -> str:
+        """Get a document's file path relative to the source directory.
+
+        Documents carry the analyzed file's path under the "source" metadata
+        key, as an absolute path (see rag_pipeline.create_documents). Change
+        detection and cache metadata key files by relative POSIX path.
+
+        Args:
+            metadata: Document metadata
+
+        Returns:
+            Relative POSIX path of the document's source file, or the source
+            unchanged if it is outside the source directory
+        """
+        source = (metadata or {}).get("source", "")
+        try:
+            return (self.source_dir / source).relative_to(self.source_dir).as_posix()
+        except ValueError:
+            return source
+
+    def _drop_vector_store(self) -> None:
+        """Delete the persisted vector store so it can be rebuilt.
+
+        Drops the collection through Chroma rather than deleting the
+        directory. Chroma keeps an open handle per persist directory for the
+        life of the process, and removing the files underneath it leaves that
+        handle read-only. If the store cannot be opened at all (for example a
+        corrupt database), the directory is deleted instead and Chroma's
+        process-wide client cache is cleared so the rebuild gets a fresh
+        handle. Clearing that cache invalidates any other Chroma client open
+        in this process.
+        """
+        try:
+            Chroma(
+                persist_directory=str(self.vector_dir),
+                embedding_function=self.embeddings,
+            ).delete_collection()
+        except Exception as e:
+            logger.warning(
+                f"Could not open existing vector store ({e}), deleting {self.vector_dir}"
+            )
+            shutil.rmtree(self.vector_dir)
+            SharedSystemClient.clear_system_cache()
 
     def _get_git_commit(self) -> str | None:
         """Get current git commit hash.
@@ -286,7 +319,5 @@ class VectorStoreCache:
             preserve_cache: If True, keep cache on disk (default)
         """
         if not preserve_cache and self.vector_dir.exists():
-            import shutil
-
             logger.info("Cleaning up vector store cache")
             shutil.rmtree(self.vector_dir)
