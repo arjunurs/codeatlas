@@ -191,8 +191,9 @@ class DiagramGenerator:
                 # (the note syntax requires a participant reference)
                 pass
             elif diagram_type == "class":
-                # Class diagrams don't support node definitions either
-                pass
+                # Class diagrams have no free-standing nodes, but do support
+                # a diagram-level note
+                diagram.append(f'    note "{note_text}"')
             else:
                 # Flowchart/graph diagrams support node definitions
                 diagram.append(f'    truncation_notice["{note_text}"]')
@@ -261,7 +262,7 @@ class DiagramGenerator:
                     # Add relationship regardless of whether parent is in diagram
                     diagram_lines.append(f"    {clean_name} --|> {clean_parent}")
 
-            # Add truncation note if needed (skipped for class diagrams)
+            # Add truncation note if needed
             self._append_truncation_note(
                 diagram_lines, nodes_added, "classes", diagram_type="class"
             )

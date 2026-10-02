@@ -214,10 +214,15 @@ class TestDiagramValidationEdgeCases:
             _skip_validation=True,
         )
 
-        # Should validate successfully even when truncated
+        # Should validate successfully even when truncated, with the class
+        # count capped and a note telling readers the diagram is partial
         diagram = generator.generate_class_diagram([analysis])
         assert diagram
-        assert "note" in diagram.lower() or "truncated" in diagram.lower()
+        declared = [
+            line for line in diagram.splitlines() if line.strip().startswith("class ")
+        ]
+        assert len(declared) == 5
+        assert 'note "Diagram truncated: showing top 5 classes"' in diagram
 
     def test_special_characters_in_names(self):
         """Test handling of special characters in entity names."""
