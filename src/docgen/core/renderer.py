@@ -11,6 +11,7 @@ import os
 from typing import Any
 
 import markdown
+import nh3
 
 from ..exceptions.errors import DocumentationError
 
@@ -67,6 +68,17 @@ class DocumentationRenderer:
             DocumentationError: If HTML generation fails
         """
         try:
+            # Section content (LLM output and error text) is inserted as HTML,
+            # so keep only an allowlist of tags and attributes: no scripts,
+            # event handlers, or javascript: URLs
+            documentation = {
+                **documentation,
+                "sections": [
+                    {**section, "content": nh3.clean(section["content"])}
+                    for section in documentation["sections"]
+                ],
+            }
+
             errors = generation_errors or {"diagrams": [], "sections": []}
             has_errors = bool(errors.get("diagrams") or errors.get("sections"))
 

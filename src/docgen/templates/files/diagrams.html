@@ -44,14 +44,14 @@
 
     <div class="diagram-container" id="diagram-container" style="border: none; border-radius: 0;">
         <div class="diagram-content">
-            <pre class="mermaid">{{ diagram_code | trim | safe }}</pre>
+            <pre class="mermaid">{{ diagram_code | trim }}</pre>
         </div>
     </div>
 
     {% if description %}
     <div style="padding: 16px 20px; border-top: 1px solid #e5e7eb; background: #f9fafb;">
         <div style="font-size: 14px; line-height: 1.6; color: #4b5563;">
-            {{ description | safe }}
+            {{ description }}
         </div>
     </div>
     {% endif %}
