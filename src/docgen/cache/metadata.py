@@ -11,6 +11,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+# Coarsest mtime granularity we expect from a filesystem (FAT and some network
+# mounts round to 2 seconds). Files modified this close to when their metadata
+# was recorded are always re-hashed rather than trusted on mtime and size.
+MTIME_TRUST_WINDOW_SECONDS = 2.0
+
 
 @dataclass
 class FileMetadata:
@@ -93,8 +98,18 @@ class FileMetadata:
         """
         try:
             stat = file_path.stat()
-            # Quick check: if mtime and size match, likely unchanged
-            if stat.st_mtime == self.mtime and stat.st_size == self.size:
+            # Quick check: if mtime and size match, the file is unchanged.
+            # The shortcut is only trusted when the recorded mtime is clearly
+            # older than the moment the metadata was captured. A file written
+            # within the same timestamp tick as the capture can be edited
+            # again without its mtime or size changing, so fall through to
+            # the content hash in that window.
+            if (
+                stat.st_mtime == self.mtime
+                and stat.st_size == self.size
+                and self.last_analyzed.timestamp() - self.mtime
+                > MTIME_TRUST_WINDOW_SECONDS
+            ):
                 return False
 
             # Content hash check for definitive answer

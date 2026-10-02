@@ -1,6 +1,9 @@
 """Unit tests for cache metadata."""
 
+import os
+import time
 from datetime import datetime
+from unittest.mock import patch
 
 from docgen.cache.metadata import CacheMetadata, FileMetadata
 
@@ -33,6 +36,35 @@ def test_file_metadata_has_changed(tmp_path):
     # Modify the file
     test_file.write_text("modified")
     assert metadata.has_changed(test_file)
+
+
+def test_file_metadata_has_changed_same_size_edit_in_same_mtime_tick(tmp_path):
+    """Test that a same-size edit keeping the recorded mtime is detected."""
+    test_file = tmp_path / "test.py"
+    test_file.write_text("original")
+    recorded_mtime_ns = test_file.stat().st_mtime_ns
+    metadata = FileMetadata.from_file(test_file, tmp_path)
+
+    # Simulate a second write landing in the same timestamp tick: same size
+    # and the same mtime the metadata recorded
+    test_file.write_text("modified")
+    os.utime(test_file, ns=(recorded_mtime_ns, recorded_mtime_ns))
+
+    assert metadata.has_changed(test_file)
+
+
+def test_file_metadata_has_changed_trusts_mtime_for_older_files(tmp_path):
+    """Test that files modified well before analysis skip the content hash."""
+    test_file = tmp_path / "test.py"
+    test_file.write_text("original")
+    an_hour_ago = time.time() - 3600
+    os.utime(test_file, (an_hour_ago, an_hour_ago))
+    metadata = FileMetadata.from_file(test_file, tmp_path)
+
+    with patch.object(
+        FileMetadata, "_compute_file_hash", side_effect=AssertionError("hashed")
+    ):
+        assert not metadata.has_changed(test_file)
 
 
 def test_file_metadata_serialization(tmp_path):
