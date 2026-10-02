@@ -2,7 +2,7 @@
 
 ## Overview
 
-Added a `--diagrams-only` flag to the Code Documentation Generator CLI that allows users to generate **only architectural diagrams** without any LLM API calls, resulting in **zero API costs**.
+Added a `--diagrams-only` flag to the codeatlas CLI that allows users to generate **only architectural diagrams** without any LLM API calls, resulting in **zero API costs**.
 
 ## Implementation Summary
 

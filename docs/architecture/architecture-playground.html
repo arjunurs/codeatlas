@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CodeDocumentationGenerator — Architecture Playground</title>
+<title>codeatlas: Architecture Playground</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -168,7 +168,7 @@
 <body>
 
 <header>
-  <h1>CodeDocumentationGenerator</h1>
+  <h1>codeatlas</h1>
   <span>Architecture Playground</span>
 </header>
 
@@ -306,7 +306,7 @@ const nodes = [
   { id:'path_val', label:'Path Validation', sub:'src/docgen/utils/path_validation.py', layer:'utils', desc:'Validates source/output directories. Prevents path traversal. Ensures writability.', x:790, y:840, w:155, h:44 },
 
   // External
-  { id:'anthropic_api', label:'Anthropic API', sub:'Claude claude-sonnet-4 / claude-haiku-4', layer:'external', desc:'LLM for documentation generation. Called via langchain-anthropic.', x:50, y:940, w:150, h:44 },
+  { id:'anthropic_api', label:'Anthropic API', sub:'Claude claude-sonnet-5 / claude-haiku-4-5', layer:'external', desc:'LLM for documentation generation. Called via langchain-anthropic.', x:50, y:940, w:150, h:44 },
   { id:'openai_api', label:'OpenAI API', sub:'text-embedding-3-small/large', layer:'external', desc:'Embedding model for RAG vector store. Called via langchain-openai.', x:230, y:940, w:145, h:44 },
   { id:'chromadb', label:'ChromaDB', sub:'Vector store (local)', layer:'external', desc:'Local persistent vector store for code embeddings. Used by RAGPipelineFactory and VectorStoreCache.', x:410, y:940, w:140, h:44 },
 ];
@@ -904,7 +904,7 @@ function updatePrompt() {
   if (visibleLayers.length < Object.keys(LAYERS).length) {
     parts.push('Focusing on: ' + visibleLayers.join(', ') + '.');
   } else {
-    parts.push('Viewing the full CodeDocumentationGenerator architecture.');
+    parts.push('Viewing the full codeatlas architecture.');
   }
 
   // Modes

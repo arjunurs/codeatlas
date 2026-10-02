@@ -1,6 +1,6 @@
 # Cost Optimization Features
 
-This document provides a quick guide to the cost optimization features in the Code Documentation Generator.
+This document provides a quick guide to the cost optimization features in codeatlas.
 
 ## Quick Start
 
@@ -178,6 +178,6 @@ generator.generate_documentation("./src", "./docs")
 
 ## See Also
 
-- [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Full technical details
-- [README.md](README.md) - General usage documentation
-- [spec.md](spec.md) - Architecture specification
+- [Implementation summary](../development/implementation-summary.md) - Full technical details
+- [README](../../README.md) - General usage documentation
+- [Architecture overview](../architecture/architecture-docs.html) - Architecture notes
