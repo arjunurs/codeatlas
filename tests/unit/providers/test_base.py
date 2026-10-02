@@ -204,12 +204,10 @@ class TestClassifyApiError:
         assert classify_api_error(Exception("rate limit exceeded")) == "rate_limit"
         assert classify_api_error(Exception("Rate Limit hit")) == "rate_limit"
 
-    def test_partial_keyword_no_false_positive(self):
-        """Test that partial keyword matches work correctly with any-match logic."""
-        # "rate" alone should match rate_limit since keywords are alternatives
-        assert classify_api_error(Exception("rate exceeded")) == "rate_limit"
-        # "limit" alone should also match
-        assert classify_api_error(Exception("limit reached")) == "rate_limit"
+    def test_rate_or_limit_alone_is_not_rate_limit(self):
+        """Test that "rate" or "limit" on its own does not mean a rate limit."""
+        assert classify_api_error(Exception("rate exceeded")) is None
+        assert classify_api_error(Exception("limit reached")) is None
 
     def test_auth_errors(self):
         """Test authentication error classification."""
@@ -241,3 +239,60 @@ class TestClassifyApiError:
         """Test that unrecognized errors return None."""
         assert classify_api_error(Exception("some random error")) is None
         assert classify_api_error(Exception("")) is None
+
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "Failed to generate documentation section",
+            "Could not separate the input",
+            "Inaccurate response format",
+            "Delimiter missing in output",
+            "Contextual information missing",
+            "Invalid wavelength value",
+        ],
+    )
+    def test_keyword_inside_longer_word_does_not_match(self, message):
+        """Keywords only match as whole words, not inside longer words."""
+        assert classify_api_error(Exception(message)) is None
+
+    @pytest.mark.parametrize(
+        ("message", "expected"),
+        [
+            ("Rate limit exceeded", "rate_limit"),
+            ("429 Too Many Requests", "rate_limit"),
+            (
+                "Error code: 429 - {'type': 'error', 'error': {'type': "
+                "'rate_limit_error', 'message': 'Number of request tokens has "
+                "exceeded your per-minute rate limit'}}",
+                "rate_limit",
+            ),
+            (
+                "Error code: 401 - {'type': 'error', 'error': {'type': "
+                "'authentication_error', 'message': 'invalid x-api-key'}}",
+                "auth",
+            ),
+            (
+                "Error code: 401 - {'error': {'message': 'Incorrect API key "
+                "provided', 'code': 'invalid_api_key'}}",
+                "auth",
+            ),
+            (
+                "Error code: 429 - {'error': {'message': 'You exceeded your "
+                "current quota, please check your plan and billing details.', "
+                "'code': 'insufficient_quota'}}",
+                "quota",
+            ),
+            ("Request timed out.", "timeout"),
+            ("Connection error.", "connection"),
+            (
+                "Error code: 400 - {'error': {'message': \"This model's maximum "
+                "context length is 8192 tokens.\", 'code': "
+                "'context_length_exceeded'}}",
+                "context_length",
+            ),
+            ("prompt is too long: 215000 tokens > 200000 maximum", "context_length"),
+        ],
+    )
+    def test_provider_style_messages(self, message, expected):
+        """Messages shaped like real provider errors map to the right type."""
+        assert classify_api_error(Exception(message)) == expected
