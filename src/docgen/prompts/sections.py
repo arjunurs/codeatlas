@@ -257,17 +257,36 @@ def _matches_selection(section: str, selection: str) -> bool:
 def select_sections(selected: list[str] | None) -> list[str]:
     """Resolve a section selection to section names in documentation order.
 
+    Blank names, such as the empty entry from a trailing comma, are ignored.
+
     Args:
         selected: Section names as the user gave them, or None for the default
 
     Returns:
         The core sections when nothing is selected; otherwise every core or
         optional section that matches any selected name
+
+    Raises:
+        ValueError: If a selected name matches no section
     """
-    if not selected:
+    names = [name.strip() for name in selected or [] if name.strip()]
+    if not names:
         return list(SECTION_ORDER)
+
+    available = get_all_available_sections()
+    unknown = [
+        name
+        for name in names
+        if not any(_matches_selection(section, name) for section in available)
+    ]
+    if unknown:
+        raise ValueError(
+            f"Unknown section(s): {', '.join(unknown)}. "
+            f"Available sections: {', '.join(available)}"
+        )
+
     return [
         section
-        for section in get_all_available_sections()
-        if any(_matches_selection(section, selection) for selection in selected)
+        for section in available
+        if any(_matches_selection(section, name) for name in names)
     ]

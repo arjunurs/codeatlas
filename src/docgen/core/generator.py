@@ -141,7 +141,7 @@ class CodeDocumentationGenerator:
             embedding_provider: Embedding provider instance (provider mode)
             exclude_patterns: Glob patterns to exclude files/directories
             skip_diagrams: Skip diagram generation entirely
-            sections: List of sections to generate (None = all)
+            sections: List of sections to generate (None = core sections)
             diagrams: List of diagrams to generate (None = all)
             template_dir: Custom HTML template directory
             dry_run: Analyze code without LLM calls
@@ -194,6 +194,9 @@ class CodeDocumentationGenerator:
 
         if final_temperature is not None and not 0 <= final_temperature <= 1:
             raise ValueError("Temperature must be between 0 and 1")
+
+        # Reject unknown section names before any work is done
+        select_sections(sections)
 
         self.temperature = final_temperature
 

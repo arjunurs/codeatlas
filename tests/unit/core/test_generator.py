@@ -409,3 +409,13 @@ def test_dry_run_writes_only_selected_sections(
 
     section_files = sorted(p.name for p in (output_dir / "sections").iterdir())
     assert section_files == [expected_file]
+
+
+def test_unknown_section_rejected_at_construction():
+    """A misspelled section name fails before any analysis or API call."""
+    with pytest.raises(ValueError, match="overveiw"):
+        CodeDocumentationGenerator(
+            llm_provider=MagicMock(),
+            embedding_provider=MagicMock(),
+            sections=["overveiw"],
+        )
