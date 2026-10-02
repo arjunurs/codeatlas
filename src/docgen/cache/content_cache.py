@@ -64,8 +64,10 @@ def _normalize_section_name(name: str) -> str:
 class SectionContentCache:
     """Manages caching of generated documentation section content.
 
-    Each section's content is cached with a hash of its code dependencies.
-    When files change, only sections that depend on those files are regenerated.
+    Each section's content is cached with a hash of its code dependencies, the
+    model that generated it, and the exact prompt. When files change, only
+    sections that depend on those files are regenerated; changing the model or
+    a prompt regenerates the affected sections.
     """
 
     # Define which files each section type depends on (use normalized names)
@@ -119,12 +121,17 @@ class SectionContentCache:
         self,
         section_name: str,
         analyses: list[FileAnalysis],
+        *,
+        model: str = "",
+        prompt: str = "",
     ) -> tuple[str, set[str]]:
-        """Compute hash for a section based on its dependencies.
+        """Compute hash for a section from its dependencies, model, and prompt.
 
         Args:
             section_name: Name of the section
             analyses: List of file analyses
+            model: Model that generates the section
+            prompt: Exact prompt sent for the section
 
         Returns:
             Tuple of (content hash, set of dependency file paths)
@@ -133,6 +140,11 @@ class SectionContentCache:
         dependency_type = self.SECTION_DEPENDENCIES.get(normalized_name, "all")
         hasher = hashlib.sha256()
         dependency_files = set()
+
+        # Separators keep the model and prompt from running into each other
+        for part in (model, prompt):
+            hasher.update(part.encode())
+            hasher.update(b"\0")
 
         sorted_analyses = sorted(analyses, key=lambda a: a.file_path)
 
@@ -158,12 +170,17 @@ class SectionContentCache:
         self,
         section_name: str,
         analyses: list[FileAnalysis],
+        *,
+        model: str = "",
+        prompt: str = "",
     ) -> str | None:
         """Get cached content for a section if valid.
 
         Args:
             section_name: Name of the section
             analyses: Current file analyses
+            model: Model that would generate the section
+            prompt: Exact prompt that would be sent for the section
 
         Returns:
             Cached content if valid, None otherwise
@@ -173,7 +190,9 @@ class SectionContentCache:
             return None
 
         # Compute current hash
-        current_hash, _ = self.get_section_hash(section_name, analyses)
+        current_hash, _ = self.get_section_hash(
+            section_name, analyses, model=model, prompt=prompt
+        )
 
         # Check if cached hash matches
         cached_entry = self.cache[section_name]
@@ -189,6 +208,9 @@ class SectionContentCache:
         section_name: str,
         content: str,
         analyses: list[FileAnalysis],
+        *,
+        model: str = "",
+        prompt: str = "",
     ) -> None:
         """Cache generated section content.
 
@@ -196,8 +218,12 @@ class SectionContentCache:
             section_name: Name of the section
             content: Generated content
             analyses: File analyses used to generate content
+            model: Model that generated the content
+            prompt: Exact prompt sent for the section
         """
-        content_hash, dependency_files = self.get_section_hash(section_name, analyses)
+        content_hash, dependency_files = self.get_section_hash(
+            section_name, analyses, model=model, prompt=prompt
+        )
 
         entry = SectionCacheEntry(
             section_name=section_name,

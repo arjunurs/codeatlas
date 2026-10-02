@@ -453,3 +453,38 @@ def test_force_refresh_clears_cache(
     # Note: In force refresh, we clear the vector store but keep metadata
     # The metadata should be updated
     assert metadata2.last_updated >= metadata1.last_updated
+
+
+def test_force_refresh_regenerates_cached_sections(
+    sample_python_project, cache_dir, tmp_path, mock_embedding_provider
+):
+    """--force-refresh calls the LLM again for sections that are cached."""
+    from langchain_core.runnables import RunnableLambda
+
+    llm_calls = []
+
+    def fake_llm(prompt_value):
+        llm_calls.append(prompt_value)
+        return "Section content"
+
+    llm_provider = MagicMock()
+    llm_provider.model_name = "claude-sonnet-5"
+    llm_provider.get_langchain_llm.return_value = RunnableLambda(fake_llm)
+
+    def run(force_refresh: bool) -> None:
+        CodeDocumentationGenerator(
+            llm_provider=llm_provider,
+            embedding_provider=mock_embedding_provider,
+            cache_enabled=True,
+            cache_dir=cache_dir,
+            force_refresh=force_refresh,
+            sections=["overview"],
+            skip_diagrams=True,
+        ).generate_documentation(str(sample_python_project), str(tmp_path / "out"))
+
+    run(force_refresh=False)
+    run(force_refresh=False)
+    assert len(llm_calls) == 1
+
+    run(force_refresh=True)
+    assert len(llm_calls) == 2

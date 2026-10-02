@@ -681,6 +681,7 @@ class CodeDocumentationGenerator:
             parallel=self.parallel_sections,
             cost_tracker=self.cost_tracker,
             section_cache=self._section_cache,
+            force_refresh=self.force_refresh,
             current_analyses=self._current_analyses,
             selected_sections=self.selected_sections,
             section_preprocessors={
@@ -698,6 +699,7 @@ class CodeDocumentationGenerator:
             parallel=self.parallel_sections,
             cost_tracker=self.cost_tracker,
             section_cache=self._section_cache,
+            force_refresh=self.force_refresh,
             current_analyses=self._current_analyses,
             selected_sections=self.selected_sections,
             section_preprocessors={
@@ -715,6 +717,7 @@ class CodeDocumentationGenerator:
             parallel=self.parallel_sections,
             cost_tracker=self.cost_tracker,
             section_cache=self._section_cache,
+            force_refresh=self.force_refresh,
             current_analyses=self._current_analyses,
             selected_sections=self.selected_sections,
             section_preprocessors={

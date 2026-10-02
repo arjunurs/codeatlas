@@ -40,6 +40,7 @@ class SectionOrchestrator:
         parallel: bool = True,
         cost_tracker: CostTracker | None = None,
         section_cache: SectionContentCache | None = None,
+        force_refresh: bool = False,
         current_analyses: list[FileAnalysis] | None = None,
         selected_sections: list[str] | None = None,
         section_preprocessors: dict[
@@ -53,6 +54,7 @@ class SectionOrchestrator:
         self.parallel = parallel
         self.cost_tracker = cost_tracker
         self.section_cache = section_cache
+        self.force_refresh = force_refresh
         self.current_analyses = current_analyses
         self.selected_sections = selected_sections
         self._section_preprocessors = section_preprocessors or {}
@@ -178,10 +180,22 @@ class SectionOrchestrator:
         rag_chain: Runnable,
         section_name: str,
     ) -> str:
-        """Generate a section with caching support."""
-        if self.section_cache and self.current_analyses:
+        """Generate a section, reusing cached content while it is still valid.
+
+        The cache key covers the section's code dependencies, the model, and the
+        exact prompt. With force_refresh, cached content is ignored but the
+        fresh result is still cached.
+        """
+        if not (self.section_cache and self.current_analyses):
+            return self._generate_section(rag_chain, section_name)
+
+        prompt = self._build_prompt(section_name)
+        if not self.force_refresh:
             cached_content = self.section_cache.get_cached_section(
-                section_name, self.current_analyses
+                section_name,
+                self.current_analyses,
+                model=self.model_name,
+                prompt=prompt,
             )
             if cached_content is not None:
                 if self.cost_tracker:
@@ -193,21 +207,33 @@ class SectionOrchestrator:
                     )
                 return cached_content
 
-        content = self._generate_section(rag_chain, section_name)
-
-        if self.section_cache and self.current_analyses:
-            self.section_cache.cache_section(
-                section_name, content, self.current_analyses
-            )
-
+        content = self._generate_section(rag_chain, section_name, prompt)
+        self.section_cache.cache_section(
+            section_name,
+            content,
+            self.current_analyses,
+            model=self.model_name,
+            prompt=prompt,
+        )
         return content
 
-    def _generate_section(self, rag_chain: Runnable, section_name: str) -> str:
+    def _build_prompt(self, section_name: str) -> str:
+        """Build the prompt for a section, applying registered preprocessors."""
+        prompt = get_section_prompt(section_name)
+        for key, preprocessor in self._section_preprocessors.items():
+            if key in section_name.lower():
+                prompt = preprocessor(prompt, self.current_analyses)
+        return prompt
+
+    def _generate_section(
+        self, rag_chain: Runnable, section_name: str, prompt: str | None = None
+    ) -> str:
         """Generate content for a documentation section.
 
         Args:
             rag_chain: LCEL RAG chain for content generation
             section_name: Name of the section to generate
+            prompt: Prebuilt prompt for the section (built here if omitted)
 
         Returns:
             Generated section content as a string
@@ -216,12 +242,8 @@ class SectionOrchestrator:
             LLMError: If section generation fails
         """
         try:
-            prompt = get_section_prompt(section_name)
-
-            # Apply any registered preprocessors for this section
-            for key, preprocessor in self._section_preprocessors.items():
-                if key in section_name.lower():
-                    prompt = preprocessor(prompt, self.current_analyses)
+            if prompt is None:
+                prompt = self._build_prompt(section_name)
 
             usage = TokenUsageCallback()
             content = rag_chain.invoke(prompt, config={"callbacks": [usage]})

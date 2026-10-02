@@ -195,3 +195,39 @@ def test_section_cache_stats(tmp_path, sample_analyses):
     assert stats["total_size_bytes"] > 0
     assert "overview" in stats["sections"]
     assert "dependencies" in stats["sections"]
+
+
+def test_section_hash_covers_model_and_prompt(tmp_path, sample_analyses):
+    """Changing the model or the prompt changes the section hash."""
+    cache = SectionContentCache(tmp_path)
+
+    def section_hash(model: str, prompt: str) -> str:
+        return cache.get_section_hash(
+            "overview", sample_analyses, model=model, prompt=prompt
+        )[0]
+
+    base = section_hash("claude-sonnet-5", "Describe the system")
+    assert section_hash("claude-sonnet-5", "Describe the system") == base
+    assert section_hash("claude-haiku-4-5", "Describe the system") != base
+    assert section_hash("claude-sonnet-5", "Describe the system briefly") != base
+
+
+def test_cached_section_misses_for_other_model(tmp_path, sample_analyses):
+    """A section cached for one model is not returned for another."""
+    cache = SectionContentCache(tmp_path)
+    cache.cache_section(
+        "overview", "Sonnet text", sample_analyses, model="claude-sonnet-5", prompt="p"
+    )
+
+    assert (
+        cache.get_cached_section(
+            "overview", sample_analyses, model="claude-sonnet-5", prompt="p"
+        )
+        == "Sonnet text"
+    )
+    assert (
+        cache.get_cached_section(
+            "overview", sample_analyses, model="claude-haiku-4-5", prompt="p"
+        )
+        is None
+    )
