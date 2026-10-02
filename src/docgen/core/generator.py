@@ -206,7 +206,7 @@ class CodeDocumentationGenerator:
 
         # In diagrams-only mode, API keys are not required
         if diagrams_only:
-            logger.info("Diagrams-only mode: API keys not required")
+            logger.debug("Diagrams-only mode: API keys not required")
             self.llm = None
             self.embeddings = None
         # Provider mode: use provided providers
@@ -411,7 +411,7 @@ class CodeDocumentationGenerator:
             self._renderer.setup_output_directories(abs_output_dir)
 
             # Analyze codebase
-            logger.info("Analyzing Python files...")
+            logger.debug("Analyzing Python files...")
             analyses = self.analyzer.analyze_directory(
                 abs_directory_path,
                 exclude_patterns=self.exclude_patterns,
@@ -436,12 +436,20 @@ class CodeDocumentationGenerator:
             diagram_errors: list[tuple[str, str]] = []
             if not self.skip_diagrams:
                 diagrams, diagram_errors = self._generate_all_diagrams(analyses)
+                logger.info(f"Generated {len(diagrams)} diagrams")
+                if diagram_errors:
+                    logger.warning(
+                        f"{len(diagram_errors)} diagram(s) failed:\n"
+                        + "\n".join(
+                            f"  - {name}: {error}" for name, error in diagram_errors
+                        )
+                    )
             else:
-                logger.info("Skipping diagram generation (--no-diagrams)")
+                logger.debug("Skipping diagram generation (--no-diagrams)")
 
             # In diagrams-only mode, skip all section generation
             if self.diagrams_only:
-                logger.info(
+                logger.debug(
                     "Diagrams-only mode: skipping LLM calls and section generation"
                 )
                 documentation = {
@@ -485,7 +493,7 @@ class CodeDocumentationGenerator:
             self._renderer.render(
                 documentation, diagrams, abs_output_dir, generation_errors
             )
-            logger.info(f"Documentation generated successfully in {abs_output_dir}")
+            logger.info(f"Documentation written to {abs_output_dir}")
 
             # Save section cache
             if self._section_cache:
@@ -513,7 +521,7 @@ class CodeDocumentationGenerator:
         Returns:
             Tuple of (diagrams dict, list of (diagram_name, error_message) pairs)
         """
-        logger.info("Generating diagrams...")
+        logger.debug("Generating diagrams...")
         diagrams: dict[str, str] = {}
         errors: list[tuple[str, str]] = []
 
@@ -703,7 +711,7 @@ class CodeDocumentationGenerator:
         generation_errors: dict[str, list[tuple[str, str]]] | None = None,
     ) -> None:
         """Generate final HTML output (delegates to renderer)."""
-        logger.info("Generating HTML documentation...")
+        logger.debug("Generating HTML documentation...")
         try:
             self._renderer.render(
                 documentation, diagrams, output_dir, generation_errors

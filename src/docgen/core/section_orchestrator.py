@@ -68,7 +68,7 @@ class SectionOrchestrator:
         Returns:
             Tuple of (documentation dict, list of (section_name, error) pairs)
         """
-        logger.info("Generating documentation content...")
+        logger.debug("Generating documentation content...")
 
         sections_to_generate = select_sections(self.selected_sections)
         if self.selected_sections:

@@ -64,7 +64,7 @@ class VectorStoreCache:
         # Load or create cache metadata
         self.metadata = CacheMetadata.load(self.cache_dir)
         if self.metadata is None or force_refresh:
-            logger.info("Creating new cache metadata")
+            logger.debug("Creating new cache metadata")
             self.metadata = CacheMetadata.create_for_project(self.source_dir)
 
     def get_or_create_vector_store(
@@ -89,7 +89,7 @@ class VectorStoreCache:
         try:
             # If force refresh, treat as new vector store creation
             if self.force_refresh:
-                logger.info("Force refresh: recreating vector store from scratch")
+                logger.debug("Force refresh: recreating vector store from scratch")
                 if self._vector_store_exists():
                     self._drop_vector_store()
                 self.vector_dir.mkdir(parents=True, exist_ok=True)
@@ -97,12 +97,12 @@ class VectorStoreCache:
 
             # Check if vector store exists
             if self._vector_store_exists():
-                logger.info("Found existing vector store")
+                logger.debug("Found existing vector store")
                 return self._load_and_update_vector_store(
                     analyses, documents, current_files
                 )
             else:
-                logger.info("No existing vector store, creating new one")
+                logger.debug("No existing vector store, creating new one")
                 return self._create_new_vector_store(analyses, documents, current_files)
 
         except Exception as e:
@@ -135,7 +135,7 @@ class VectorStoreCache:
         Returns:
             New Chroma vector store
         """
-        logger.info(f"Creating vector store with {len(documents)} documents")
+        logger.debug(f"Creating vector store with {len(documents)} documents")
 
         # Create vector store with persistence
         vector_store = Chroma.from_documents(
@@ -154,7 +154,7 @@ class VectorStoreCache:
         # Save metadata
         self.metadata.save(self.cache_dir)
 
-        logger.info("Vector store created and cached")
+        logger.debug("Vector store created and cached")
         return vector_store
 
     def _load_and_update_vector_store(
@@ -177,7 +177,7 @@ class VectorStoreCache:
         detector = FileChangeDetector(self.source_dir, self.metadata)
         changes = detector.detect_changes(current_files)
 
-        logger.info(
+        logger.debug(
             f"Change detection: {changes.total_changed} changed, "
             f"{len(changes.deleted_files)} deleted, "
             f"{len(changes.unchanged_files)} unchanged"
@@ -191,7 +191,7 @@ class VectorStoreCache:
 
         # If no changes, return as-is
         if not changes.has_changes:
-            logger.info("No changes detected, using cached vector store")
+            logger.debug("No changes detected, using cached vector store")
             return vector_store
 
         # Update vector store incrementally
@@ -229,7 +229,7 @@ class VectorStoreCache:
             if self._relative_source(meta) not in changes.unchanged_files
         ]
         if stale_ids:
-            logger.info(f"Removing {len(stale_ids)} stale documents from vector store")
+            logger.debug(f"Removing {len(stale_ids)} stale documents from vector store")
             vector_store.delete(ids=stale_ids)
 
         docs_to_add = [
@@ -238,7 +238,7 @@ class VectorStoreCache:
             if self._relative_source(doc.metadata) in changed_and_new
         ]
         if docs_to_add:
-            logger.info(
+            logger.debug(
                 f"Adding {len(docs_to_add)} documents from {len(changed_and_new)} files"
             )
             for start in range(0, len(docs_to_add), ADD_BATCH_SIZE):
@@ -258,7 +258,7 @@ class VectorStoreCache:
         # Save updated metadata
         self.metadata.save(self.cache_dir)
 
-        logger.info("Vector store updated successfully")
+        logger.debug("Vector store updated successfully")
 
     def _relative_source(self, metadata: dict | None) -> str:
         """Get a document's file path relative to the source directory.
@@ -319,5 +319,5 @@ class VectorStoreCache:
             preserve_cache: If True, keep cache on disk (default)
         """
         if not preserve_cache and self.vector_dir.exists():
-            logger.info("Cleaning up vector store cache")
+            logger.debug("Cleaning up vector store cache")
             shutil.rmtree(self.vector_dir)

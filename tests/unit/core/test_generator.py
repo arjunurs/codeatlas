@@ -4,6 +4,7 @@ This module contains comprehensive tests for the documentation generation proces
 including initialization, file analysis, and HTML generation.
 """
 
+import logging
 import os
 from unittest.mock import MagicMock, Mock, patch
 
@@ -446,3 +447,23 @@ def test_diagram_selection_ignores_case():
 
     assert diagrams == {"class_diagram": "classDiagram"}
     assert errors == []
+
+
+def test_failed_diagram_is_reported_as_warning(temp_source_dir, tmp_path, caplog):
+    """A diagram that fails to generate is reported on the console, not only in HTML."""
+    generator = CodeDocumentationGenerator(
+        llm_provider=MagicMock(),
+        embedding_provider=MagicMock(),
+        diagrams=["class"],
+        diagrams_only=True,
+    )
+    generator.diagram_generator = MagicMock()
+    generator.diagram_generator.generate_class_diagram.side_effect = DocumentationError(
+        "no classes found"
+    )
+
+    with caplog.at_level(logging.WARNING, logger="docgen"):
+        generator.generate_documentation(str(temp_source_dir), str(tmp_path / "docs"))
+
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert any("class_diagram" in w and "no classes found" in w for w in warnings)

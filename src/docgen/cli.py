@@ -376,7 +376,7 @@ def main() -> None:
         skip_api_mode = args.dry_run or args.diagrams_only
         if skip_api_mode:
             mode_name = "diagrams-only" if args.diagrams_only else "dry-run"
-            logger.info(f"{mode_name.capitalize()} mode: API keys not required")
+            logger.debug(f"{mode_name.capitalize()} mode: API keys not required")
             anthropic_key = f"{mode_name}-placeholder"
             openai_key = f"{mode_name}-placeholder"
         else:
@@ -412,8 +412,6 @@ def main() -> None:
 
         # Generate documentation
         generator.generate_documentation(args.source, args.output)
-
-        logger.info("Documentation generated successfully")
 
     except (DocumentationError, ApiKeyError, CacheError, ValueError) as e:
         logger.error(f"Documentation generation failed: {str(e)}")

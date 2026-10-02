@@ -102,7 +102,7 @@ class SectionContentCache:
                     name: SectionCacheEntry.from_dict(entry)
                     for name, entry in data.items()
                 }
-                logger.info(f"Loaded section cache with {len(self.cache)} entries")
+                logger.debug(f"Loaded section cache with {len(self.cache)} entries")
             except (json.JSONDecodeError, KeyError, ValueError) as e:
                 logger.warning(f"Failed to load section cache: {e}")
                 self.cache = {}
@@ -113,7 +113,7 @@ class SectionContentCache:
         with open(self.cache_file, "w") as f:
             data = {name: entry.to_dict() for name, entry in self.cache.items()}
             json.dump(data, f, indent=2)
-        logger.info(f"Saved section cache with {len(self.cache)} entries")
+        logger.debug(f"Saved section cache with {len(self.cache)} entries")
 
     def get_section_hash(
         self,
@@ -178,10 +178,10 @@ class SectionContentCache:
         # Check if cached hash matches
         cached_entry = self.cache[section_name]
         if cached_entry.content_hash == current_hash:
-            logger.info(f"Cache hit for section: {section_name}")
+            logger.debug(f"Cache hit for section: {section_name}")
             return cached_entry.content
         else:
-            logger.info(f"Cache miss for section: {section_name} (hash mismatch)")
+            logger.debug(f"Cache miss for section: {section_name} (hash mismatch)")
             return None
 
     def cache_section(
@@ -207,7 +207,7 @@ class SectionContentCache:
         )
 
         self.cache[section_name] = entry
-        logger.info(f"Cached section: {section_name}")
+        logger.debug(f"Cached section: {section_name}")
 
     def invalidate_sections(self, changed_files: set[str]) -> set[str]:
         """Invalidate sections that depend on changed files.
@@ -225,7 +225,7 @@ class SectionContentCache:
             if entry.dependency_files & changed_files:
                 del self.cache[section_name]
                 invalidated.add(section_name)
-                logger.info(f"Invalidated section: {section_name}")
+                logger.debug(f"Invalidated section: {section_name}")
 
         return invalidated
 
@@ -234,7 +234,7 @@ class SectionContentCache:
         self.cache.clear()
         if self.cache_file.exists():
             self.cache_file.unlink()
-        logger.info("Cleared section cache")
+        logger.debug("Cleared section cache")
 
     def get_stats(self) -> dict:
         """Get cache statistics.

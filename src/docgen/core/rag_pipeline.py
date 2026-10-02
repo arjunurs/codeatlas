@@ -158,7 +158,7 @@ class RAGPipelineFactory:
             texts = self.text_splitter.split_documents(documents)
 
             if self.cache_enabled and self.cache_dir and source_dir:
-                logger.info("Cache enabled: using persistent vector store")
+                logger.debug("Cache enabled: using persistent vector store")
                 current_files = [
                     Path(source_dir) / analysis.file_path for analysis in analyses
                 ]
@@ -176,7 +176,7 @@ class RAGPipelineFactory:
                     current_files=current_files,
                 )
             else:
-                logger.info("Cache disabled: creating ephemeral vector store")
+                logger.debug("Cache disabled: creating ephemeral vector store")
                 self._vector_store = Chroma.from_documents(texts, self.embeddings)
 
             retriever = self._create_retriever()
@@ -206,7 +206,7 @@ class RAGPipelineFactory:
                     "lambda_mult": self.config.RETRIEVER_LAMBDA_MULT,
                 },
             )
-            logger.info(
+            logger.debug(
                 f"Using MMR retriever: k={self.config.RETRIEVER_K}, "
                 f"fetch_k={self.config.RETRIEVER_FETCH_K}, "
                 f"lambda_mult={self.config.RETRIEVER_LAMBDA_MULT}"
@@ -219,7 +219,7 @@ class RAGPipelineFactory:
                     "k": self.config.RETRIEVER_K,
                 },
             )
-            logger.info(
+            logger.debug(
                 f"Using similarity threshold retriever: k={self.config.RETRIEVER_K}, "
                 f"threshold={self.config.RETRIEVER_SCORE_THRESHOLD}"
             )
@@ -228,5 +228,5 @@ class RAGPipelineFactory:
                 search_type="similarity",
                 search_kwargs={"k": self.config.RETRIEVER_K},
             )
-            logger.info(f"Using similarity retriever: k={self.config.RETRIEVER_K}")
+            logger.debug(f"Using similarity retriever: k={self.config.RETRIEVER_K}")
         return retriever

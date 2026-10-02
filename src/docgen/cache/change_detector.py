@@ -102,7 +102,7 @@ class FileChangeDetector:
 
         # Choose detection strategy
         strategy = self._choose_strategy()
-        logger.info(f"Using change detection strategy: {strategy.value}")
+        logger.debug(f"Using change detection strategy: {strategy.value}")
 
         # Detect changes based on strategy
         if strategy == ChangeDetectionStrategy.GIT:
@@ -158,7 +158,7 @@ class FileChangeDetector:
                     f.relative_to(self.source_dir).as_posix() for f in current_files
                 }
                 changed_files = git_changed & current_relative
-                logger.info(f"Git detected {len(changed_files)} changed files")
+                logger.debug(f"Git detected {len(changed_files)} changed files")
             else:
                 logger.warning(
                     "Git diff returned no results, falling back to filesystem detection"
@@ -166,7 +166,7 @@ class FileChangeDetector:
                 return self._detect_via_filesystem(current_files)
         else:
             # No cached commit or current commit - fall back
-            logger.info("No git commit info, falling back to filesystem detection")
+            logger.debug("No git commit info, falling back to filesystem detection")
             return self._detect_via_filesystem(current_files)
 
         # Categorize files
@@ -247,7 +247,7 @@ class FileChangeDetector:
         deleted_files = cached_relative - current_relative
         unchanged_files = current_relative - changed_files - new_files
 
-        logger.info(
+        logger.debug(
             f"Change detection: {len(changed_files)} changed, "
             f"{len(new_files)} new, {len(deleted_files)} deleted, "
             f"{len(unchanged_files)} unchanged"
