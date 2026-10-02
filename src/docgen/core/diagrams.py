@@ -16,6 +16,39 @@ from ..models.file_analysis import FileAnalysis
 logger = logging.getLogger(__name__)
 
 
+def select_diagrams(selected: list[str] | None) -> list[str]:
+    """Resolve a diagram selection to diagram type names.
+
+    Names match case-insensitively and ignore "_" and "-", so "Class" and
+    "call_graph" both work. Blank names, such as the empty entry from a
+    trailing comma, are ignored.
+
+    Args:
+        selected: Diagram names as the user gave them, or None for all
+
+    Returns:
+        The selected diagram type names in generation order, or all of them
+        when nothing is selected
+
+    Raises:
+        ValueError: If a selected name is not a diagram type
+    """
+    available = [diagram_type.value for diagram_type in DiagramType]
+    names = [name.strip() for name in selected or [] if name.strip()]
+    if not names:
+        return available
+
+    keys = {name: name.lower().replace("_", "").replace("-", "") for name in names}
+    unknown = [name for name, key in keys.items() if key not in available]
+    if unknown:
+        raise ValueError(
+            f"Unknown diagram(s): {', '.join(unknown)}. "
+            f"Available diagrams: {', '.join(available)}"
+        )
+
+    return [name for name in available if name in keys.values()]
+
+
 class DiagramGenerator:
     """Generates various types of diagrams for code documentation.
 

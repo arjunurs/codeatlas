@@ -6,7 +6,7 @@ including architecture, class, sequence, dependency, and function call diagrams.
 
 import pytest
 
-from docgen.core.diagrams import DiagramGenerator
+from docgen.core.diagrams import DiagramGenerator, select_diagrams
 from docgen.exceptions.errors import DiagramGenerationError
 from docgen.models.code_entity import CodeEntity
 from docgen.models.file_analysis import FileAnalysis
@@ -210,3 +210,39 @@ def test_sequence_diagram_no_interactions(diagram_generator):
         DiagramGenerationError, match="No function calls found in call graph"
     ):
         diagram_generator.generate_sequence_diagram(call_graph)
+
+
+ALL_DIAGRAMS = ["architecture", "class", "sequence", "callgraph", "dependency"]
+
+
+@pytest.mark.parametrize("selection", [None, [], [""], ["", " "]])
+def test_no_diagram_selection_returns_all(selection):
+    """Without a selection, every diagram type is generated."""
+    assert select_diagrams(selection) == ALL_DIAGRAMS
+
+
+@pytest.mark.parametrize(
+    ("selection", "expected"),
+    [
+        (["class"], ["class"]),
+        (["Class"], ["class"]),
+        ([" CLASS "], ["class"]),
+        (["class", ""], ["class"]),
+        (["call_graph"], ["callgraph"]),
+        (["call-graph"], ["callgraph"]),
+        (["dependency", "architecture"], ["architecture", "dependency"]),
+    ],
+)
+def test_diagram_selection_normalizes_names(selection, expected):
+    """Names match case-insensitively, ignoring "_", "-", and blanks."""
+    assert select_diagrams(selection) == expected
+
+
+def test_unknown_diagram_raises_with_available_names():
+    """A name that is not a diagram type is rejected, listing the valid names."""
+    with pytest.raises(ValueError, match="Unknown diagram") as excinfo:
+        select_diagrams(["class", "clas"])
+
+    message = str(excinfo.value)
+    assert "Unknown diagram(s): clas." in message
+    assert "callgraph" in message

@@ -419,3 +419,30 @@ def test_unknown_section_rejected_at_construction():
             embedding_provider=MagicMock(),
             sections=["overveiw"],
         )
+
+
+def test_unknown_diagram_rejected_at_construction():
+    """A misspelled diagram name fails before any analysis or API call."""
+    with pytest.raises(ValueError, match="clas"):
+        CodeDocumentationGenerator(
+            llm_provider=MagicMock(),
+            embedding_provider=MagicMock(),
+            diagrams=["clas"],
+        )
+
+
+def test_diagram_selection_ignores_case():
+    """--diagrams Class generates the class diagram and nothing else."""
+    generator = CodeDocumentationGenerator(
+        llm_provider=MagicMock(),
+        embedding_provider=MagicMock(),
+        diagrams=["Class"],
+        diagrams_only=True,
+    )
+    generator.diagram_generator = MagicMock()
+    generator.diagram_generator.generate_class_diagram.return_value = "classDiagram"
+
+    diagrams, errors = generator._generate_all_diagrams([])
+
+    assert diagrams == {"class_diagram": "classDiagram"}
+    assert errors == []

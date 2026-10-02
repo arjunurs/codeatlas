@@ -37,7 +37,7 @@ from ..templates.html import get_template_manager
 from ..utils.cost_tracker import CostTracker
 from .analyzer import CodeAnalyzer
 from .cross_reference import CrossReferenceAnalyzer
-from .diagrams import DiagramGenerator
+from .diagrams import DiagramGenerator, select_diagrams
 from .rag_pipeline import RAGPipelineFactory
 from .renderer import DocumentationRenderer
 from .section_orchestrator import SectionOrchestrator
@@ -256,7 +256,7 @@ class CodeDocumentationGenerator:
         self.exclude_patterns = exclude_patterns or []
         self.skip_diagrams = skip_diagrams
         self.selected_sections = sections
-        self.selected_diagrams = diagrams
+        self.selected_diagrams = select_diagrams(diagrams)
         self.template_dir = template_dir
         self.dry_run = dry_run
         self.max_files = max_files
@@ -518,8 +518,6 @@ class CodeDocumentationGenerator:
         errors: list[tuple[str, str]] = []
 
         def should_generate(diagram_key: str) -> bool:
-            if not self.selected_diagrams:
-                return True
             return diagram_key in self.selected_diagrams
 
         if should_generate("architecture"):
