@@ -316,3 +316,52 @@ def test_matches_any_pattern(analyzer):
     assert analyzer._matches_any_pattern("__pycache__", ["__pycache__"])
     assert not analyzer._matches_any_pattern("module.py", ["*_test.py"])
     assert not analyzer._matches_any_pattern("main.py", ["test_*.py", "__pycache__"])
+
+
+@pytest.fixture
+def project_with_tool_dirs(tmp_path):
+    """A project root holding real code next to virtualenvs and tool directories."""
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / "main.py").write_text("import json\n\ndef run():\n    pass\n")
+    (tmp_path / "tool.py").write_text("import os\n")
+    for name in [
+        ".venv/lib/python3.12/site-packages/requests",
+        "venv/lib",
+        ".git/hooks",
+        "node_modules/pkg",
+        "__pycache__",
+        ".tox/py312",
+        "build/lib",
+    ]:
+        directory = tmp_path / name
+        directory.mkdir(parents=True)
+        (directory / "vendored.py").write_text("import vendored_dep\n")
+    # A virtualenv with a custom name is recognized by its pyvenv.cfg
+    custom_env = tmp_path / "py312-env"
+    (custom_env / "lib").mkdir(parents=True)
+    (custom_env / "pyvenv.cfg").write_text("home = /usr/bin\n")
+    (custom_env / "lib" / "vendored.py").write_text("import vendored_dep\n")
+    return tmp_path
+
+
+def test_analyze_directory_skips_virtualenvs_and_tool_dirs(
+    analyzer, project_with_tool_dirs
+):
+    """Virtualenvs, VCS, and tool directories are skipped by default."""
+    analyses = analyzer.analyze_directory(str(project_with_tool_dirs))
+
+    analyzed = sorted(
+        os.path.relpath(a.file_path, project_with_tool_dirs) for a in analyses
+    )
+    assert analyzed == [os.path.join("app", "main.py"), "tool.py"]
+
+
+def test_package_dependencies_skip_excluded_dirs(analyzer, project_with_tool_dirs):
+    """The dependency walk skips default and user-excluded directories too."""
+    analyzer.analyze_directory(str(project_with_tool_dirs), exclude_patterns=["app"])
+
+    dependencies = analyzer.analyze_package_dependencies()
+
+    assert "vendored_dep" not in set().union(*dependencies.values())
+    assert "app" not in dependencies
+    assert dependencies["tool"] == {"os"}

@@ -8,6 +8,7 @@ import ast
 import fnmatch
 import logging
 import os
+from collections.abc import Iterator
 
 from ..config import DEFAULT_CONFIG
 from ..exceptions.errors import CodeParseError, FileEncodingError
@@ -15,6 +16,36 @@ from ..models.code_entity import CodeEntity
 from ..models.file_analysis import FileAnalysis
 
 logger = logging.getLogger(__name__)
+
+# Directories never analyzed: virtualenvs, version control, build output, and
+# tool caches (modeled on ruff's default excludes). A directory containing
+# pyvenv.cfg is also skipped, which catches virtualenvs with custom names.
+DEFAULT_EXCLUDED_DIRS = frozenset(
+    {
+        ".bzr",
+        ".direnv",
+        ".docgen_cache",
+        ".eggs",
+        ".git",
+        ".hg",
+        ".ipynb_checkpoints",
+        ".mypy_cache",
+        ".nox",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".svn",
+        ".tox",
+        ".venv",
+        "__pycache__",
+        "__pypackages__",
+        "_build",
+        "build",
+        "dist",
+        "node_modules",
+        "site-packages",
+        "venv",
+    }
+)
 
 
 class CodeAnalyzer:
@@ -31,6 +62,7 @@ class CodeAnalyzer:
         self.encoding = encoding or DEFAULT_CONFIG.DEFAULT_FILE_ENCODING
         self._source: str | None = None
         self._analyzed_directory: str | None = None
+        self._exclude_patterns: list[str] = []
 
     def analyze_file(self, file_path: str) -> FileAnalysis:
         """Analyze a single Python file.
@@ -102,31 +134,65 @@ class CodeAnalyzer:
         if not os.path.isdir(directory):
             raise CodeParseError(f"Not a directory: {directory}")
 
-        # Store the analyzed directory path for use in other methods
+        # Store the analyzed directory and excludes for use in other methods
         self._analyzed_directory = os.path.abspath(directory)
-        exclude_patterns = exclude_patterns or []
+        self._exclude_patterns = exclude_patterns or []
 
         python_files_found = False
         analyses = []
 
+        for file_path in self._iter_python_files(directory, self._exclude_patterns):
+            python_files_found = True
+            try:
+                analysis = self.analyze_file(file_path)
+                analyses.append(analysis)
+
+                # Check max_files limit
+                if max_files is not None and len(analyses) >= max_files:
+                    logger.info(f"Reached max_files limit ({max_files})")
+                    return analyses
+            except Exception as e:
+                logger.warning(f"Skipping {file_path}: {str(e)}")
+
+        if not python_files_found:
+            raise CodeParseError(f"No Python files found in {directory}")
+
+        return analyses
+
+    def _iter_python_files(
+        self, directory: str, exclude_patterns: list[str]
+    ) -> Iterator[str]:
+        """Yield paths of Python files under a directory, skipping excluded ones.
+
+        Skips the default excluded directories, any virtualenv (a directory
+        containing pyvenv.cfg), and anything matching the given glob patterns
+        by name or by path relative to the directory.
+
+        Args:
+            directory: Directory to walk
+            exclude_patterns: Glob patterns for files and directories to skip
+
+        Yields:
+            Paths of Python files to analyze
+        """
         for root, dirs, files in os.walk(directory):
-            # Filter out excluded directories (modifying dirs in-place affects os.walk)
-            if exclude_patterns:
-                dirs[:] = [
-                    d
-                    for d in dirs
-                    if not self._matches_any_pattern(d, exclude_patterns)
-                    and not self._matches_any_pattern(
-                        os.path.relpath(os.path.join(root, d), directory),
-                        exclude_patterns,
-                    )
-                ]
+            # Prune excluded directories (modifying dirs in place affects os.walk)
+            dirs[:] = [
+                d
+                for d in dirs
+                if d not in DEFAULT_EXCLUDED_DIRS
+                and not os.path.isfile(os.path.join(root, d, "pyvenv.cfg"))
+                and not self._matches_any_pattern(d, exclude_patterns)
+                and not self._matches_any_pattern(
+                    os.path.relpath(os.path.join(root, d), directory),
+                    exclude_patterns,
+                )
+            ]
 
             for file in files:
                 if not file.endswith(".py"):
                     continue
 
-                # Check if file matches any exclude pattern
                 rel_path = os.path.relpath(os.path.join(root, file), directory)
                 if self._matches_any_pattern(file, exclude_patterns):
                     logger.debug(f"Excluding file by name: {rel_path}")
@@ -135,23 +201,7 @@ class CodeAnalyzer:
                     logger.debug(f"Excluding file by path: {rel_path}")
                     continue
 
-                python_files_found = True
-                file_path = os.path.join(root, file)
-                try:
-                    analysis = self.analyze_file(file_path)
-                    analyses.append(analysis)
-
-                    # Check max_files limit
-                    if max_files is not None and len(analyses) >= max_files:
-                        logger.info(f"Reached max_files limit ({max_files})")
-                        return analyses
-                except Exception as e:
-                    logger.warning(f"Skipping {file_path}: {str(e)}")
-
-        if not python_files_found:
-            raise CodeParseError(f"No Python files found in {directory}")
-
-        return analyses
+                yield os.path.join(root, file)
 
     def _matches_any_pattern(self, name: str, patterns: list[str]) -> bool:
         """Check if a name matches any of the given glob patterns.
@@ -225,41 +275,38 @@ class CodeAnalyzer:
         search_directory = self._analyzed_directory or os.getcwd()
 
         # Add package dependencies from imports
-        for root, _, files in os.walk(search_directory):
-            for file in files:
-                if not file.endswith(".py"):
-                    continue
+        for file_path in self._iter_python_files(
+            search_directory, self._exclude_patterns
+        ):
+            try:
+                with open(file_path, encoding="utf-8") as f:
+                    content = f.read()
 
-                file_path = os.path.join(root, file)
-                try:
-                    with open(file_path, encoding="utf-8") as f:
-                        content = f.read()
+                tree = ast.parse(content)
+                imports = self._extract_imports(tree)
 
-                    tree = ast.parse(content)
-                    imports = self._extract_imports(tree)
+                # Get package name from file path relative to the search directory
+                rel_path = os.path.relpath(file_path, search_directory)
+                package_name = os.path.dirname(rel_path).replace(os.sep, ".")
+                if not package_name:
+                    package_name = os.path.splitext(os.path.basename(file_path))[0]
 
-                    # Get package name from file path relative to the search directory
-                    rel_path = os.path.relpath(file_path, search_directory)
-                    package_name = os.path.dirname(rel_path).replace(os.sep, ".")
-                    if not package_name:
-                        package_name = os.path.splitext(file)[0]
+                # Add dependencies
+                if package_name not in dependencies:
+                    dependencies[package_name] = set()
 
-                    # Add dependencies
-                    if package_name not in dependencies:
-                        dependencies[package_name] = set()
+                for imp in imports:
+                    # Get top-level package name
+                    top_pkg = imp.split(".")[0]
+                    if top_pkg != package_name:
+                        dependencies[package_name].add(top_pkg)
 
-                    for imp in imports:
-                        # Get top-level package name
-                        top_pkg = imp.split(".")[0]
-                        if top_pkg != package_name:
-                            dependencies[package_name].add(top_pkg)
-
-                except (OSError, UnicodeDecodeError) as e:
-                    logger.warning(f"Error reading {file_path}: {str(e)}")
-                    continue
-                except (SyntaxError, ValueError) as e:
-                    logger.warning(f"Error parsing {file_path}: {str(e)}")
-                    continue
+            except (OSError, UnicodeDecodeError) as e:
+                logger.warning(f"Error reading {file_path}: {str(e)}")
+                continue
+            except (SyntaxError, ValueError) as e:
+                logger.warning(f"Error parsing {file_path}: {str(e)}")
+                continue
 
         return dependencies
 
