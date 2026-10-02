@@ -61,7 +61,6 @@ chroma_db/
 
 # Claude Code
 .claude/
-CLAUDE.md
 spec.md
 
 # Misc
