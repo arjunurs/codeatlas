@@ -9,7 +9,9 @@ import pytest
 from docgen.core.diagrams import DiagramGenerator, select_diagrams
 from docgen.exceptions.errors import DiagramGenerationError
 from docgen.models.code_entity import CodeEntity
+from docgen.models.diagram_validation import DiagramType
 from docgen.models.file_analysis import FileAnalysis
+from docgen.utils.diagram_validator import DiagramValidator
 
 
 @pytest.fixture
@@ -108,6 +110,22 @@ def test_generate_sequence_diagram(diagram_generator):
     assert "func3-->>-func1: return" in diagram
     assert "func2->>+func4: call()" in diagram
     assert "func4-->>-func2: return" in diagram
+
+
+def test_sequence_diagram_declares_participants(diagram_generator):
+    """Participants are declared in first-use order, so validation is clean."""
+    call_graph = {"cli.main": {"load"}, "load": {"parse"}}
+
+    diagram = diagram_generator.generate_sequence_diagram(call_graph)
+
+    assert diagram.splitlines()[1:4] == [
+        "    participant cli_main",
+        "    participant load",
+        "    participant parse",
+    ]
+    result = DiagramValidator().validate(diagram, DiagramType.SEQUENCE)
+    assert result.is_valid
+    assert result.warnings == []
 
 
 def test_generate_dependency_diagram(diagram_generator):

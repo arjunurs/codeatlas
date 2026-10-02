@@ -326,7 +326,9 @@ class DiagramGenerator:
         if not call_graph:
             raise DiagramGenerationError("Empty call graph")
 
-        diagram = ["sequenceDiagram"]
+        messages = []
+        # Insertion-ordered set of participants, in order of first use
+        participants: dict[str, None] = {}
         nodes_added = 0
 
         for caller, callees in call_graph.items():
@@ -339,9 +341,16 @@ class DiagramGenerator:
             for callee in callees:
                 clean_caller = self._clean_name(caller)
                 clean_callee = self._clean_name(callee)
-                diagram.append(f"    {clean_caller}->>+{clean_callee}: call()")
-                diagram.append(f"    {clean_callee}-->>-{clean_caller}: return")
+                participants.update({clean_caller: None, clean_callee: None})
+                messages.append(f"    {clean_caller}->>+{clean_callee}: call()")
+                messages.append(f"    {clean_callee}-->>-{clean_caller}: return")
                 nodes_added += 1
+
+        # Declare participants explicitly so the diagram passes the
+        # participant_references rule
+        diagram = ["sequenceDiagram"]
+        diagram.extend(f"    participant {name}" for name in participants)
+        diagram.extend(messages)
 
         # Add truncation note if diagram was truncated (skipped for sequence diagrams)
         self._append_truncation_note(
