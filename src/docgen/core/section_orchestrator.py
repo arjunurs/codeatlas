@@ -20,6 +20,7 @@ from ..exceptions.errors import LLMError
 from ..models.file_analysis import FileAnalysis
 from ..prompts.sections import get_section_prompt, select_sections
 from ..utils.cost_tracker import CostTracker
+from ..utils.usage_tracking import TokenUsageCallback
 
 logger = logging.getLogger(__name__)
 
@@ -222,7 +223,15 @@ class SectionOrchestrator:
                 if key in section_name.lower():
                     prompt = preprocessor(prompt, self.current_analyses)
 
-            return rag_chain.invoke(prompt)
+            usage = TokenUsageCallback()
+            content = rag_chain.invoke(prompt, config={"callbacks": [usage]})
+            if self.cost_tracker:
+                self.cost_tracker.record_llm_usage(
+                    model=self.model_name,
+                    input_tokens=usage.input_tokens,
+                    output_tokens=usage.output_tokens,
+                )
+            return content
         except Exception as e:
             raise LLMError(
                 f"Failed to generate section '{section_name}': {str(e)}"

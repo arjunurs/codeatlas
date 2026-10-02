@@ -337,7 +337,7 @@ def test_documentation_content_structure(generator, tmp_path):
     # Track RAG chain invocations
     invocation_count = 0
 
-    def mock_rag_invoke(prompt):
+    def mock_rag_invoke(prompt, config=None):
         nonlocal invocation_count
         invocation_count += 1
         # Return string directly (as LCEL chains do after StrOutputParser)

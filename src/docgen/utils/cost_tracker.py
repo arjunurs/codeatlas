@@ -4,6 +4,7 @@ This module tracks API usage and estimated costs for documentation generation.
 """
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -41,6 +42,8 @@ class UsageStats:
         output_tokens: Number of output tokens
         requests: Number of API requests
         cached_requests: Number of requests served from cache
+        estimated: Whether the token counts are estimates rather than
+            counts reported by the API
         timestamp: When these stats were recorded
     """
 
@@ -49,6 +52,7 @@ class UsageStats:
     output_tokens: int = 0
     requests: int = 0
     cached_requests: int = 0
+    estimated: bool = False
     timestamp: datetime = field(default_factory=datetime.now)
 
     def estimate_cost(self) -> float:
@@ -74,6 +78,7 @@ class UsageStats:
             "output_tokens": self.output_tokens,
             "requests": self.requests,
             "cached_requests": self.cached_requests,
+            "estimated": self.estimated,
             "estimated_cost": self.estimate_cost(),
             "timestamp": self.timestamp.isoformat(),
         }
@@ -83,11 +88,13 @@ class CostTracker:
     """Tracks API usage and costs across documentation generation.
 
     This class accumulates usage statistics and provides cost estimates.
+    Recording is thread-safe, since sections are generated in parallel.
     """
 
     def __init__(self):
         """Initialize cost tracker."""
         self.usage_by_model: dict[str, UsageStats] = {}
+        self._lock = threading.Lock()
         self.start_time = datetime.now()
         self.end_time: datetime | None = None
 
@@ -106,21 +113,20 @@ class CostTracker:
             output_tokens: Number of output tokens
             cached: Whether this was served from cache
         """
-        if model not in self.usage_by_model:
-            self.usage_by_model[model] = UsageStats(model=model)
-
-        stats = self.usage_by_model[model]
-        stats.input_tokens += input_tokens
-        stats.output_tokens += output_tokens
-        stats.requests += 1
-        if cached:
-            stats.cached_requests += 1
+        with self._lock:
+            stats = self.usage_by_model.setdefault(model, UsageStats(model=model))
+            stats.input_tokens += input_tokens
+            stats.output_tokens += output_tokens
+            stats.requests += 1
+            if cached:
+                stats.cached_requests += 1
 
     def record_embedding_usage(
         self,
         model: str,
         tokens: int,
         cached: bool = False,
+        estimated: bool = False,
     ) -> None:
         """Record embedding API usage.
 
@@ -128,15 +134,16 @@ class CostTracker:
             model: Model name
             tokens: Number of tokens embedded
             cached: Whether this was served from cache
+            estimated: Whether the token count is an estimate
         """
-        if model not in self.usage_by_model:
-            self.usage_by_model[model] = UsageStats(model=model)
-
-        stats = self.usage_by_model[model]
-        stats.input_tokens += tokens
-        stats.requests += 1
-        if cached:
-            stats.cached_requests += 1
+        with self._lock:
+            stats = self.usage_by_model.setdefault(model, UsageStats(model=model))
+            stats.input_tokens += tokens
+            stats.requests += 1
+            if cached:
+                stats.cached_requests += 1
+            if estimated:
+                stats.estimated = True
 
     def get_total_cost(self) -> float:
         """Get total estimated cost across all models.
@@ -231,7 +238,12 @@ def format_cost_summary(summary: dict) -> str:
             f"    Requests: {stats['requests']} (cached: {stats['cached_requests']})"
         )
         if stats["input_tokens"] > 0:
-            lines.append(f"    Input tokens: {stats['input_tokens']:,}")
+            if stats.get("estimated"):
+                lines.append(
+                    f"    Input tokens: ~{stats['input_tokens']:,} (estimated)"
+                )
+            else:
+                lines.append(f"    Input tokens: {stats['input_tokens']:,}")
         if stats["output_tokens"] > 0:
             lines.append(f"    Output tokens: {stats['output_tokens']:,}")
         lines.append(f"    Cost: ${stats['estimated_cost']:.4f}")

@@ -5,9 +5,14 @@ including mock LLM components, sample data objects, and temporary directories.
 """
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from langchain_core.embeddings import Embeddings
+from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
 
 from docgen.models.code_entity import CodeEntity
 from docgen.models.file_analysis import FileAnalysis
@@ -345,3 +350,58 @@ def mock_generator(
         generator.template_manager = mock_template_manager
 
         yield generator
+
+
+# =============================================================================
+# Fake LangChain Models (real LangChain classes, no network)
+# =============================================================================
+
+
+class FakeChatModelWithUsage(BaseChatModel):
+    """Chat model that returns fixed text and reports fixed token usage."""
+
+    input_tokens: int = 120
+    output_tokens: int = 30
+
+    @property
+    def _llm_type(self) -> str:
+        return "fake-with-usage"
+
+    def _generate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: Any = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        message = AIMessage(
+            content="generated text",
+            usage_metadata={
+                "input_tokens": self.input_tokens,
+                "output_tokens": self.output_tokens,
+                "total_tokens": self.input_tokens + self.output_tokens,
+            },
+        )
+        return ChatResult(generations=[ChatGeneration(message=message)])
+
+
+class FakeEmbeddings(Embeddings):
+    """Embeddings that return constant vectors."""
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [[0.1, 0.2, 0.3] for _ in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return [0.1, 0.2, 0.3]
+
+
+@pytest.fixture
+def fake_chat_model_with_usage() -> FakeChatModelWithUsage:
+    """A chat model reporting 120 input and 30 output tokens per call."""
+    return FakeChatModelWithUsage()
+
+
+@pytest.fixture
+def fake_embeddings() -> FakeEmbeddings:
+    """An embeddings model returning constant vectors."""
+    return FakeEmbeddings()

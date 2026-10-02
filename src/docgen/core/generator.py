@@ -36,6 +36,7 @@ from ..providers.base import EmbeddingProvider, LLMProvider
 from ..providers.registry import get_default_registry
 from ..templates.html import get_template_manager
 from ..utils.cost_tracker import CostTracker
+from ..utils.usage_tracking import UsageTrackingEmbeddings
 from .analyzer import CodeAnalyzer
 from .cross_reference import CrossReferenceAnalyzer
 from .diagrams import DiagramGenerator, select_diagrams
@@ -208,9 +209,9 @@ class CodeDocumentationGenerator:
 
         self.temperature = final_temperature
 
-        # Name of the model that generates sections (from the provider in
-        # provider mode)
+        # Names of the models in use (from the providers in provider mode)
         self.model_name = final_anthropic_model
+        self.embedding_model_name = final_openai_model
 
         # Initialize providers
         self._llm_provider: LLMProvider | None = None
@@ -230,6 +231,7 @@ class CodeDocumentationGenerator:
             self._llm_provider = llm_provider
             self._embedding_provider = embedding_provider
             self.model_name = llm_provider.model_name
+            self.embedding_model_name = embedding_provider.model_name
             self.llm = llm_provider.get_langchain_llm()
             self.embeddings = embedding_provider.get_langchain_embeddings()
 
@@ -642,9 +644,15 @@ class CodeDocumentationGenerator:
         source_dir: Path | None = None,
     ):
         """Create vector store and RAG chain (delegates to RAGPipelineFactory)."""
+        # Route embedding calls through a wrapper that records their usage
+        embeddings = self.embeddings
+        if self.cost_tracker and embeddings is not None:
+            embeddings = UsageTrackingEmbeddings(
+                embeddings, self.cost_tracker, self.embedding_model_name
+            )
         self._rag_pipeline = RAGPipelineFactory(
             llm=self.llm,
-            embeddings=self.embeddings,
+            embeddings=embeddings,
             config=self.config,
             text_splitter=self.text_splitter,
             cache_enabled=self.cache_enabled,

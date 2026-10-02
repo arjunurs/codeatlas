@@ -209,3 +209,16 @@ def test_usage_stats_unknown_model():
 
     # Should return 0 for unknown models
     assert stats.estimate_cost() == 0.0
+
+
+def test_estimated_usage_is_labelled_in_summary(capsys):
+    """Estimated token counts are marked as estimates in the printed summary."""
+    tracker = CostTracker()
+    tracker.record_llm_usage("claude-sonnet-5", 1000, 500)
+    tracker.record_embedding_usage("text-embedding-3-small", 10000, estimated=True)
+
+    tracker.print_summary()
+
+    out = capsys.readouterr().out
+    assert "Input tokens: 1,000\n" in out
+    assert "Input tokens: ~10,000 (estimated)\n" in out
