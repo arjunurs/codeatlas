@@ -30,7 +30,8 @@ def setup_logging(
     root_logger.setLevel(level)
     docgen_logger.setLevel(level)
 
-    # Remove existing handlers to avoid duplicates if called multiple times
+    # Remove existing handlers to avoid duplicates if called multiple times.
+    # Handlers live only on the root logger; docgen records propagate to it.
     root_logger.handlers.clear()
     docgen_logger.handlers.clear()
 
@@ -44,7 +45,6 @@ def setup_logging(
     )
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
-    docgen_logger.addHandler(console_handler)
 
     # Add file handler if specified
     if log_file:
@@ -52,4 +52,3 @@ def setup_logging(
         file_handler.setLevel(level)
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
-        docgen_logger.addHandler(file_handler)

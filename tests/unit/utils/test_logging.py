@@ -11,14 +11,19 @@ from docgen.utils.logging import setup_logging
 def clean_logging():
     """Reset logging configuration before each test."""
     # Store original logging configuration
+    docgen_logger = logging.getLogger("docgen")
     original_handlers = logging.root.handlers.copy()
     original_level = logging.root.level
+    original_docgen_handlers = docgen_logger.handlers.copy()
+    original_docgen_level = docgen_logger.level
 
     yield
 
     # Restore original logging configuration
     logging.root.handlers = original_handlers
     logging.root.setLevel(original_level)
+    docgen_logger.handlers = original_docgen_handlers
+    docgen_logger.setLevel(original_docgen_level)
 
 
 def test_setup_logging_default(clean_logging):
@@ -97,3 +102,32 @@ def test_setup_logging_formatter(clean_logging):
     # Test formatter format string
     expected_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     assert formatter._fmt == expected_format
+
+
+def test_docgen_message_printed_once(clean_logging, capsys):
+    """A message from a docgen module logger reaches the console exactly once."""
+    setup_logging()
+
+    logging.getLogger("docgen.core.generator").info("analyzing files")
+
+    assert capsys.readouterr().err.count("analyzing files") == 1
+
+
+def test_docgen_message_written_to_file_once(clean_logging, tmp_path):
+    """A message from a docgen module logger reaches the log file exactly once."""
+    log_file = tmp_path / "test.log"
+    setup_logging(log_file=str(log_file))
+
+    logging.getLogger("docgen.core.generator").info("analyzing files")
+
+    assert log_file.read_text().count("analyzing files") == 1
+
+
+def test_setup_logging_twice_does_not_duplicate_output(clean_logging, capsys):
+    """Calling setup_logging again does not add another console handler."""
+    setup_logging()
+    setup_logging()
+
+    logging.getLogger("docgen.cli").info("starting run")
+
+    assert capsys.readouterr().err.count("starting run") == 1
