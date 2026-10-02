@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from docgen.config import QualityMode
 from docgen.core.generator import CodeDocumentationGenerator
 from docgen.exceptions.errors import DocumentationError
 from docgen.models.code_entity import CodeEntity
@@ -467,3 +468,41 @@ def test_failed_diagram_is_reported_as_warning(temp_source_dir, tmp_path, caplog
 
     warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
     assert any("class_diagram" in w and "no classes found" in w for w in warnings)
+
+
+@pytest.mark.parametrize(
+    ("anthropic_model", "quality_mode", "expected"),
+    [
+        (None, None, "claude-sonnet-5"),
+        (None, QualityMode.FAST, "claude-haiku-4-5"),
+        (None, QualityMode.BALANCED, "claude-sonnet-5"),
+        (None, QualityMode.BEST, "claude-opus-5"),
+        ("claude-custom", QualityMode.FAST, "claude-custom"),
+        ("claude-custom", None, "claude-custom"),
+    ],
+)
+def test_model_selection_precedence(anthropic_model, quality_mode, expected):
+    """An explicit model wins, then the quality mode, then the default."""
+    generator = CodeDocumentationGenerator(
+        anthropic_api_key="test-anthropic",
+        openai_api_key="test-openai",
+        anthropic_model=anthropic_model,
+        quality_mode=quality_mode,
+    )
+
+    assert generator.model_name == expected
+    assert generator.llm.model == expected
+
+
+def test_provider_mode_reports_provider_model():
+    """With a provider instance, the model name comes from the provider."""
+    llm_provider = MagicMock()
+    llm_provider.model_name = "provider-model"
+
+    generator = CodeDocumentationGenerator(
+        llm_provider=llm_provider,
+        embedding_provider=MagicMock(),
+        quality_mode=QualityMode.FAST,
+    )
+
+    assert generator.model_name == "provider-model"

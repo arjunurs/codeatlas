@@ -12,16 +12,23 @@ from pathlib import Path
 class QualityMode(Enum):
     """Quality mode presets for documentation generation.
 
-    These presets balance cost and quality:
-    - FAST: Lowest cost, fastest generation (Haiku for everything)
-    - BALANCED: Good balance of cost and quality (Haiku for sections, Sonnet
-      for complex tasks)
-    - BEST: Highest quality, highest cost (Sonnet for everything)
+    Each preset selects the Anthropic model used for every section:
+    - FAST: Lowest cost, fastest generation (Claude Haiku)
+    - BALANCED: Default; good quality at moderate cost (Claude Sonnet)
+    - BEST: Highest quality, highest cost (Claude Opus)
     """
 
     FAST = "fast"
     BALANCED = "balanced"
     BEST = "best"
+
+
+# Model selected by each quality mode preset
+QUALITY_MODE_MODELS: dict[QualityMode, str] = {
+    QualityMode.FAST: "claude-haiku-4-5",
+    QualityMode.BALANCED: "claude-sonnet-5",
+    QualityMode.BEST: "claude-opus-5",
+}
 
 
 @dataclass
@@ -62,7 +69,7 @@ class GeneratorConfig:
     # None = use the model's default sampling. Claude Sonnet 5+ rejects
     # non-default temperature values, so only set this for older models.
     DEFAULT_TEMPERATURE: float | None = None
-    DEFAULT_ANTHROPIC_MODEL: str = "claude-sonnet-5"
+    DEFAULT_ANTHROPIC_MODEL: str = QUALITY_MODE_MODELS[QualityMode.BALANCED]
     DEFAULT_OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
 
     # Diagram settings
@@ -130,25 +137,16 @@ class GeneratorConfig:
 DEFAULT_CONFIG = GeneratorConfig()
 
 
-def get_model_for_quality_mode(quality_mode: QualityMode, task: str = "general") -> str:
-    """Get recommended model for quality mode and task.
+def get_model_for_quality_mode(quality_mode: QualityMode) -> str:
+    """Get the Anthropic model selected by a quality mode preset.
 
     Args:
         quality_mode: Quality mode preset
-        task: Task type ('general', 'simple', 'complex')
 
     Returns:
         Model name
     """
-    haiku = "claude-haiku-4-5"
-    sonnet = "claude-sonnet-5"
-
-    if quality_mode == QualityMode.FAST:
-        return haiku
-    if quality_mode == QualityMode.BEST:
-        return sonnet
-    # BALANCED: use Sonnet for complex tasks, Haiku otherwise
-    return sonnet if task == "complex" else haiku
+    return QUALITY_MODE_MODELS[quality_mode]
 
 
 def create_config(

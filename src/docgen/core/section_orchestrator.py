@@ -15,7 +15,7 @@ from typing import Any
 from langchain_core.runnables import Runnable
 
 from ..cache.content_cache import SectionContentCache
-from ..config import GeneratorConfig, QualityMode, get_model_for_quality_mode
+from ..config import GeneratorConfig
 from ..exceptions.errors import LLMError
 from ..models.file_analysis import FileAnalysis
 from ..prompts.sections import get_section_prompt, select_sections
@@ -35,7 +35,7 @@ class SectionOrchestrator:
         self,
         config: GeneratorConfig,
         *,
-        quality_mode: QualityMode = QualityMode.BALANCED,
+        model_name: str,
         parallel: bool = True,
         cost_tracker: CostTracker | None = None,
         section_cache: SectionContentCache | None = None,
@@ -48,7 +48,7 @@ class SectionOrchestrator:
         convert_markdown_to_html: Callable[[str], str] | None = None,
     ) -> None:
         self.config = config
-        self.quality_mode = quality_mode
+        self.model_name = model_name
         self.parallel = parallel
         self.cost_tracker = cost_tracker
         self.section_cache = section_cache
@@ -184,11 +184,8 @@ class SectionOrchestrator:
             )
             if cached_content is not None:
                 if self.cost_tracker:
-                    model_name = get_model_for_quality_mode(
-                        self.quality_mode, "general"
-                    )
                     self.cost_tracker.record_llm_usage(
-                        model=model_name,
+                        model=self.model_name,
                         input_tokens=0,
                         output_tokens=0,
                         cached=True,

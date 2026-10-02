@@ -83,6 +83,12 @@ class TestParseArgs:
         args = parse_args(["--source", "./src", "--temperature", "0.5"])
         assert args.temperature == 0.5
 
+    def test_anthropic_model_defaults_to_none(self):
+        """Without --anthropic-model, the quality mode picks the model."""
+        args = parse_args(["--source", "./src", "--quality-mode", "fast"])
+        assert args.anthropic_model is None
+        assert args.quality_mode == "fast"
+
     def test_anthropic_model_argument(self):
         """Test --anthropic-model argument."""
         args = parse_args(["--source", "./src", "--anthropic-model", "claude-3-opus"])

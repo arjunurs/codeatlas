@@ -22,6 +22,7 @@ from ..config import (
     GenerationOptions,
     GeneratorConfig,
     QualityMode,
+    get_model_for_quality_mode,
 )
 from ..exceptions.errors import (
     ApiKeyError,
@@ -134,7 +135,7 @@ class CodeDocumentationGenerator:
             anthropic_api_key: API key for Anthropic's Claude (legacy mode)
             openai_api_key: API key for OpenAI embeddings (legacy mode)
             temperature: Temperature for LLM generation (0.0 to 1.0)
-            anthropic_model: Anthropic model name to use
+            anthropic_model: Anthropic model name to use (overrides quality_mode)
             openai_embedding_model: OpenAI embedding model to use
             config: Custom configuration settings
             llm_provider: LLM provider instance (provider mode)
@@ -149,7 +150,8 @@ class CodeDocumentationGenerator:
             cache_enabled: Enable vector store and content caching
             cache_dir: Cache directory path (Path object or None)
             force_refresh: Force cache refresh (ignore existing cache)
-            quality_mode: Quality mode preset (fast/balanced/best)
+            quality_mode: Quality mode preset (fast/balanced/best) that selects
+                the Anthropic model when anthropic_model is not given
             parallel_sections: Enable parallel section generation
             enable_cost_tracking: Enable API cost tracking
             diagrams_only: Generate only diagrams without LLM section generation (no API costs)
@@ -187,7 +189,13 @@ class CodeDocumentationGenerator:
         final_temperature = (
             temperature if temperature is not None else self.config.DEFAULT_TEMPERATURE
         )
-        final_anthropic_model = anthropic_model or self.config.DEFAULT_ANTHROPIC_MODEL
+        # Model precedence: explicit model, then quality mode, then config default
+        if anthropic_model:
+            final_anthropic_model = anthropic_model
+        elif quality_mode is not None:
+            final_anthropic_model = get_model_for_quality_mode(quality_mode)
+        else:
+            final_anthropic_model = self.config.DEFAULT_ANTHROPIC_MODEL
         final_openai_model = (
             openai_embedding_model or self.config.DEFAULT_OPENAI_EMBEDDING_MODEL
         )
@@ -199,6 +207,10 @@ class CodeDocumentationGenerator:
         select_sections(sections)
 
         self.temperature = final_temperature
+
+        # Name of the model that generates sections (from the provider in
+        # provider mode)
+        self.model_name = final_anthropic_model
 
         # Initialize providers
         self._llm_provider: LLMProvider | None = None
@@ -217,6 +229,7 @@ class CodeDocumentationGenerator:
                 )
             self._llm_provider = llm_provider
             self._embedding_provider = embedding_provider
+            self.model_name = llm_provider.model_name
             self.llm = llm_provider.get_langchain_llm()
             self.embeddings = embedding_provider.get_langchain_embeddings()
 
@@ -656,7 +669,7 @@ class CodeDocumentationGenerator:
         """Generate all documentation sections (delegates to SectionOrchestrator)."""
         orchestrator = SectionOrchestrator(
             config=self.config,
-            quality_mode=self.quality_mode,
+            model_name=self.model_name,
             parallel=self.parallel_sections,
             cost_tracker=self.cost_tracker,
             section_cache=self._section_cache,
@@ -673,7 +686,7 @@ class CodeDocumentationGenerator:
         """Generate a section with caching support (delegates to SectionOrchestrator)."""
         orchestrator = SectionOrchestrator(
             config=self.config,
-            quality_mode=self.quality_mode,
+            model_name=self.model_name,
             parallel=self.parallel_sections,
             cost_tracker=self.cost_tracker,
             section_cache=self._section_cache,
@@ -690,7 +703,7 @@ class CodeDocumentationGenerator:
         """Generate a section (delegates to SectionOrchestrator)."""
         orchestrator = SectionOrchestrator(
             config=self.config,
-            quality_mode=self.quality_mode,
+            model_name=self.model_name,
             parallel=self.parallel_sections,
             cost_tracker=self.cost_tracker,
             section_cache=self._section_cache,

@@ -11,6 +11,7 @@ from pathlib import Path
 
 from docgen.config import (
     DEFAULT_CONFIG,
+    QUALITY_MODE_MODELS,
     CacheConfig,
     GenerationOptions,
     QualityMode,
@@ -61,9 +62,8 @@ def _add_model_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--anthropic-model",
-        default=DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL,
         metavar="MODEL",
-        help=f"Anthropic model to use (default: {DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL})",
+        help="Anthropic model to use; overrides --quality-mode",
     )
     parser.add_argument(
         "--openai-embedding-model",
@@ -119,9 +119,14 @@ def _add_output_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--quality-mode",
-        choices=["fast", "balanced", "best"],
-        default="balanced",
-        help="Quality mode: fast (cheapest, Haiku), balanced (default), best (highest quality, Sonnet)",
+        choices=[mode.value for mode in QualityMode],
+        default=QualityMode.BALANCED.value,
+        help="Model preset: "
+        + ", ".join(
+            f"{mode.value} ({model}"
+            + (", default)" if mode == QualityMode.BALANCED else ")")
+            for mode, model in QUALITY_MODE_MODELS.items()
+        ),
     )
     parser.add_argument(
         "--no-parallel", action="store_true", help="Disable parallel section generation"

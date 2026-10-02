@@ -107,7 +107,7 @@ API Keys:
 Model Options:
   --temperature TEMP    LLM temperature 0.0-1.0 (default: model default;
                         not supported by Claude Sonnet 5 and newer)
-  --anthropic-model     Anthropic model (default: claude-sonnet-5)
+  --anthropic-model     Anthropic model; overrides --quality-mode
   --openai-embedding-model  Embedding model (default: text-embedding-3-small)
 
 Output Options:
@@ -128,7 +128,8 @@ Generation Options:
 
 Performance and Cache Options:
   --quality-mode {fast,balanced,best}
-                        fast (cheapest, Haiku), balanced (default), best (Sonnet)
+                        Model preset: fast (claude-haiku-4-5), balanced
+                        (claude-sonnet-5, default), best (claude-opus-5)
   --no-parallel         Disable parallel section generation
   --no-cost-tracking    Disable API cost tracking and summary
   --cache-dir PATH      Cache directory (default: .docgen_cache)
