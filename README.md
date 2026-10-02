@@ -1,6 +1,8 @@
-# Code Documentation Generator
+# codeatlas
 
-A powerful tool for automatically generating comprehensive documentation for Python codebases using Large Language Models (LLMs). It analyzes code structure, relationships, and patterns to create rich, interactive documentation with architectural diagrams.
+codeatlas maps a Python codebase and generates browsable documentation for it. It parses the AST to extract classes, functions, imports, and call relationships, renders architecture, class, sequence, call graph, and dependency diagrams, and uses an LLM with retrieval over the code to write the narrative sections.
+
+The command is installed as `codeatlas`. The Python package is still named `docgen`, and `docgen` remains available as a command alias.
 
 ## Features
 
@@ -23,21 +25,21 @@ A powerful tool for automatically generating comprehensive documentation for Pyt
 Using [uv](https://docs.astral.sh/uv/) (recommended):
 
 ```bash
-git clone https://github.com/arjunurs/CodeDocumentationGenerator.git
-cd CodeDocumentationGenerator
+git clone https://github.com/arjunurs/codeatlas.git
+cd codeatlas
 uv sync
 ```
 
 Or install with pip:
 
 ```bash
-pip install git+https://github.com/arjunurs/CodeDocumentationGenerator.git
+pip install git+https://github.com/arjunurs/codeatlas.git
 ```
 
 ## Requirements
 
 - Python 3.10 or higher
-- Anthropic API key (for Claude Sonnet 4)
+- Anthropic API key (default model: `claude-sonnet-5`)
 - OpenAI API key (for embeddings)
 
 ## Usage
@@ -58,16 +60,16 @@ echo "OPENAI_API_KEY=your-key-here" >> .env
 
 ```bash
 # Basic usage (API keys from environment)
-docgen --source ./my_project
+codeatlas --source ./my_project
 
 # Specify output directory
-docgen --source ./my_project -o ./my-docs
+codeatlas --source ./my_project -o ./my-docs
 
 # With .env file for API keys
-docgen --source ./my_project --api-key-env ./.env
+codeatlas --source ./my_project --api-key-env ./.env
 
 # With verbose logging
-docgen --source ./my_project -v
+codeatlas --source ./my_project -v
 ```
 
 ### 3. View the generated documentation
@@ -77,12 +79,18 @@ Open `output/index.html` in your browser (or your specified output directory).
 ## CLI Options
 
 ```
-usage: docgen [-h] [--version] --source SOURCE [-o OUTPUT]
-              [--api-key-env PATH] [--temperature TEMP]
-              [--anthropic-model MODEL] [--openai-embedding-model MODEL]
-              [-v] [-q] [--exclude PATTERN] [--no-diagrams]
-              [--sections LIST] [--diagrams LIST] [--template-dir PATH]
-              [--dry-run] [--max-files N]
+usage: codeatlas [-h] [--version] --source SOURCE [--output OUTPUT]
+                 [--api-key-env PATH] [--temperature TEMP]
+                 [--anthropic-model MODEL] [--openai-embedding-model MODEL]
+                 [--verbose] [--quiet] [--exclude PATTERN] [--no-diagrams]
+                 [--diagrams-only] [--sections LIST] [--diagrams LIST]
+                 [--template-dir PATH] [--dry-run] [--max-files N]
+                 [--quality-mode {fast,balanced,best}] [--no-parallel]
+                 [--no-cost-tracking] [--cache-dir PATH] [--no-cache]
+                 [--force-refresh] [--clear-cache] [--cache-stats]
+                 [--retriever-k N] [--retriever-search-type {similarity,mmr}]
+                 [--retriever-score-threshold FLOAT] [--retriever-fetch-k N]
+                 [--retriever-lambda-mult FLOAT]
 
 Generate comprehensive documentation for Python codebases
 
@@ -97,8 +105,9 @@ API Keys:
                         (Or set ANTHROPIC_API_KEY and OPENAI_API_KEY env vars)
 
 Model Options:
-  --temperature TEMP    LLM temperature 0.0-1.0 (default: 0.2)
-  --anthropic-model     Anthropic model (default: claude-sonnet-4-20250514)
+  --temperature TEMP    LLM temperature 0.0-1.0 (default: model default;
+                        not supported by Claude Sonnet 5 and newer)
+  --anthropic-model     Anthropic model (default: claude-sonnet-5)
   --openai-embedding-model  Embedding model (default: text-embedding-3-small)
 
 Output Options:
@@ -117,6 +126,17 @@ Generation Options:
   --dry-run             Analyze without LLM calls
   --max-files N         Limit files to analyze
 
+Performance and Cache Options:
+  --quality-mode {fast,balanced,best}
+                        fast (cheapest, Haiku), balanced (default), best (Sonnet)
+  --no-parallel         Disable parallel section generation
+  --no-cost-tracking    Disable API cost tracking and summary
+  --cache-dir PATH      Cache directory (default: .docgen_cache)
+  --no-cache            Disable caching (regenerate everything)
+  --force-refresh       Ignore cache and regenerate all content
+  --clear-cache         Clear cache and exit
+  --cache-stats         Show cache statistics and exit
+
 RAG Retrieval Options:
   --retriever-k N       Number of documents to retrieve (default: 10)
   --retriever-search-type {similarity,mmr}
@@ -134,63 +154,63 @@ RAG Retrieval Options:
 
 ```bash
 # Exclude test files
-docgen --source ./src --exclude "*_test.py" --exclude "test_*.py"
+codeatlas --source ./src --exclude "*_test.py" --exclude "test_*.py"
 
 # Exclude multiple patterns
-docgen --source ./src --exclude "__pycache__" --exclude "*.pyc" --exclude "migrations/*"
+codeatlas --source ./src --exclude "__pycache__" --exclude "*.pyc" --exclude "migrations/*"
 ```
 
 ### Generate specific sections or diagrams
 
 ```bash
 # Only generate overview and dependencies sections
-docgen --source ./src --sections overview,dependencies
+codeatlas --source ./src --sections overview,dependencies
 
 # Generate with optional sections
-docgen --source ./src --sections "overview,dependencies,migration_guidance"
+codeatlas --source ./src --sections "overview,dependencies,migration_guidance"
 
 # Generate code quality analysis
-docgen --source ./src --sections "overview,code_quality,cross_reference"
+codeatlas --source ./src --sections "overview,code_quality,cross_reference"
 
 # Only generate architecture and class diagrams
-docgen --source ./src --diagrams architecture,class
+codeatlas --source ./src --diagrams architecture,class
 
 # Skip diagram generation entirely (faster)
-docgen --source ./src --no-diagrams
+codeatlas --source ./src --no-diagrams
 ```
 
 ### Preview mode (no API costs)
 
 ```bash
 # Dry-run mode: analyze code without making LLM calls
-docgen --source ./src --dry-run
+codeatlas --source ./src --dry-run
 
 # Diagrams-only mode: generate only diagrams (no API costs, no LLM calls)
 # Perfect for visualizing code structure without text documentation
-docgen --source ./src --diagrams-only
+codeatlas --source ./src --diagrams-only
 
 # Combine with --diagrams to select specific diagram types
-docgen --source ./src --diagrams-only --diagrams architecture,class
+codeatlas --source ./src --diagrams-only --diagrams architecture,class
 ```
 
 ### Limit analysis scope
 
 ```bash
 # Analyze only the first 50 files (useful for large codebases)
-docgen --source ./src --max-files 50
+codeatlas --source ./src --max-files 50
 ```
 
 ### Configure RAG retrieval
 
 ```bash
 # Use MMR (Maximal Marginal Relevance) for diverse context
-docgen --source ./src --retriever-search-type mmr --retriever-k 15
+codeatlas --source ./src --retriever-search-type mmr --retriever-k 15
 
 # Fine-tune MMR diversity (0=max diversity, 1=max relevance)
-docgen --source ./src --retriever-search-type mmr --retriever-lambda-mult 0.7
+codeatlas --source ./src --retriever-search-type mmr --retriever-lambda-mult 0.7
 
 # Set minimum similarity threshold
-docgen --source ./src --retriever-score-threshold 0.75
+codeatlas --source ./src --retriever-score-threshold 0.75
 ```
 
 ## Documentation Features
@@ -227,6 +247,7 @@ The generated documentation includes:
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute to the project
 - **[Pre-Commit Hooks Setup](docs/development/pre-commit.md)** - Detailed pre-commit configuration
 - **[Implementation Notes](docs/development/implementation.md)** - Implementation details and decisions
+- **[Architecture Overview](docs/architecture/architecture-docs.html)** - Architecture notes and an interactive diagram playground
 
 ### Features & Design
 
@@ -239,8 +260,8 @@ The generated documentation includes:
 
 ```bash
 # Clone and setup
-git clone https://github.com/arjunurs/CodeDocumentationGenerator.git
-cd CodeDocumentationGenerator
+git clone https://github.com/arjunurs/codeatlas.git
+cd codeatlas
 uv sync
 
 # Install pre-commit hooks
@@ -269,4 +290,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

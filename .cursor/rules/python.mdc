@@ -1,5 +1,5 @@
 ---
-description: Cursor rules for CodeDoumentationGenerator
+description: Cursor rules for codeatlas
 globs: src/docgen/**/*.py, tests/**/*.py, *.py
 alwaysApply: false
 ---

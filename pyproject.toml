@@ -1,12 +1,12 @@
 [project]
-name = "code-documentation-generator"
+name = "codeatlas"
 version = "0.1.0"
 description = "Generate comprehensive documentation for Python codebases using LLMs"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
 authors = [
-    { name = "Your Name", email = "your.email@example.com" }
+    { name = "Arjun Urs" }
 ]
 keywords = ["documentation", "code analysis", "llm", "ai", "documentation generator"]
 classifiers = [
@@ -55,11 +55,12 @@ dev = [
 ]
 
 [project.scripts]
+codeatlas = "docgen.cli:main"
 docgen = "docgen.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/CodeDocumentationGenerator"
-Repository = "https://github.com/yourusername/CodeDocumentationGenerator"
+Homepage = "https://github.com/arjunurs/codeatlas"
+Repository = "https://github.com/arjunurs/codeatlas"
 
 [build-system]
 requires = ["hatchling"]

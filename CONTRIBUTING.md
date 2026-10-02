@@ -1,4 +1,4 @@
-# Contributing to Code Documentation Generator
+# Contributing to codeatlas
 
 Thank you for your interest in contributing! This guide will help you get started.
 
@@ -14,8 +14,8 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/CodeDocumentationGenerator.git
-   cd CodeDocumentationGenerator
+   git clone https://github.com/arjunurs/codeatlas.git
+   cd codeatlas
    ```
 
 2. **Install dependencies**
@@ -206,7 +206,7 @@ Brief description of changes
 ## Project Structure
 
 ```
-CodeDocumentationGenerator/
+codeatlas/
 ├── src/docgen/              # Main package
 │   ├── core/                # Core functionality
 │   │   ├── analyzer.py      # Code analysis
@@ -272,7 +272,7 @@ CodeDocumentationGenerator/
 
 ## Getting Help
 
-- **Issues**: Check [GitHub Issues](https://github.com/yourusername/CodeDocumentationGenerator/issues)
+- **Issues**: Check [GitHub Issues](https://github.com/arjunurs/codeatlas/issues)
 - **Discussions**: Start a discussion for questions
 - **Documentation**: See [docs/](docs/) for detailed guides
 
