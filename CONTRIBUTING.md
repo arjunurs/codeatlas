@@ -111,6 +111,7 @@ Guidelines:
 
 | File | Update when |
 |---|---|
+| `CHANGELOG.md` | Anything a user would notice: add a line under Unreleased |
 | `README.md` | Installation, CLI usage, or user-visible features change |
 | `docs/architecture.md` | The pipeline, caching, providers, or failure behavior change |
 | `docs/design/` | Proposing a significant design change |
