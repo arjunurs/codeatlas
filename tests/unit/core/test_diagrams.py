@@ -264,3 +264,50 @@ def test_unknown_diagram_raises_with_available_names():
     message = str(excinfo.value)
     assert "Unknown diagram(s): clas." in message
     assert "callgraph" in message
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("AbstractAsyncContextManager[_T]", "AbstractAsyncContextManager"),
+        ("Getter[Headers]", "Getter"),
+        ("Sequence[Tuple[bytes, bytes]]", "Sequence"),
+        ("typing.NamedTuple('Url', [('scheme', str)])", "typing_NamedTuple"),
+        ("my pkg:mod", "my_pkg_mod"),
+    ],
+)
+def test_clean_name_produces_identifier(name, expected):
+    """Generic arguments and call arguments are dropped from node IDs."""
+    assert DiagramGenerator._clean_name(name) == expected
+
+
+def test_class_diagram_handles_generic_base_classes(diagram_generator):
+    """Generic base classes do not leak brackets into the class diagram."""
+    analyses = [
+        FileAnalysis(
+            file_path="/path/to/context.py",
+            entities=[
+                CodeEntity(
+                    name="AsyncLiftContextManager",
+                    docstring=None,
+                    type="class",
+                    parent_class="AbstractAsyncContextManager[_T]",
+                ),
+                CodeEntity(
+                    name="HeadersGetter",
+                    docstring=None,
+                    type="class",
+                    parent_class="Getter[Headers]",
+                ),
+            ],
+            imports=[],
+            content="",
+            _skip_validation=True,
+        )
+    ]
+
+    diagram = diagram_generator.generate_class_diagram(analyses)
+
+    assert "AsyncLiftContextManager --|> AbstractAsyncContextManager" in diagram
+    assert "HeadersGetter --|> Getter" in diagram
+    assert "[" not in diagram

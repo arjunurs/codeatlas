@@ -299,7 +299,7 @@ uv run pytest tests/integration/ -v # Integration tests (slower)
 ```
 
 **Verify:**
-- ✅ All 388 unit tests pass
+- ✅ All 394 unit tests pass
 - ✅ All 35 integration tests pass
 - ✅ Code coverage remains at 75%+
 

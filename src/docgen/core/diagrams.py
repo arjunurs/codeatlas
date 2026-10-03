@@ -158,10 +158,11 @@ class DiagramGenerator:
         Returns:
             Cleaned name safe for use as a Mermaid node ID
         """
-        # Replace special characters with underscores
-        clean = (
-            name.replace("-", "_").replace(".", "_").replace("/", "_").replace("@", "")
-        )
+        # Drop generic or call arguments, as in base classes like
+        # "Getter[Headers]" or "NamedTuple('Url', [...])"
+        clean = re.split(r"[\[(]", name, maxsplit=1)[0]
+        # Replace any other character that is not valid in an identifier
+        clean = re.sub(r"\W", "_", clean)
         # Collapse multiple consecutive underscores into single underscore
         # (e.g., "version___version" -> "version_version")
         clean = re.sub(r"_+", "_", clean)
