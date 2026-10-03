@@ -7,12 +7,13 @@ for code documentation.
 import logging
 import re
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 
 from ..exceptions.errors import DiagramGenerationError, DiagramValidationError
 from ..models.code_entity import EntityType
 from ..models.diagram_validation import DiagramType, ValidationConfig
 from ..models.file_analysis import FileAnalysis
+from .modules import longest_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -178,29 +179,6 @@ class DiagramGenerator:
         if not clean:
             clean = "node"
         return clean
-
-    def _add_node_with_limit(
-        self, diagram: list[str], name: str, nodes_seen: set[str], nodes_added: int
-    ) -> bool:
-        """Add a node to the diagram if it hasn't been seen and we're under the limit.
-
-        Args:
-            diagram: List of diagram lines
-            name: Node name
-            nodes_seen: Set of seen node names
-            nodes_added: Number of nodes added so far
-
-        Returns:
-            True if node was added, False otherwise
-        """
-        clean_name = self._clean_name(name)
-        if clean_name in nodes_seen or nodes_added >= self.max_nodes:
-            return False
-
-        display_name = name.replace('"', "'")
-        diagram.append(f'    {clean_name}["{display_name}"]')
-        nodes_seen.add(clean_name)
-        return True
 
     def _append_truncation_note(
         self,
@@ -397,7 +375,9 @@ class DiagramGenerator:
         diagram.extend(self._node_line(name) for name in sorted(internal & shown))
         third_party = sorted(external & shown)
         if third_party:
-            diagram.append('    subgraph third_party["Third-party packages"]')
+            diagram.append(
+                f'    subgraph {self._group_id("third_party")}["Third-party packages"]'
+            )
             diagram.extend(f"    {self._node_line(name)}" for name in third_party)
             diagram.append("    end")
         diagram.extend(
@@ -424,16 +404,29 @@ class DiagramGenerator:
         ranked = sorted(nodes, key=lambda node: (-links[node], node))
         return set(ranked[: self.max_nodes])
 
+    def _group_id(self, name: str) -> str:
+        """A subgraph ID for a group. Node IDs never contain "__", so it is unique."""
+        return f"{self._clean_name(name)}__group"
+
     def _node_line(self, name: str, label: str | None = None) -> str:
         """A node definition, labeled with the name unless a label is given."""
         text = (name if label is None else label).replace('"', "'")
         return f'    {self._clean_name(name)}["{text}"]'
 
-    def generate_call_graph_diagram(self, call_graph: dict[str, set[str]]) -> str:
-        """Generate a call graph diagram showing function calls.
+    def generate_call_graph_diagram(
+        self, call_graph: dict[str, set[str]], modules: Collection[str] = ()
+    ) -> str:
+        """Generate a call graph of the calls between the project's functions.
+
+        Only calls the analyzer traced to the analyzed code are drawn. Those
+        callees have qualified names; a call to a built-in or a library keeps
+        its bare name and is left out, as is a function with no drawn calls.
+        Functions are grouped by module and named within it. When there are
+        more than max_nodes, the most connected are kept.
 
         Args:
-            call_graph: Dictionary mapping functions to their called functions
+            call_graph: Each function, mapped to the calls it makes
+            modules: Module names to group the functions by
 
         Returns:
             Mermaid graph diagram markup
@@ -441,32 +434,42 @@ class DiagramGenerator:
         Raises:
             DiagramGenerationError: If the diagram fails validation
         """
-        if not call_graph:
-            return 'graph TD\n    note["No function calls found"]'
+        edges = {
+            (caller, callee)
+            for caller, callees in call_graph.items()
+            for callee in callees
+            if "." in callee
+        }
+        if not edges:
+            return 'graph TD\n    note["No calls found between project functions"]'
+
+        functions = {name for edge in edges for name in edge}
+        shown = self._most_connected(functions, edges)
+
+        module_names = set(modules)
+        groups: dict[str, list[str]] = defaultdict(list)
+        for function in sorted(shown):
+            module = longest_prefix(function, module_names.__contains__)
+            groups[module or ""].append(function)
 
         diagram = ["graph TD"]
-        nodes_seen = set()
-        nodes_added = 0
-
-        for caller, callees in call_graph.items():
-            if nodes_added >= self.max_nodes:
-                break
-
-            clean_caller = self._clean_name(caller)
-            if self._add_node_with_limit(diagram, caller, nodes_seen, nodes_added):
-                nodes_added += 1
-
-            for callee in callees:
-                if nodes_added >= self.max_nodes:
-                    break
-
-                clean_callee = self._clean_name(callee)
-                if self._add_node_with_limit(diagram, callee, nodes_seen, nodes_added):
-                    nodes_added += 1
-
-                diagram.append(f"    {clean_caller} --> {clean_callee}")
-
-        self._append_truncation_note(diagram, nodes_added)
+        for module in sorted(groups):
+            members = groups[module]
+            if not module:
+                diagram.extend(self._node_line(function) for function in members)
+                continue
+            diagram.append(f'    subgraph {self._group_id(module)}["{module}"]')
+            for function in members:
+                label = function[len(module) + 1 :]
+                diagram.append(f"    {self._node_line(function, label)}")
+            diagram.append("    end")
+        diagram.extend(
+            f"    {self._clean_name(caller)} --> {self._clean_name(callee)}"
+            for caller, callee in sorted(edges)
+            if caller in shown and callee in shown
+        )
+        if len(shown) < len(functions):
+            self._append_truncation_note(diagram, len(shown))
 
         diagram_content = "\n".join(diagram)
 
@@ -522,8 +525,7 @@ class DiagramGenerator:
             if not package:
                 diagram.extend(self._node_line(module) for module in members)
                 continue
-            package_id = self._clean_name(package) + "_package"
-            diagram.append(f'    subgraph {package_id}["{package}"]')
+            diagram.append(f'    subgraph {self._group_id(package)}["{package}"]')
             for module in members:
                 label = module[len(package) + 1 :] if module != package else "__init__"
                 diagram.append(f"    {self._node_line(module, label)}")

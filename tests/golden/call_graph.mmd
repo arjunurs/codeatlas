@@ -1,0 +1,24 @@
+graph TD
+    subgraph shop_catalog__group["shop.catalog"]
+        shop_catalog_Catalog_load["Catalog.load"]
+        shop_catalog_Catalog_parse["Catalog.parse"]
+        shop_catalog_Item["Item"]
+    end
+    subgraph shop_cli__group["shop.cli"]
+        shop_cli_main["main"]
+    end
+    subgraph shop_orders__group["shop.orders"]
+        shop_orders_Order["Order"]
+        shop_orders_place_order["place_order"]
+    end
+    subgraph shop_payments_gateway__group["shop.payments.gateway"]
+        shop_payments_gateway_charge["charge"]
+        shop_payments_gateway_refund["refund"]
+    end
+    shop_catalog_Catalog_load --> shop_catalog_Catalog_parse
+    shop_catalog_Catalog_parse --> shop_catalog_Item
+    shop_cli_main --> shop_catalog_Catalog_load
+    shop_cli_main --> shop_orders_place_order
+    shop_orders_place_order --> shop_orders_Order
+    shop_orders_place_order --> shop_payments_gateway_charge
+    shop_payments_gateway_refund --> shop_payments_gateway_charge

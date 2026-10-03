@@ -131,8 +131,8 @@ class TestDiagramValidationIntegration:
         generator = DiagramGenerator(validate_diagrams=True)
 
         call_graph = {
-            "func1": {"func2", "func3"},
-            "func2": {"func4"},
+            "app.func1": {"app.func2", "app.func3"},
+            "app.func2": {"app.func4"},
         }
 
         # Should not raise

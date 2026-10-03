@@ -1,11 +1,11 @@
 graph TD
-    subgraph shop_package["shop"]
+    subgraph shop__group["shop"]
         shop["__init__"]
         shop_catalog["catalog"]
         shop_cli["cli"]
         shop_orders["orders"]
     end
-    subgraph shop_payments_package["shop.payments"]
+    subgraph shop_payments__group["shop.payments"]
         shop_payments["__init__"]
         shop_payments_gateway["gateway"]
     end

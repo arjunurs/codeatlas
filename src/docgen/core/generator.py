@@ -33,6 +33,7 @@ from ..utils.usage_tracking import UsageTrackingEmbeddings
 from .analyzer import CodeAnalyzer
 from .cross_reference import cross_reference_preprocessor
 from .diagrams import DiagramGenerator, select_diagrams
+from .modules import module_name
 from .rag_pipeline import RAGPipelineFactory
 from .renderer import DocumentationRenderer
 from .section_orchestrator import SectionOrchestrator
@@ -349,7 +350,10 @@ class CodeDocumentationGenerator:
             ),
             "callgraph": (
                 "function_calls",
-                lambda: build.generate_call_graph_diagram(function_calls()),
+                lambda: build.generate_call_graph_diagram(
+                    function_calls(),
+                    modules=[module_name(a.file_path, source_dir) for a in analyses],
+                ),
             ),
             "dependency": (
                 "package_dependencies",

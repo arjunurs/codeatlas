@@ -113,10 +113,10 @@ class ModuleIndex:
             absolute = import_base(
                 importer, importer_is_package, imported[level:] or None, level
             )
-            module = absolute and _longest_prefix(absolute, self._modules.__contains__)
+            module = absolute and longest_prefix(absolute, self._modules.__contains__)
             return PlacedImport(ImportKind.INTERNAL, module) if module else None
 
-        module = _longest_prefix(imported, self._modules.__contains__)
+        module = longest_prefix(imported, self._modules.__contains__)
         if module:
             return PlacedImport(ImportKind.INTERNAL, module)
         top_level = imported.split(".")[0]
@@ -124,13 +124,13 @@ class ModuleIndex:
         # own utils/logging.py does not take over "import logging"
         if top_level in STDLIB_MODULES:
             return PlacedImport(ImportKind.STDLIB, top_level)
-        suffix = _longest_prefix(imported, self._by_suffix.__contains__)
+        suffix = longest_prefix(imported, self._by_suffix.__contains__)
         if suffix:
             return PlacedImport(ImportKind.INTERNAL, self._by_suffix[suffix])
         return PlacedImport(ImportKind.THIRD_PARTY, top_level)
 
 
-def _longest_prefix(name: str, matches: Callable[[str], bool]) -> str | None:
+def longest_prefix(name: str, matches: Callable[[str], bool]) -> str | None:
     """The longest dotted prefix of a name that matches, if any."""
     parts = name.split(".")
     for end in range(len(parts), 0, -1):

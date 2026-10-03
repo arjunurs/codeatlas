@@ -90,12 +90,12 @@ def test_architecture_diagram_groups_modules_by_package(diagram_generator):
         [
             "graph TD",
             '    main["main"]',
-            '    subgraph shop_package["shop"]',
+            '    subgraph shop__group["shop"]',
             '        shop["__init__"]',
             '        shop_cli["cli"]',
             '        shop_orders["orders"]',
             "    end",
-            '    subgraph shop_payments_package["shop.payments"]',
+            '    subgraph shop_payments__group["shop.payments"]',
             '        shop_payments["__init__"]',
             '        shop_payments_gateway["gateway"]',
             "    end",
@@ -186,31 +186,55 @@ def test_generate_dependency_diagram(diagram_generator):
     assert "package1 --> dep1" in diagram
 
 
-def test_generate_call_graph_diagram(diagram_generator):
-    """Test function call graph diagram generation."""
+def test_call_graph_shows_calls_between_project_functions(diagram_generator):
+    """Calls the analyzer traced are drawn, grouped by module; the rest are left out."""
     call_graph = {
-        "main": {"helper1", "helper2"},
-        "helper1": {"helper3"},
-        "helper2": set(),
-        "helper3": set(),
+        "app.cli.main": {"app.core.run", "print", "app.core.Config"},
+        "app.core.run": {"app.core.Config.load", "len"},
+        "app.core.Config.load": set(),
+        "app.core.unused": {"print"},
     }
 
-    diagram = diagram_generator.generate_call_graph_diagram(call_graph)
+    diagram = diagram_generator.generate_call_graph_diagram(
+        call_graph, modules=["app", "app.cli", "app.core"]
+    )
 
-    # Verify diagram structure
-    assert diagram.startswith("graph TD")
-    assert 'main["main"]' in diagram
-    assert 'helper1["helper1"]' in diagram
-    assert 'helper2["helper2"]' in diagram
-    assert "main --> helper1" in diagram
-    assert "main --> helper2" in diagram
-    assert "helper1 --> helper3" in diagram
+    assert diagram == "\n".join(
+        [
+            "graph TD",
+            '    subgraph app_cli__group["app.cli"]',
+            '        app_cli_main["main"]',
+            "    end",
+            '    subgraph app_core__group["app.core"]',
+            '        app_core_Config["Config"]',
+            '        app_core_Config_load["Config.load"]',
+            '        app_core_run["run"]',
+            "    end",
+            "    app_cli_main --> app_core_Config",
+            "    app_cli_main --> app_core_run",
+            "    app_core_run --> app_core_Config_load",
+        ]
+    )
+
+
+def test_call_graph_without_modules_uses_full_names(diagram_generator):
+    """Without module names to group by, each function keeps its full name."""
+    diagram = diagram_generator.generate_call_graph_diagram({"a.f": {"a.g"}})
+
+    assert diagram == 'graph TD\n    a_f["a.f"]\n    a_g["a.g"]\n    a_f --> a_g'
+
+
+def test_call_graph_without_project_calls_says_so(diagram_generator):
+    """Only calls to built-ins and libraries gives a one-note diagram."""
+    diagram = diagram_generator.generate_call_graph_diagram({"app.main": {"print"}})
+
+    assert diagram == 'graph TD\n    note["No calls found between project functions"]'
 
 
 def test_generate_call_graph_diagram_with_limit(diagram_generator):
     """Test function call graph diagram with node limit."""
     # Create more than MAX_NODES functions
-    call_graph = {f"func{i}": {f"func{i + 1}"} for i in range(100)}
+    call_graph = {f"m.func{i}": {f"m.func{i + 1}"} for i in range(100)}
 
     diagram = diagram_generator.generate_call_graph_diagram(call_graph)
 
@@ -218,7 +242,7 @@ def test_generate_call_graph_diagram_with_limit(diagram_generator):
     assert "Diagram truncated: showing top" in diagram
     # Each function appears once in node definition and once in edge
     node_count = sum(
-        1 for line in diagram.split("\n") if line.strip().startswith("func")
+        1 for line in diagram.split("\n") if line.strip().startswith("m_func")
     )
     assert node_count <= diagram_generator.max_nodes * 2
 
@@ -237,7 +261,7 @@ def test_dependency_diagram_groups_third_party_packages(diagram_generator):
             "graph LR",
             '    shop["shop"]',
             '    shop_payments["shop.payments"]',
-            '    subgraph third_party["Third-party packages"]',
+            '    subgraph third_party__group["Third-party packages"]',
             '        requests["requests"]',
             '        stripe["stripe"]',
             "    end",
@@ -310,7 +334,11 @@ def test_diagram_generation_error_handling(diagram_generator):
             "architecture",
             lambda _: {"app": {"util"}, "util": set()},
         ),
-        ("generate_call_graph_diagram", "callgraph", lambda _: {"main": {"helper"}}),
+        (
+            "generate_call_graph_diagram",
+            "callgraph",
+            lambda _: {"app.main": {"app.helper"}},
+        ),
     ],
 )
 def test_validation_failure_is_reported_once(

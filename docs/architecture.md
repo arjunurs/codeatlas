@@ -164,9 +164,12 @@ exits 0.
   and the Dependencies section never sees `pyproject.toml`, because only `.py` files are
   indexed. The [agent-enhanced design](design/agentic-architecture.md) proposes adaptive
   retrieval and planning to address this.
-- **Diagram noise.** Diagrams are cut off at 50 nodes, and on larger codebases the budget goes to
-  standard-library imports and built-in calls. The sequence diagram lists calls from the call
-  graph rather than following a workflow.
+- **Diagrams.** The architecture, dependency, and call graph diagrams show only the project's
+  own code and its third-party packages, and keep their 50 most connected nodes, so on a large
+  codebase they show its busiest parts rather than all of it. The call graph draws only calls
+  it can trace (to a function, a method through `self`, or an imported name), not calls through
+  other attributes. The sequence diagram lists calls from the call graph rather than following
+  a workflow, and its order can change from run to run.
 - **Scale.** All analyses are held in memory, and analysis is single-threaded: analyzing and
   diagramming 7,819 files took 144 s. `--max-files` and `--exclude` bound a run on very large
   trees.

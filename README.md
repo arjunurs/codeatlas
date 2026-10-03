@@ -33,12 +33,14 @@ Virtualenvs, `.git`, and build and tool directories are skipped automatically.
 - **Class**: classes, their methods, and inheritance
 - **Dependencies**: which of the project's packages import which, and the third-party
   packages they use (the standard library is left out)
-- **Call graph**: which functions call which
+- **Call graph**: calls between the project's own functions, grouped by module (calls to
+  built-ins and libraries are left out)
 - **Sequence**: calls between functions, taken from the call graph (not yet grouped into
   workflows)
 
 Each diagram is checked against 10 validation rules (syntax header, quoting, node IDs, edge
-syntax, and so on) before it is written. Large diagrams are cut off at 50 nodes.
+syntax, and so on) before it is written. The architecture, dependency, and call graph diagrams
+keep their 50 most connected nodes when there are more, and are the same from run to run.
 
 **Sections** (written by Claude, using code retrieved from a vector store)
 
