@@ -352,7 +352,9 @@ class CodeDocumentationGenerator:
             "dependency": (
                 "package_dependencies",
                 lambda: build.generate_dependency_diagram(
-                    self.analyzer.analyze_package_dependencies()
+                    self.analyzer.analyze_package_dependencies(
+                        analyses, root=source_dir
+                    )
                 ),
             ),
         }

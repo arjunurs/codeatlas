@@ -66,8 +66,6 @@ class CodeAnalyzer:
         """
         self.skip_validation = skip_validation
         self.encoding = encoding or DEFAULT_CONFIG.DEFAULT_FILE_ENCODING
-        self._analyzed_directory: str | None = None
-        self._exclude_patterns: list[str] = []
 
     def analyze_file(self, file_path: str) -> FileAnalysis:
         """Analyze a single Python file.
@@ -139,14 +137,10 @@ class CodeAnalyzer:
         if not os.path.isdir(directory):
             raise CodeParseError(f"Not a directory: {directory}")
 
-        # Store the analyzed directory and excludes for use in other methods
-        self._analyzed_directory = os.path.abspath(directory)
-        self._exclude_patterns = exclude_patterns or []
-
         python_files_found = False
         analyses = []
 
-        for file_path in self._iter_python_files(directory, self._exclude_patterns):
+        for file_path in self._iter_python_files(directory, exclude_patterns or []):
             python_files_found = True
             try:
                 analysis = self.analyze_file(file_path)
@@ -222,99 +216,35 @@ class CodeAnalyzer:
         """
         return any(fnmatch.fnmatch(name, pattern) for pattern in patterns)
 
-    def analyze_dependencies(
-        self, requirements_path: str = "requirements.txt"
+    def analyze_package_dependencies(
+        self, analyses: Sequence[FileAnalysis], root: str
     ) -> dict[str, set[str]]:
-        """Analyze package dependencies from requirements.txt.
+        """Map each package to the top-level packages its imports come from.
+
+        A file's package is its directory relative to the source root, dotted;
+        a file at the root is its own package. Only the given analyses count,
+        so excluded files and files past --max-files add nothing.
 
         Args:
-            requirements_path: Path to requirements.txt file
+            analyses: File analysis results
+            root: The source root package names start from
 
         Returns:
-            Dictionary mapping packages to their dependencies
-
-        Raises:
-            FileNotFoundError: If requirements.txt is not found
-            ValueError: If requirements.txt is empty
+            Dictionary mapping package names to the packages they import
         """
-        if not os.path.exists(requirements_path):
-            raise FileNotFoundError(f"Requirements file not found: {requirements_path}")
+        dependencies: dict[str, set[str]] = {}
+        for analysis in analyses:
+            rel_path = os.path.relpath(analysis.file_path, root)
+            package_name = os.path.dirname(rel_path).replace(os.sep, ".")
+            if not package_name:
+                package_name = os.path.splitext(os.path.basename(rel_path))[0]
 
-        with open(requirements_path, encoding="utf-8") as f:
-            content = f.read().strip()
-
-        if not content:
-            raise ValueError("Requirements file is empty")
-
-        dependencies = {}
-        version_separators = [">=", "==", ">", "<", "<=", "~=", "!="]
-
-        for line in content.split("\n"):
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-
-            # Extract package name by finding version separator
-            package = line
-            for sep in version_separators:
-                if sep in line:
-                    package = line.split(sep)[0].strip()
-                    break
-
-            if package:
-                dependencies[package] = set()
-
-        return dependencies
-
-    def analyze_package_dependencies(self) -> dict[str, set[str]]:
-        """Analyze package dependencies between Python modules.
-
-        Returns:
-            Dictionary mapping module names to their dependencies
-        """
-        try:
-            # Try to analyze requirements.txt first
-            dependencies = self.analyze_dependencies()
-        except (FileNotFoundError, ValueError):
-            dependencies = {}
-
-        # Use the analyzed directory if available, otherwise fall back to current working directory
-        search_directory = self._analyzed_directory or os.getcwd()
-
-        # Add package dependencies from imports
-        for file_path in self._iter_python_files(
-            search_directory, self._exclude_patterns
-        ):
-            try:
-                with open(file_path, encoding="utf-8") as f:
-                    content = f.read()
-
-                tree = ast.parse(content)
-                imports = self._extract_imports(tree)
-
-                # Get package name from file path relative to the search directory
-                rel_path = os.path.relpath(file_path, search_directory)
-                package_name = os.path.dirname(rel_path).replace(os.sep, ".")
-                if not package_name:
-                    package_name = os.path.splitext(os.path.basename(file_path))[0]
-
-                # Add dependencies
-                if package_name not in dependencies:
-                    dependencies[package_name] = set()
-
-                for imp in imports:
-                    # Get top-level package name
-                    top_pkg = imp.split(".")[0]
-                    if top_pkg != package_name:
-                        dependencies[package_name].add(top_pkg)
-
-            except (OSError, UnicodeDecodeError) as e:
-                logger.warning(f"Error reading {file_path}: {e}")
-                continue
-            except (SyntaxError, ValueError) as e:
-                logger.warning(f"Error parsing {file_path}: {e}")
-                continue
-
+            imported = dependencies.setdefault(package_name, set())
+            for imp in analysis.imports:
+                top_pkg = imp.split(".")[0]
+                # A relative import such as "from . import x" names no package
+                if top_pkg and top_pkg != package_name:
+                    imported.add(top_pkg)
         return dependencies
 
     def analyze_function_calls(

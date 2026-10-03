@@ -6,7 +6,7 @@ including file parsing, entity extraction, and dependency analysis.
 
 import ast
 import os
-from unittest.mock import mock_open, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -206,45 +206,6 @@ from .utils import helper
         "typing.Optional",
         "utils.helper",
     }
-
-
-def test_analyze_dependencies_success(analyzer):
-    """Test successful dependency analysis."""
-    requirements_content = """
-requests>=2.25.1
-pandas>=1.2.0
-numpy>=1.19.2
-"""
-    with (
-        patch("builtins.open", mock_open(read_data=requirements_content)) as mock_file,
-        patch("os.path.exists") as mock_exists,
-    ):
-        mock_exists.return_value = True
-        dependencies = analyzer.analyze_dependencies("requirements.txt")
-        assert "requests" in dependencies
-        assert "pandas" in dependencies
-        assert "numpy" in dependencies
-        mock_file.assert_called_once_with("requirements.txt", encoding="utf-8")
-
-
-def test_analyze_dependencies_no_requirements(analyzer):
-    """Test dependency analysis with no requirements.txt."""
-    with patch("os.path.exists") as mock_exists:
-        mock_exists.return_value = False
-        with pytest.raises(FileNotFoundError):
-            analyzer.analyze_dependencies()
-
-
-def test_analyze_dependencies_empty_file(analyzer):
-    """Test dependency analysis with empty file."""
-    with (
-        patch("builtins.open", mock_open(read_data="")) as mock_file,
-        patch("os.path.exists") as mock_exists,
-    ):
-        mock_exists.return_value = True
-        with pytest.raises(ValueError, match="Requirements file is empty"):
-            analyzer.analyze_dependencies("requirements.txt")
-        mock_file.assert_called_once_with("requirements.txt", encoding="utf-8")
 
 
 ASYNC_CODE = """async def fetch():
@@ -641,11 +602,56 @@ def test_analyze_directory_skips_virtualenvs_and_tool_dirs(
 
 
 def test_package_dependencies_skip_excluded_dirs(analyzer, project_with_tool_dirs):
-    """The dependency walk skips default and user-excluded directories too."""
-    analyzer.analyze_directory(str(project_with_tool_dirs), exclude_patterns=["app"])
+    """Dependencies skip default and user-excluded directories too."""
+    analyses = analyzer.analyze_directory(
+        str(project_with_tool_dirs), exclude_patterns=["app"]
+    )
 
-    dependencies = analyzer.analyze_package_dependencies()
+    dependencies = analyzer.analyze_package_dependencies(
+        analyses, root=str(project_with_tool_dirs)
+    )
 
     assert "vendored_dep" not in set().union(*dependencies.values())
     assert "app" not in dependencies
     assert dependencies["tool"] == {"os"}
+
+
+def test_package_dependencies_respect_max_files(analyzer, tmp_path):
+    """Only the files that were analyzed count, so --max-files holds."""
+    (tmp_path / "a.py").write_text("import json\n")
+    (tmp_path / "b.py").write_text("import csv\n")
+    analyses = analyzer.analyze_directory(str(tmp_path), max_files=1)
+
+    dependencies = analyzer.analyze_package_dependencies(analyses, root=str(tmp_path))
+
+    assert len(dependencies) == 1
+
+
+def test_package_dependencies_ignore_the_current_directory(
+    analyzer, tmp_path, monkeypatch
+):
+    """A requirements.txt where codeatlas is run from adds nothing."""
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "app.py").write_text("import json\n")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "requirements.txt").write_text("flask==3.0\n")
+    monkeypatch.chdir(elsewhere)
+    analyses = analyzer.analyze_directory(str(project))
+
+    dependencies = analyzer.analyze_package_dependencies(analyses, root=str(project))
+
+    assert dependencies == {"app": {"json"}}
+
+
+def test_relative_import_adds_no_unnamed_dependency(analyzer, tmp_path):
+    """from . import x names no package, so it adds no dependency."""
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "__init__.py").write_text("")
+    (tmp_path / "pkg" / "main.py").write_text("from . import util\nimport json\n")
+    analyses = analyzer.analyze_directory(str(tmp_path))
+
+    dependencies = analyzer.analyze_package_dependencies(analyses, root=str(tmp_path))
+
+    assert dependencies == {"pkg": {"json"}}
