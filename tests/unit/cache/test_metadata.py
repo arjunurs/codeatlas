@@ -6,6 +6,7 @@ from datetime import datetime
 from unittest.mock import patch
 
 from docgen.cache.metadata import CacheMetadata, FileMetadata
+from docgen.models.file_analysis import FileSnapshot
 
 
 def test_file_metadata_from_file(tmp_path):
@@ -126,6 +127,21 @@ def test_cache_metadata_update_file(tmp_path):
 
     assert "test.py" in metadata.file_metadata
     assert metadata.file_metadata["test.py"].size == len("content")
+
+
+def test_cache_metadata_records_a_snapshot(tmp_path):
+    """A file is recorded as it was read, with its read time as the capture time."""
+    metadata = CacheMetadata.create_for_project(tmp_path)
+    read_at = datetime(2026, 10, 3, 12, 0, 0)
+
+    metadata.record_file(
+        "pkg/mod.py",
+        FileSnapshot(content_hash="abc", mtime=1.5, size=7, read_at=read_at),
+    )
+
+    recorded = metadata.file_metadata["pkg/mod.py"]
+    assert (recorded.content_hash, recorded.mtime, recorded.size) == ("abc", 1.5, 7)
+    assert recorded.last_analyzed == read_at
 
 
 def test_cache_metadata_remove_file(tmp_path):

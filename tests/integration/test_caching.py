@@ -9,10 +9,11 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
 from docgen.cache import vector_cache
-from docgen.cache.metadata import CacheMetadata
+from docgen.cache.metadata import CacheMetadata, FileMetadata
 from docgen.cache.vector_cache import persistent_chroma_client
 from docgen.config import CacheConfig, GenerationOptions
 from docgen.core.generator import CodeDocumentationGenerator
+from docgen.models.file_analysis import FileAnalysis
 
 
 @pytest.fixture
@@ -390,6 +391,88 @@ def test_source_reached_through_a_symlink_is_cached(
     )
     assert "def wave" in contents
     assert "Greeter" not in contents
+
+
+def test_edit_saved_while_embedding_is_picked_up_next_run(
+    sample_python_project,
+    cache_dir,
+    tmp_path,
+    mock_llm_provider,
+    mock_embedding_provider,
+):
+    """The cache records the code it embedded, so an edit made meanwhile is seen."""
+    from langchain_core.embeddings import Embeddings
+
+    edited = sample_python_project / "module1.py"
+
+    class EditingEmbeddings(Embeddings):
+        """Embeddings that save an edit to module1.py while they run."""
+
+        def embed_documents(self, texts):
+            edited.write_text('def wave():\n    """Wave."""\n    return "o/"\n')
+            return [[0.1] * 1536 for _ in texts]
+
+        def embed_query(self, text):
+            return [0.1] * 1536
+
+    editing_provider = MagicMock(model_name="text-embedding-3-small")
+    editing_provider.get_langchain_embeddings.return_value = EditingEmbeddings()
+    project_cache_dir = cache_dir / "project"
+    output_dir = tmp_path / "output"
+    _run_cached_generator(
+        sample_python_project,
+        project_cache_dir,
+        output_dir,
+        mock_llm_provider,
+        editing_provider,
+    )
+    # The first run embedded the old module1.py
+    first = "\n".join(
+        _stored_chunks(project_cache_dir, mock_embedding_provider)["documents"]
+    )
+    assert "Greeter" in first
+
+    _run_cached_generator(
+        sample_python_project,
+        project_cache_dir,
+        output_dir,
+        mock_llm_provider,
+        mock_embedding_provider,
+    )
+
+    contents = "\n".join(
+        _stored_chunks(project_cache_dir, mock_embedding_provider)["documents"]
+    )
+    assert "def wave" in contents
+    assert "Greeter" not in contents
+
+
+def test_analysis_without_a_snapshot_is_recorded_from_its_file(
+    tmp_path, mock_embedding_provider
+):
+    """An analysis built in memory, with no snapshot, is recorded from the file."""
+    source = tmp_path / "project"
+    source.mkdir()
+    module = source / "m.py"
+    module.write_text("x = 1\n")
+    analysis = FileAnalysis(
+        file_path=str(module), entities=[], imports=[], content="x = 1\n"
+    )
+    cache = vector_cache.VectorStoreCache(
+        cache_dir=tmp_path / "cache",
+        source_dir=source,
+        embeddings=mock_embedding_provider.get_langchain_embeddings(),
+    )
+
+    cache.get_or_create_vector_store(
+        [analysis],
+        [Document(page_content="x = 1", metadata={"source": str(module)})],
+        [module],
+    )
+
+    assert cache.metadata.file_metadata["m.py"].content_hash == (
+        FileMetadata._compute_file_hash(module)
+    )
 
 
 def test_incremental_update_removes_orphaned_chunks(

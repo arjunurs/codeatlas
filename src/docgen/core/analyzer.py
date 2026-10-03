@@ -8,15 +8,18 @@ from __future__ import annotations
 
 import ast
 import fnmatch
+import hashlib
+import io
 import logging
 import os
 from collections.abc import Iterator, Sequence
+from datetime import datetime
 
 from ..config import DEFAULT_CONFIG
 from ..exceptions.errors import CodeParseError, FileEncodingError
 from ..models.call_graph import CallGraph
 from ..models.code_entity import CodeEntity, EntityType
-from ..models.file_analysis import FileAnalysis
+from ..models.file_analysis import FileAnalysis, FileSnapshot
 from ..utils.error_classification import describe_error
 from .calls import trace_calls
 from .modules import ImportKind, ModuleIndex, module_name
@@ -83,8 +86,16 @@ class CodeAnalyzer:
             raise CodeParseError(f"File does not exist: {file_path}")
 
         try:
-            with open(file_path, encoding=self.encoding) as f:
-                source = f.read()
+            # The file's state is taken before its bytes are read: if it
+            # changes in between, the next run sees an older mtime and checks
+            # the hash, rather than trusting a size and mtime that do not
+            # match the bytes analyzed
+            read_at = datetime.now()
+            stat = os.stat(file_path)
+            with open(file_path, "rb") as f:
+                raw = f.read()
+            # Decode as open() in text mode would, newline handling included
+            source = io.TextIOWrapper(io.BytesIO(raw), encoding=self.encoding).read()
         except UnicodeDecodeError as e:
             raise FileEncodingError(
                 f"Failed to decode {file_path} with encoding {self.encoding}: {e}"
@@ -105,6 +116,12 @@ class CodeAnalyzer:
                 entities=entities,
                 imports=imports,
                 content=source,
+                snapshot=FileSnapshot(
+                    content_hash=hashlib.sha256(raw).hexdigest(),
+                    mtime=stat.st_mtime,
+                    size=stat.st_size,
+                    read_at=read_at,
+                ),
                 _skip_validation=self.skip_validation,
             )
         # ValueError covers a null byte on Python 3.10 and 3.11 (a SyntaxError

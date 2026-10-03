@@ -5,9 +5,30 @@ of a Python source file.
 """
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import PurePosixPath
 
 from .code_entity import CodeEntity, EntityType
+
+
+@dataclass(frozen=True)
+class FileSnapshot:
+    """A file's state when it was read for analysis.
+
+    The cache records this rather than reading the file again later, so what
+    it records always describes the content that was analyzed and embedded.
+
+    Attributes:
+        content_hash: SHA-256 of the file's bytes
+        mtime: Modification time, taken just before the bytes were read
+        size: Size in bytes, taken with the modification time
+        read_at: When the file was read
+    """
+
+    content_hash: str
+    mtime: float
+    size: int
+    read_at: datetime
 
 
 @dataclass
@@ -24,6 +45,8 @@ class FileAnalysis:
         imports: List of import statements
         content: Raw file content
         error: Optional error message if analysis failed
+        snapshot: The file's state as it was read, for the cache; None when
+            the analysis was not read from a file
         _skip_validation: Whether to skip validation (for testing)
     """
 
@@ -32,6 +55,7 @@ class FileAnalysis:
     imports: list[str]
     content: str
     error: str | None = None
+    snapshot: FileSnapshot | None = None
     _skip_validation: bool = field(default=False, repr=False)
 
     def __post_init__(self):

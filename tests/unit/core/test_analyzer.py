@@ -10,8 +10,9 @@ from unittest.mock import patch
 
 import pytest
 
+from docgen.cache.metadata import FileMetadata
 from docgen.core.analyzer import CodeAnalyzer
-from docgen.exceptions.errors import CodeParseError
+from docgen.exceptions.errors import CodeParseError, FileEncodingError
 from docgen.models.code_entity import CodeEntity, EntityType
 from docgen.models.file_analysis import FileAnalysis
 
@@ -1231,3 +1232,29 @@ def test_module_imports_link_the_project_modules(analyzer, tmp_path):
         "shop.payments": set(),
         "shop.payments.gateway": {"shop.catalog"},
     }
+
+
+def test_analysis_records_the_file_state_it_read(analyzer, tmp_path):
+    """The snapshot describes the bytes read; the content decodes as open() would."""
+    raw = b"def f():\r\n    return 1\r\n"
+    path = tmp_path / "crlf.py"
+    path.write_bytes(raw)
+    stat = os.stat(path)
+
+    analysis = analyzer.analyze_file(str(path))
+
+    assert analysis.content == "def f():\n    return 1\n"
+    snapshot = analysis.snapshot
+    assert snapshot is not None
+    # The same hash the change detector computes from the file
+    assert snapshot.content_hash == FileMetadata._compute_file_hash(path)
+    assert (snapshot.size, snapshot.mtime) == (len(raw), stat.st_mtime)
+
+
+def test_undecodable_file_is_an_encoding_error(analyzer, tmp_path):
+    """Bytes that are not valid in the encoding fail with FileEncodingError."""
+    path = tmp_path / "latin.py"
+    path.write_bytes(b"name = 'caf\xe9'\n")
+
+    with pytest.raises(FileEncodingError, match=r"latin\.py"):
+        analyzer.analyze_file(str(path))

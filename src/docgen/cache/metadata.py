@@ -11,6 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from ..models.file_analysis import FileSnapshot
+
 # Coarsest mtime granularity we expect from a filesystem (FAT and some network
 # mounts round to 2 seconds). Files modified this close to when their metadata
 # was recorded are always re-hashed rather than trusted on mtime and size.
@@ -68,6 +70,27 @@ class FileMetadata:
             content_hash=content_hash,
             mtime=stat.st_mtime,
             size=stat.st_size,
+        )
+
+    @classmethod
+    def from_snapshot(
+        cls, relative_path: str, snapshot: FileSnapshot
+    ) -> "FileMetadata":
+        """Create metadata from a file's state as it was read for analysis.
+
+        Args:
+            relative_path: The file's path from the source directory, POSIX style
+            snapshot: The file's state when it was read
+
+        Returns:
+            FileMetadata instance
+        """
+        return cls(
+            path=relative_path,
+            content_hash=snapshot.content_hash,
+            mtime=snapshot.mtime,
+            size=snapshot.size,
+            last_analyzed=snapshot.read_at,
         )
 
     @staticmethod
@@ -204,6 +227,18 @@ class CacheMetadata:
         """
         metadata = FileMetadata.from_file(file_path, source_dir)
         self.file_metadata[metadata.path] = metadata
+        self.last_updated = datetime.now()
+
+    def record_file(self, relative_path: str, snapshot: FileSnapshot) -> None:
+        """Record a file's state as it was read for analysis.
+
+        Args:
+            relative_path: The file's path from the source directory, POSIX style
+            snapshot: The file's state when it was read
+        """
+        self.file_metadata[relative_path] = FileMetadata.from_snapshot(
+            relative_path, snapshot
+        )
         self.last_updated = datetime.now()
 
     def remove_file(self, relative_path: str) -> None:

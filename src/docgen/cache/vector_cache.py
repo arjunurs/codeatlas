@@ -181,9 +181,9 @@ class VectorStoreCache:
             client=persistent_chroma_client(self.vector_dir),
         )
 
-        # Update metadata for all files
-        for file_path in current_files:
-            self.metadata.update_file(file_path, self.source_dir)
+        # Record every file as it was analyzed, not as it is now: an edit
+        # saved while embedding ran is then seen on the next run
+        self._record_files(analyses, current_files)
 
         # Update git commit if available
         self.metadata.git_commit = self._get_git_commit()
@@ -285,9 +285,7 @@ class VectorStoreCache:
         # documents, so they are not reported as changed again
         for deleted_file in changes.deleted_files:
             self.metadata.remove_file(deleted_file)
-        for file_path in current_files:
-            if file_path.relative_to(self.source_dir).as_posix() in changed_and_new:
-                self.metadata.update_file(file_path, self.source_dir)
+        self._record_files(analyses, current_files, only=changed_and_new)
 
         # Update git commit
         self.metadata.git_commit = self._get_git_commit()
@@ -296,6 +294,38 @@ class VectorStoreCache:
         self.metadata.save(self.cache_dir)
 
         logger.debug("Vector store updated successfully")
+
+    def _record_files(
+        self,
+        analyses: Sequence[FileAnalysis],
+        current_files: list[Path],
+        only: set[str] | None = None,
+    ) -> None:
+        """Record files in the cache metadata, as they were analyzed.
+
+        A file analyzed without a snapshot of its state is read from disk.
+
+        Args:
+            analyses: File analysis results, with each file's state as read
+            current_files: The files to record
+            only: Relative paths to record, or None for all of them
+        """
+        snapshots = {
+            Path(analysis.file_path)
+            .relative_to(self.source_dir)
+            .as_posix(): analysis.snapshot
+            for analysis in analyses
+            if analysis.snapshot is not None
+        }
+        for file_path in current_files:
+            relative_path = file_path.relative_to(self.source_dir).as_posix()
+            if only is not None and relative_path not in only:
+                continue
+            snapshot = snapshots.get(relative_path)
+            if snapshot is not None:
+                self.metadata.record_file(relative_path, snapshot)
+            else:
+                self.metadata.update_file(file_path, self.source_dir)
 
     def _relative_source(self, metadata: dict | None) -> str:
         """Get a document's file path relative to the source directory.
