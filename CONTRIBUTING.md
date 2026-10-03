@@ -31,6 +31,19 @@ coverage drops below the minimum in `test.yml`, which is the measured figure rou
 a change raises coverage, raise the minimum with it. The minimum is not in `pyproject.toml`, so
 running a single test file locally does not fail on coverage.
 
+A third job, `lowest-deps`, runs the tests on Python 3.10 with the oldest version of each
+dependency that `pyproject.toml` allows. If it fails, the change needs a newer version of some
+library: raise that library's floor in `pyproject.toml`. To reproduce it, work in a copy,
+because `uv sync --resolution lowest-direct` rewrites `uv.lock`:
+
+```bash
+mkdir -p /tmp/codeatlas-lowest && git archive HEAD | tar -x -C /tmp/codeatlas-lowest
+cd /tmp/codeatlas-lowest
+export UV_PYTHON=3.10
+uv sync --resolution lowest-direct
+uv run --no-sync pytest tests --no-cov
+```
+
 ### Pre-commit hooks
 
 `.pre-commit-config.yaml` runs these on staged files:

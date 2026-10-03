@@ -124,6 +124,7 @@ uv run pytest
 
 There are 400+ unit and integration tests, with about 88% coverage counting branches. CI runs
 ruff once and the tests on Python 3.10 to 3.13, and fails if coverage drops below a set minimum.
+It also runs the tests against the oldest dependency versions the project allows.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and code style.
 
 A design proposal for agent-enhanced generation is in
