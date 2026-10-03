@@ -1,12 +1,24 @@
 """Unit tests for describing errors in reports and logs."""
 
+from typing import TYPE_CHECKING
+
 import anthropic
-import httpx
 import openai
 import pytest
 
 from docgen.exceptions.errors import CodeParseError
 from docgen.utils.error_classification import classify_api_error, describe_error
+
+# The Anthropic and OpenAI SDKs build their errors from httpx2 objects; the
+# releases at the dependency floors still use httpx. Type-check against httpx2,
+# the version in uv.lock.
+if TYPE_CHECKING:
+    import httpx2 as httpx
+else:
+    try:
+        import httpx2 as httpx
+    except ImportError:
+        import httpx
 
 
 def test_documentation_error_is_described_by_its_message():

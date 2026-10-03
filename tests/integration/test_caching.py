@@ -139,6 +139,7 @@ def test_cache_reused_on_second_run(
 
     # Get cache metadata after first run
     metadata1 = CacheMetadata.load(project_cache_dir)
+    assert metadata1 is not None
 
     # Second run (no changes)
     generator2 = CodeDocumentationGenerator(
@@ -180,6 +181,7 @@ def test_cache_updated_when_file_changes(
 
     # Get initial file hash
     metadata1 = CacheMetadata.load(project_cache_dir)
+    assert metadata1 is not None
     original_hash = metadata1.file_metadata["module1.py"].content_hash
 
     # Modify a file - make sure content is actually different
@@ -203,6 +205,7 @@ def goodbye():
 
     # Verify cache was updated
     metadata2 = CacheMetadata.load(project_cache_dir)
+    assert metadata2 is not None
     new_hash = metadata2.file_metadata["module1.py"].content_hash
     assert new_hash != original_hash
 
@@ -430,6 +433,7 @@ def test_force_refresh_clears_cache(
 
     # Get initial timestamp
     metadata1 = CacheMetadata.load(project_cache_dir)
+    assert metadata1 is not None
 
     # Second run with force refresh
     generator2 = CodeDocumentationGenerator(

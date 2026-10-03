@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+from langchain_openai import ChatOpenAI
+
 from docgen.providers.openai import OpenAIEmbeddingProvider, OpenAIProvider
 
 
@@ -94,4 +96,6 @@ def test_openaiprovider_passes_max_tokens():
     """The output token limit reaches the LangChain chat model."""
     provider = OpenAIProvider(api_key="test-key", max_tokens=8192)
 
-    assert provider.get_langchain_llm().max_tokens == 8192
+    llm = provider.get_langchain_llm()
+    assert isinstance(llm, ChatOpenAI)
+    assert llm.max_tokens == 8192

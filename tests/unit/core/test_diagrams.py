@@ -310,13 +310,13 @@ def test_class_diagram_handles_generic_base_classes(diagram_generator):
             entities=[
                 CodeEntity(
                     name="AsyncLiftContextManager",
-                    docstring=None,
+                    docstring="",
                     type=EntityType.CLASS,
                     parent_class="AbstractAsyncContextManager[_T]",
                 ),
                 CodeEntity(
                     name="HeadersGetter",
-                    docstring=None,
+                    docstring="",
                     type=EntityType.CLASS,
                     parent_class="Getter[Headers]",
                 ),

@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from langchain_anthropic import ChatAnthropic
 
 from docgen.config import DEFAULT_CONFIG, QualityMode
 from docgen.providers.anthropic import AnthropicProvider
@@ -187,7 +188,9 @@ def test_default_providers_model_precedence(anthropic_model, quality_mode, expec
     )
 
     assert llm_provider.model_name == expected
-    assert llm_provider.get_langchain_llm().model == expected
+    llm = llm_provider.get_langchain_llm()
+    assert isinstance(llm, ChatAnthropic)
+    assert llm.model == expected
 
 
 def test_default_providers_set_output_token_limit():
@@ -195,6 +198,7 @@ def test_default_providers_set_output_token_limit():
     llm_provider, _ = create_default_providers("test-anthropic", "test-openai")
 
     llm = llm_provider.get_langchain_llm()
+    assert isinstance(llm, ChatAnthropic)
     assert llm.max_tokens == DEFAULT_CONFIG.DEFAULT_MAX_OUTPUT_TOKENS
     assert DEFAULT_CONFIG.DEFAULT_MAX_OUTPUT_TOKENS > 4096
 

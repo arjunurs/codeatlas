@@ -176,7 +176,9 @@ class TestGeneratorLifecycle:
             cache_config=CacheConfig(enabled=False),
         ) as generator:
             generator.generate_documentation(str(temp_source_dir), str(temp_output_dir))
-            client = generator._rag_pipeline.vector_store._client
+            pipeline = generator._rag_pipeline
+            assert pipeline is not None and pipeline.vector_store is not None
+            client = pipeline.vector_store._client
             collections_during_run = client.count_collections()
 
         assert client.count_collections() == collections_during_run - 1

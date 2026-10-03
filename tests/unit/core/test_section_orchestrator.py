@@ -1,10 +1,10 @@
 """Unit tests for SectionOrchestrator."""
 
 import logging
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
 import anthropic
-import httpx
 import pytest
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda
@@ -14,6 +14,17 @@ from docgen.config import DEFAULT_CONFIG
 from docgen.core.section_orchestrator import SectionOrchestrator
 from docgen.models.file_analysis import FileAnalysis
 from docgen.utils.cost_tracker import CostTracker
+
+# The Anthropic and OpenAI SDKs build their errors from httpx2 objects; the
+# releases at the dependency floors still use httpx. Type-check against httpx2,
+# the version in uv.lock.
+if TYPE_CHECKING:
+    import httpx2 as httpx
+else:
+    try:
+        import httpx2 as httpx
+    except ImportError:
+        import httpx
 
 ANALYSES = [
     FileAnalysis(

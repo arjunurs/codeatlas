@@ -19,67 +19,6 @@ from docgen.models.file_analysis import FileAnalysis
 
 
 @pytest.fixture
-def mock_llm():
-    """Create a mock LLM."""
-    mock = Mock()
-    mock.run = Mock(return_value="Generated content")
-    return mock
-
-
-@pytest.fixture
-def mock_embeddings():
-    """Create mock embeddings."""
-    return Mock()
-
-
-@pytest.fixture
-def mock_analyzer():
-    """Create a mock CodeAnalyzer."""
-    mock = Mock()
-    mock.analyze_directory.return_value = [
-        FileAnalysis(
-            file_path="/path/to/test.py",
-            entities=[
-                CodeEntity(
-                    name="TestClass",
-                    docstring="Test class docstring",
-                    lineno=1,
-                    type=EntityType.CLASS,
-                    methods=["test_method"],
-                    file_path="/path/to/test.py",
-                )
-            ],
-            imports=["os"],
-            content='"""File docstring."""\n\nclass TestClass:\n    pass',
-            _skip_validation=True,
-        )
-    ]
-    return mock
-
-
-@pytest.fixture
-def mock_diagram_generator():
-    """Create a mock DiagramGenerator."""
-    mock = Mock()
-    mock.generate_architecture_diagram.return_value = (
-        "graph TD\n    A[A]\n    B[B]\n    A --> B"
-    )
-    mock.generate_class_diagram.return_value = (
-        "classDiagram\n    class Test {\n        +method()\n    }"
-    )
-    mock.generate_sequence_diagram.return_value = (
-        "sequenceDiagram\n    A->>+B: call()\n    B-->>-A: return"
-    )
-    mock.generate_dependency_diagram.return_value = (
-        "graph LR\n    pkg1[pkg1]\n    pkg2[pkg2]\n    pkg1 --> pkg2"
-    )
-    mock.generate_call_graph_diagram.return_value = (
-        "graph TD\n    func1[func1]\n    func2[func2]\n    func1 --> func2"
-    )
-    return mock
-
-
-@pytest.fixture
 def mock_template_manager():
     """Create a mock TemplateManager."""
     mock = Mock()
@@ -87,14 +26,6 @@ def mock_template_manager():
     mock.templates = {
         "navigation": Mock(render=Mock(return_value="<nav>Test Navigation</nav>"))
     }
-
-    # Set up render_template to store call arguments
-    def store_call_args(*args, **kwargs):
-        store_call_args.calls.append((args, kwargs))
-
-    store_call_args.calls = []
-    mock.render_template.side_effect = store_call_args
-
     return mock
 
 

@@ -27,6 +27,7 @@ def test_run_records_llm_and_embedding_usage(
     )
     generator.generate_documentation(str(temp_source_dir), str(tmp_path / "docs"))
 
+    assert generator.cost_tracker is not None
     usage = generator.cost_tracker.usage_by_model
     llm = usage["claude-sonnet-5"]
     assert (llm.input_tokens, llm.output_tokens, llm.requests) == (120, 30, 1)
