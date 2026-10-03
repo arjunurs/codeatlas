@@ -180,6 +180,46 @@ def test_generate_call_graph_diagram_with_limit(diagram_generator):
     assert node_count <= diagram_generator.max_nodes * 2
 
 
+def test_dependency_diagram_groups_third_party_packages(diagram_generator):
+    """Project packages come first; packages they use from elsewhere are grouped."""
+    dependencies = {
+        "shop.payments": {"stripe", "shop"},
+        "shop": {"shop.payments", "requests"},
+    }
+
+    diagram = diagram_generator.generate_dependency_diagram(dependencies)
+
+    assert diagram == "\n".join(
+        [
+            "graph LR",
+            '    shop["shop"]',
+            '    shop_payments["shop.payments"]',
+            '    subgraph third_party["Third-party packages"]',
+            '        requests["requests"]',
+            '        stripe["stripe"]',
+            "    end",
+            "    shop --> requests",
+            "    shop --> shop_payments",
+            "    shop_payments --> shop",
+            "    shop_payments --> stripe",
+        ]
+    )
+
+
+def test_dependency_diagram_keeps_the_most_connected_packages():
+    """When there are too many, the packages most linked to the rest are kept."""
+    generator = DiagramGenerator(max_nodes=3, validate_diagrams=False)
+    dependencies = {"a": {"hub"}, "b": {"hub"}, "c": {"hub"}, "hub": set(), "d": set()}
+
+    diagram = generator.generate_dependency_diagram(dependencies)
+
+    assert 'hub["hub"]' in diagram
+    assert 'a["a"]' in diagram and 'b["b"]' in diagram
+    assert 'c["c"]' not in diagram and 'd["d"]' not in diagram
+    assert "c --> hub" not in diagram
+    assert "Diagram truncated: showing top 3 nodes" in diagram
+
+
 def test_clean_names_in_diagrams(diagram_generator):
     """Test name cleaning in diagrams."""
     dependencies = {"package-name": {"dep.name", "@scope/name"}}

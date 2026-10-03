@@ -366,53 +366,47 @@ class DiagramGenerator:
         return diagram_content
 
     def generate_dependency_diagram(self, dependencies: dict[str, set[str]]) -> str:
-        """Generate a dependency diagram from package dependencies.
+        """Generate a dependency diagram between packages.
+
+        The project's packages come first, then the third-party packages they
+        use, in a group of their own. When there are more than max_nodes, the
+        packages with the most links are kept.
 
         Args:
-            dependencies: Dictionary mapping packages to their dependencies
+            dependencies: Each project package, mapped to the packages it
+                imports; a name that is not a key is a third-party package
 
         Returns:
             Mermaid graph diagram source
 
         Raises:
-            DiagramGenerationError: If no dependencies found or diagram generation fails
+            DiagramGenerationError: If there are no packages, or the diagram
+                fails validation
         """
         if not dependencies:
             raise DiagramGenerationError("No dependencies to analyze")
 
+        internal = set(dependencies)
+        external = {dep for deps in dependencies.values() for dep in deps} - internal
+        edges = {
+            (package, dep) for package, deps in dependencies.items() for dep in deps
+        }
+        shown = self._most_connected(internal | external, edges)
+
         diagram = ["graph LR"]
-        nodes_seen = set()
-        nodes_added = 0
-
-        for package, deps in dependencies.items():
-            if nodes_added >= self.max_nodes:
-                self._append_truncation_note(diagram, nodes_added)
-                break
-
-            clean_package = self._clean_name(package)
-            if package not in nodes_seen:
-                # Use quoted label to safely handle special characters
-                display_package = package.replace('"', "'")
-                diagram.append(f'    {clean_package}["{display_package}"]')
-                nodes_seen.add(package)
-                nodes_added += 1
-
-            for dep in deps:
-                if nodes_added >= self.max_nodes:
-                    break
-
-                clean_dep = self._clean_name(dep)
-                if dep not in nodes_seen:
-                    # Use quoted label to safely handle special characters
-                    display_dep = dep.replace('"', "'")
-                    diagram.append(f'    {clean_dep}["{display_dep}"]')
-                    nodes_seen.add(dep)
-                    nodes_added += 1
-
-                diagram.append(f"    {clean_package} --> {clean_dep}")
-
-        if nodes_added == 0:
-            raise DiagramGenerationError("No dependencies found in packages")
+        diagram.extend(self._node_line(name) for name in sorted(internal & shown))
+        third_party = sorted(external & shown)
+        if third_party:
+            diagram.append('    subgraph third_party["Third-party packages"]')
+            diagram.extend(f"    {self._node_line(name)}" for name in third_party)
+            diagram.append("    end")
+        diagram.extend(
+            f"    {self._clean_name(source)} --> {self._clean_name(target)}"
+            for source, target in sorted(edges)
+            if source in shown and target in shown
+        )
+        if len(shown) < len(internal | external):
+            self._append_truncation_note(diagram, len(shown))
 
         diagram_content = "\n".join(diagram)
 
@@ -420,6 +414,20 @@ class DiagramGenerator:
         self._validate_diagram(diagram_content, DiagramType.DEPENDENCY)
 
         return diagram_content
+
+    def _most_connected(self, nodes: set[str], edges: set[tuple[str, str]]) -> set[str]:
+        """The max_nodes nodes with the most edges, ties broken by name."""
+        links = dict.fromkeys(nodes, 0)
+        for source, target in edges:
+            links[source] += 1
+            links[target] += 1
+        ranked = sorted(nodes, key=lambda node: (-links[node], node))
+        return set(ranked[: self.max_nodes])
+
+    def _node_line(self, name: str) -> str:
+        """A node definition, with the name as a quoted label."""
+        label = name.replace('"', "'")
+        return f'    {self._clean_name(name)}["{label}"]'
 
     def generate_call_graph_diagram(self, call_graph: dict[str, set[str]]) -> str:
         """Generate a call graph diagram showing function calls.

@@ -18,6 +18,11 @@ alwaysApply: false
   `DiagramGenerator(validate_diagrams=False)`; validation has its own tests in
   `tests/unit/utils/test_diagram_validator.py` and `tests/integration/test_diagram_validation.py`.
 - Cross-reference tests give imports as dotted strings, for example `["helper.HelperClass"]`.
+- `tests/integration/test_golden_diagrams.py` compares the diagrams for a small fixture project
+  with the files in `tests/golden/`, in this process and under two hash seeds. After an
+  intended change to diagram output, rewrite them with
+  `UPDATE_GOLDEN=1 uv run pytest tests/integration/test_golden_diagrams.py` and review the diff
+  before committing it.
 - Name a test after the behavior it checks, for example
   `test_unknown_section_rejected_at_construction`.
 - Unit tests go under `tests/unit/`, mirroring `src/docgen/`. Integration tests in

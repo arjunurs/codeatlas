@@ -32,6 +32,15 @@ coverage drops below the minimum in `test.yml`, which is the measured figure rou
 a change raises coverage, raise the minimum with it. The minimum is not in `pyproject.toml`, so
 running a single test file locally does not fail on coverage.
 
+The diagrams for a small fixture project are checked line for line against `tests/golden/`,
+including in two fresh processes with different hash seeds, so output that depends on set order
+fails. After an intended change to a diagram, rewrite the expected files and review the diff:
+
+```bash
+UPDATE_GOLDEN=1 uv run pytest tests/integration/test_golden_diagrams.py
+git diff tests/golden
+```
+
 A third job, `lowest-deps`, runs the tests on Python 3.10 with the oldest version of each
 dependency that `pyproject.toml` allows. If it fails, the change needs a newer version of some
 library: raise that library's floor in `pyproject.toml`. To reproduce it, work in a copy,

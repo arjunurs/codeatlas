@@ -10,16 +10,22 @@ import ast
 import fnmatch
 import logging
 import os
-from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from pathlib import PurePath
 
 from ..config import DEFAULT_CONFIG
 from ..exceptions.errors import CodeParseError, FileEncodingError
 from ..models.code_entity import CodeEntity, EntityType
 from ..models.file_analysis import FileAnalysis
 from ..utils.error_classification import describe_error
+from .modules import (
+    STDLIB_MODULES,
+    ImportKind,
+    ModuleIndex,
+    import_base,
+    module_name,
+    unique_suffixes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -219,32 +225,45 @@ class CodeAnalyzer:
     def analyze_package_dependencies(
         self, analyses: Sequence[FileAnalysis], root: str
     ) -> dict[str, set[str]]:
-        """Map each package to the top-level packages its imports come from.
+        """Map each package to the packages its imports come from.
 
         A file's package is its directory relative to the source root, dotted;
-        a file at the root is its own package. Only the given analyses count,
-        so excluded files and files past --max-files add nothing.
+        a file at the root is its own package. An import of analyzed code
+        links to that code's package, and an import of a third-party package
+        to its top-level name. Standard-library imports are left out. Only
+        the given analyses count, so excluded files and files past
+        --max-files add nothing.
 
         Args:
             analyses: File analysis results
             root: The source root package names start from
 
         Returns:
-            Dictionary mapping package names to the packages they import
+            Dictionary mapping each package to the packages it imports. A
+            name that is not itself a key is a third-party package.
         """
+        modules = {a.file_path: module_name(a.file_path, root) for a in analyses}
+        package_of = {
+            modules[a.file_path]: _package_name(a.file_path, root) for a in analyses
+        }
+        index = ModuleIndex(modules.values())
+
         dependencies: dict[str, set[str]] = {}
         for analysis in analyses:
-            rel_path = os.path.relpath(analysis.file_path, root)
-            package_name = os.path.dirname(rel_path).replace(os.sep, ".")
-            if not package_name:
-                package_name = os.path.splitext(os.path.basename(rel_path))[0]
-
-            imported = dependencies.setdefault(package_name, set())
-            for imp in analysis.imports:
-                top_pkg = imp.split(".")[0]
-                # A relative import such as "from . import x" names no package
-                if top_pkg and top_pkg != package_name:
-                    imported.add(top_pkg)
+            module = modules[analysis.file_path]
+            package = package_of[module]
+            is_package = os.path.basename(analysis.file_path) == "__init__.py"
+            imported = dependencies.setdefault(package, set())
+            for name in analysis.imports:
+                placed = index.place(name, module, is_package)
+                if placed is None or placed.kind is ImportKind.STDLIB:
+                    continue
+                if placed.kind is ImportKind.INTERNAL:
+                    target = package_of[placed.name]
+                else:
+                    target = placed.name
+                if target != package:
+                    imported.add(target)
         return dependencies
 
     def analyze_function_calls(
@@ -383,20 +402,11 @@ class CodeAnalyzer:
         return imports
 
 
-def module_name(file_path: str, root: str | None = None) -> str:
-    """Name a file by its dotted module path from the source root.
-
-    pkg/mod.py is pkg.mod, and pkg/__init__.py is pkg. Without a root, a
-    relative path is used as given and an absolute one by its file name.
-    """
-    if root is not None:
-        file_path = os.path.relpath(file_path, root)
-    elif os.path.isabs(file_path):
-        file_path = os.path.basename(file_path)
-    parts = list(PurePath(file_path).with_suffix("").parts)
-    if len(parts) > 1 and parts[-1] == "__init__":
-        parts.pop()
-    return ".".join(parts)
+def _package_name(file_path: str, root: str) -> str:
+    """A file's package: its directory from the root, dotted, or its own name."""
+    rel_path = os.path.relpath(file_path, root)
+    package = os.path.dirname(rel_path).replace(os.sep, ".")
+    return package or os.path.splitext(os.path.basename(rel_path))[0]
 
 
 _FUNCTION_NODES = (ast.FunctionDef, ast.AsyncFunctionDef)
@@ -443,7 +453,7 @@ class _ModuleDefinitions:
                         top_level = alias.name.split(".")[0]
                         imports[top_level] = top_level
             elif isinstance(node, ast.ImportFrom):
-                base = _import_base(name, is_package, node.module, node.level)
+                base = import_base(name, is_package, node.module, node.level)
                 if base is None:
                     continue
                 for alias in node.names:
@@ -451,24 +461,6 @@ class _ModuleDefinitions:
                         target = f"{base}.{alias.name}" if base else alias.name
                         imports[alias.asname or alias.name] = target
         return cls(name, functions, classes, imports)
-
-
-def _import_base(
-    module: str, is_package: bool, imported: str | None, level: int
-) -> str | None:
-    """The absolute module a from-import reads from, or None if it is outside.
-
-    from .util import x, written in pkg/main.py, reads from pkg.util.
-    """
-    if level == 0:
-        return imported or ""
-    package = module.split(".") if is_package else module.split(".")[:-1]
-    if level - 1 > len(package):
-        return None
-    parts = package[: len(package) - (level - 1)]
-    if imported:
-        parts.append(imported)
-    return ".".join(parts)
 
 
 class _CallResolver:
@@ -483,17 +475,7 @@ class _CallResolver:
                 qualified = f"{module.name}.{class_name}"
                 self._known.add(qualified)
                 self._known.update(f"{qualified}.{method}" for method in methods)
-        # An absolute import names a module from its own package root, which
-        # may sit below the source root (src/pkg imported as pkg), so imported
-        # names also match a known name by its trailing parts
-        suffixes: dict[str, set[str]] = defaultdict(set)
-        for qualified in self._known:
-            parts = qualified.split(".")
-            for start in range(1, len(parts) - 1):
-                suffixes[".".join(parts[start:])].add(qualified)
-        self._by_suffix = {
-            suffix: names.pop() for suffix, names in suffixes.items() if len(names) == 1
-        }
+        self._by_suffix = unique_suffixes(self._known)
 
     def resolve(
         self, module: _ModuleDefinitions, class_name: str | None, func: ast.expr
@@ -532,6 +514,8 @@ class _CallResolver:
             return None
         if target in self._known:
             return target
+        if target.split(".")[0] in STDLIB_MODULES:
+            return None
         return self._by_suffix.get(target)
 
 

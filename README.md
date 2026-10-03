@@ -31,7 +31,8 @@ Virtualenvs, `.git`, and build and tool directories are skipped automatically.
 
 - **Architecture**: each module and what it imports
 - **Class**: classes, their methods, and inheritance
-- **Dependencies**: the import graph between packages and the libraries they use
+- **Dependencies**: which of the project's packages import which, and the third-party
+  packages they use (the standard library is left out)
 - **Call graph**: which functions call which
 - **Sequence**: calls between functions, taken from the call graph (not yet grouped into
   workflows)

@@ -1,0 +1,13 @@
+graph LR
+    shop["shop"]
+    shop_payments["shop.payments"]
+    subgraph third_party["Third-party packages"]
+        requests["requests"]
+        stripe["stripe"]
+        yaml["yaml"]
+    end
+    shop --> requests
+    shop --> shop_payments
+    shop --> yaml
+    shop_payments --> shop
+    shop_payments --> stripe

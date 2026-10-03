@@ -574,7 +574,7 @@ def project_with_tool_dirs(tmp_path):
     """A project root holding real code next to virtualenvs and tool directories."""
     (tmp_path / "app").mkdir()
     (tmp_path / "app" / "main.py").write_text("import json\n\ndef run():\n    pass\n")
-    (tmp_path / "tool.py").write_text("import os\n")
+    (tmp_path / "tool.py").write_text("import yaml\n")
     for name in [
         ".venv/lib/python3.12/site-packages/requests",
         "venv/lib",
@@ -619,7 +619,7 @@ def test_package_dependencies_skip_excluded_dirs(analyzer, project_with_tool_dir
 
     assert "vendored_dep" not in set().union(*dependencies.values())
     assert "app" not in dependencies
-    assert dependencies["tool"] == {"os"}
+    assert dependencies["tool"] == {"yaml"}
 
 
 def test_package_dependencies_respect_max_files(analyzer, tmp_path):
@@ -639,7 +639,7 @@ def test_package_dependencies_ignore_the_current_directory(
     """A requirements.txt where codeatlas is run from adds nothing."""
     project = tmp_path / "project"
     project.mkdir()
-    (project / "app.py").write_text("import json\n")
+    (project / "app.py").write_text("import yaml\n")
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     (elsewhere / "requirements.txt").write_text("flask==3.0\n")
@@ -648,7 +648,7 @@ def test_package_dependencies_ignore_the_current_directory(
 
     dependencies = analyzer.analyze_package_dependencies(analyses, root=str(project))
 
-    assert dependencies == {"app": {"json"}}
+    assert dependencies == {"app": {"yaml"}}
 
 
 def test_relative_import_adds_no_unnamed_dependency(analyzer, tmp_path):
@@ -656,10 +656,36 @@ def test_relative_import_adds_no_unnamed_dependency(analyzer, tmp_path):
     (tmp_path / "pkg").mkdir()
     (tmp_path / "pkg" / "__init__.py").write_text("")
     (tmp_path / "pkg" / "main.py").write_text(
-        "from . import util\nfrom ..models import entity\nimport json\n"
+        "from . import util\nfrom ..models import entity\nimport yaml\n"
     )
     analyses = analyzer.analyze_directory(str(tmp_path))
 
     dependencies = analyzer.analyze_package_dependencies(analyses, root=str(tmp_path))
 
-    assert dependencies == {"pkg": {"json"}}
+    assert dependencies == {"pkg": {"yaml"}}
+
+
+def test_package_dependencies_link_packages_and_skip_the_stdlib(analyzer, tmp_path):
+    """Imports become package-to-package links; the standard library is left out."""
+    files = {
+        "shop/__init__.py": "",
+        "shop/cli.py": "import argparse\nfrom .orders import place_order\n",
+        "shop/orders.py": (
+            "import json\nimport requests\nfrom .payments.gateway import charge\n"
+        ),
+        "shop/catalog.py": "from dataclasses import dataclass\n",
+        "shop/payments/__init__.py": "",
+        "shop/payments/gateway.py": "import stripe\nfrom ..catalog import Catalog\n",
+    }
+    for name, code in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(code)
+    analyses = analyzer.analyze_directory(str(tmp_path))
+
+    dependencies = analyzer.analyze_package_dependencies(analyses, root=str(tmp_path))
+
+    assert dependencies == {
+        "shop": {"requests", "shop.payments"},
+        "shop.payments": {"shop", "stripe"},
+    }
