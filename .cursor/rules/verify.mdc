@@ -14,7 +14,7 @@ A change is done when it has been checked against real output, not when the code
   whether a diagram renders. For layout or noise problems, also try a larger real codebase.
 - Prompt or section changes need a paid run. Ask before running anything that calls the
   Anthropic or OpenAI APIs, and say which model and roughly what it costs (the FastAPI
-  package costs about $0.39 with the default Sonnet model; see `docs/architecture.md`).
+  package costs about $0.26 with the default Sonnet model; see `docs/architecture.md`).
 - Check the claims in generated sections against the source code. A section that reads well
   can still describe an API that does not exist.
 - Treat claims from other agents and tools, including your own earlier summaries, as

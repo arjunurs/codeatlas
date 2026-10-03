@@ -2,6 +2,8 @@
 
 from datetime import datetime
 
+import pytest
+
 from docgen.utils.cost_tracker import PRICING, CostTracker, UsageStats
 
 
@@ -19,6 +21,21 @@ def test_usage_stats_estimate_cost():
     expected_total = expected_input + expected_output
 
     assert abs(stats.estimate_cost() - expected_total) < 0.0001
+
+
+@pytest.mark.parametrize(
+    ("model", "input_price", "output_price"),
+    [
+        ("claude-sonnet-5", 2.00, 10.00),
+        ("claude-sonnet-5-5", 2.00, 10.00),
+        ("claude-opus-5-5", 4.00, 20.00),
+    ],
+)
+def test_current_models_use_published_prices(model, input_price, output_price):
+    """A million input and output tokens cost the published price per million."""
+    stats = UsageStats(model=model, input_tokens=1_000_000, output_tokens=1_000_000)
+
+    assert stats.estimate_cost() == pytest.approx(input_price + output_price)
 
 
 def test_usage_stats_to_dict():

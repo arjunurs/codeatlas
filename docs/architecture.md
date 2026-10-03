@@ -137,11 +137,11 @@ and the five core sections:
 
 | Run | Time | Cost | What was called |
 |---|---|---|---|
-| First run | 42 to 46 s | $0.37 to $0.39 | 5 Claude calls (31,522 input and 18,755 output tokens) and 6 embedding calls (about 222,000 tokens, estimated) |
+| First run | 42 to 46 s | $0.25 to $0.26 | 5 Claude calls (31,522 input and 18,755 output tokens) and 6 embedding calls (about 222,000 tokens, estimated) |
 | Same run again | 1 s | $0.00 | Nothing: every section and the vector store came from the cache |
 | `--diagrams-only` | about 1 s | $0.00 | Nothing |
 
-Section generation dominates both cost and time: embeddings were about 1% of the cost, and the
+Section generation dominates both cost and time: embeddings were about 2% of the cost, and the
 wall-clock time is set by the slowest of the parallel sections. At the same token counts, Haiku
 would cost about $0.13 and Opus about $0.64; real counts differ by model, since models write
 different lengths.
