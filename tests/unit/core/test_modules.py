@@ -40,6 +40,8 @@ def test_relative_import_above_the_source_root_is_not_placed():
         ("json", PlacedImport(ImportKind.STDLIB, "json")),
         ("os.path.join", PlacedImport(ImportKind.STDLIB, "os")),
         ("__future__.annotations", PlacedImport(ImportKind.STDLIB, "__future__")),
+        # Imported only for type checking, and missing from sys.stdlib_module_names
+        ("_typeshed.wsgi.StartResponse", PlacedImport(ImportKind.STDLIB, "_typeshed")),
         ("requests.get", PlacedImport(ImportKind.THIRD_PARTY, "requests")),
     ],
 )

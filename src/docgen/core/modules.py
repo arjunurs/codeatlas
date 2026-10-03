@@ -14,7 +14,9 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import PurePath
 
-STDLIB_MODULES = frozenset(sys.stdlib_module_names)
+# _typeshed exists only in type checkers' stubs, so it is missing from
+# sys.stdlib_module_names; code imports it under TYPE_CHECKING
+STDLIB_MODULES = frozenset(sys.stdlib_module_names) | {"_typeshed"}
 
 
 def module_root(source_dir: str) -> str:
