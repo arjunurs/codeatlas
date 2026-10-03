@@ -132,7 +132,9 @@ class CodeDocumentationGenerator:
             chunk_size=self.config.CHUNK_SIZE, chunk_overlap=self.config.CHUNK_OVERLAP
         )
         self.analyzer = CodeAnalyzer()
-        self.diagram_generator = DiagramGenerator()
+        self.diagram_generator = DiagramGenerator(
+            max_nodes=self.config.MAX_DIAGRAM_NODES
+        )
         self.template_manager = get_template_manager(options.template_dir)
         self._renderer = DocumentationRenderer(self.template_manager)
         self._rag_pipeline: RAGPipelineFactory | None = None

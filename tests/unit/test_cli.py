@@ -1,6 +1,7 @@
 """Unit tests for the CLI module."""
 
 import importlib.metadata
+from dataclasses import replace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -126,6 +127,31 @@ class TestParseArgs:
         assert args.dry_run is False
         assert args.max_files is None
         assert args.api_key_env is None
+
+
+def test_option_defaults_come_from_the_config(monkeypatch):
+    """Option defaults follow DEFAULT_CONFIG, so the two cannot drift apart."""
+    config = replace(
+        DEFAULT_CONFIG,
+        DEFAULT_OUTPUT_DIR="site",
+        DEFAULT_QUALITY_MODE=QualityMode.FAST,
+        RETRIEVER_K=3,
+        RETRIEVER_SEARCH_TYPE="mmr",
+        RETRIEVER_FETCH_K=9,
+        RETRIEVER_LAMBDA_MULT=0.25,
+    )
+    monkeypatch.setattr(cli, "DEFAULT_CONFIG", config)
+
+    args = parse_args(["--source", "./src"])
+
+    assert args.output == "site"
+    assert args.quality_mode == "fast"
+    assert (
+        args.retriever_k,
+        args.retriever_search_type,
+        args.retriever_fetch_k,
+        args.retriever_lambda_mult,
+    ) == (3, "mmr", 9, 0.25)
 
 
 class TestMain:

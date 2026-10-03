@@ -6,11 +6,12 @@ including initialization, file analysis, and HTML generation.
 
 import logging
 import os
+from dataclasses import replace
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from docgen.config import GenerationOptions
+from docgen.config import DEFAULT_CONFIG, GenerationOptions
 from docgen.core.generator import CodeDocumentationGenerator
 from docgen.exceptions.errors import DocumentationError
 from docgen.models.code_entity import CodeEntity
@@ -419,3 +420,13 @@ def test_failed_diagram_is_reported_as_warning(temp_source_dir, tmp_path, caplog
 
     warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
     assert any("class_diagram" in w and "no classes found" in w for w in warnings)
+
+
+def test_diagram_node_limit_comes_from_the_config():
+    """MAX_DIAGRAM_NODES in the config sets the diagram generator's node limit."""
+    generator = CodeDocumentationGenerator(
+        generation_options=GenerationOptions(diagrams_only=True),
+        config=replace(DEFAULT_CONFIG, MAX_DIAGRAM_NODES=7),
+    )
+
+    assert generator.diagram_generator.max_nodes == 7

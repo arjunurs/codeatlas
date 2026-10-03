@@ -57,8 +57,8 @@ def _add_source_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--output",
         "-o",
-        default="output",
-        help="Output directory for generated documentation (default: output)",
+        default=DEFAULT_CONFIG.DEFAULT_OUTPUT_DIR,
+        help="Output directory for generated documentation (default: %(default)s)",
     )
     parser.add_argument(
         "--api-key-env", metavar="PATH", help="Path to .env file containing API keys"
@@ -137,11 +137,11 @@ def _add_output_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--quality-mode",
         choices=[mode.value for mode in QualityMode],
-        default=QualityMode.BALANCED.value,
+        default=DEFAULT_CONFIG.DEFAULT_QUALITY_MODE.value,
         help="Model preset: "
         + ", ".join(
             f"{mode.value} ({model}"
-            + (", default)" if mode == QualityMode.BALANCED else ")")
+            + (", default)" if mode == DEFAULT_CONFIG.DEFAULT_QUALITY_MODE else ")")
             for mode, model in QUALITY_MODE_MODELS.items()
         ),
     )
@@ -186,15 +186,16 @@ def _add_rag_args(parser: argparse.ArgumentParser) -> None:
     rag_group.add_argument(
         "--retriever-k",
         type=int,
-        default=10,
+        default=DEFAULT_CONFIG.RETRIEVER_K,
         metavar="N",
-        help="Number of documents to retrieve per query (default: 10)",
+        help="Number of documents to retrieve per query (default: %(default)s)",
     )
     rag_group.add_argument(
         "--retriever-search-type",
         choices=["similarity", "mmr"],
-        default="similarity",
-        help="Retrieval method: similarity (default) or mmr (diversity-focused)",
+        default=DEFAULT_CONFIG.RETRIEVER_SEARCH_TYPE,
+        help="Retrieval method: similarity or mmr (diversity-focused); "
+        "default: %(default)s",
     )
     rag_group.add_argument(
         "--retriever-score-threshold",
@@ -205,16 +206,17 @@ def _add_rag_args(parser: argparse.ArgumentParser) -> None:
     rag_group.add_argument(
         "--retriever-fetch-k",
         type=int,
-        default=20,
+        default=DEFAULT_CONFIG.RETRIEVER_FETCH_K,
         metavar="N",
-        help="Number of documents to fetch before MMR reranking (default: 20)",
+        help="Number of documents to fetch before MMR reranking (default: %(default)s)",
     )
     rag_group.add_argument(
         "--retriever-lambda-mult",
         type=float,
-        default=0.5,
+        default=DEFAULT_CONFIG.RETRIEVER_LAMBDA_MULT,
         metavar="FLOAT",
-        help="MMR diversity parameter: 0=max diversity, 1=max relevance (default: 0.5)",
+        help="MMR diversity parameter: 0=max diversity, 1=max relevance "
+        "(default: %(default)s)",
     )
 
 
