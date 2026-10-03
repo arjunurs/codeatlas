@@ -17,8 +17,8 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
-from ..exceptions.errors import CacheError
 from ..models.file_analysis import FileAnalysis
+from ..utils.error_classification import describe_error
 from ..utils.git_client import GitClient
 from .change_detector import ChangeDetectionResult, FileChangeDetector
 from .metadata import CacheMetadata
@@ -126,32 +126,24 @@ class VectorStoreCache:
 
         Returns:
             Chroma vector store instance
-
-        Raises:
-            CacheError: If cache operations fail
         """
-        try:
-            # If force refresh, treat as new vector store creation
-            if self.force_refresh:
-                logger.debug("Force refresh: recreating vector store from scratch")
-                if self._vector_store_exists():
-                    self._drop_vector_store()
-                self.vector_dir.mkdir(parents=True, exist_ok=True)
-                return self._create_new_vector_store(analyses, documents, current_files)
-
-            # Check if vector store exists
+        # If force refresh, treat as new vector store creation
+        if self.force_refresh:
+            logger.debug("Force refresh: recreating vector store from scratch")
             if self._vector_store_exists():
-                logger.debug("Found existing vector store")
-                return self._load_and_update_vector_store(
-                    analyses, documents, current_files
-                )
-            else:
-                logger.debug("No existing vector store, creating new one")
-                return self._create_new_vector_store(analyses, documents, current_files)
+                self._drop_vector_store()
+            self.vector_dir.mkdir(parents=True, exist_ok=True)
+            return self._create_new_vector_store(analyses, documents, current_files)
 
-        except Exception as e:
-            logger.error(f"Cache error: {str(e)}")
-            raise CacheError(f"Failed to manage vector store cache: {str(e)}")
+        # Check if vector store exists
+        if self._vector_store_exists():
+            logger.debug("Found existing vector store")
+            return self._load_and_update_vector_store(
+                analyses, documents, current_files
+            )
+        else:
+            logger.debug("No existing vector store, creating new one")
+            return self._create_new_vector_store(analyses, documents, current_files)
 
     def _vector_store_exists(self) -> bool:
         """Check if vector store exists on disk.
@@ -341,9 +333,12 @@ class VectorStoreCache:
                 client=persistent_chroma_client(self.vector_dir),
                 embedding_function=self.embeddings,
             ).delete_collection()
-        except Exception as e:
+        # Chroma raises many unrelated error types for a store it cannot open,
+        # and the remedy is the same for all of them: delete it and rebuild
+        except Exception as e:  # noqa: BLE001
             logger.warning(
-                f"Could not open existing vector store ({e}), deleting {self.vector_dir}"
+                f"Could not open existing vector store ({describe_error(e)}), "
+                f"deleting {self.vector_dir}"
             )
             shutil.rmtree(self.vector_dir)
             SharedSystemClient.clear_system_cache()

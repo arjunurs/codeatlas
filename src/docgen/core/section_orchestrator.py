@@ -16,10 +16,10 @@ from langchain_core.runnables import Runnable
 
 from ..cache.content_cache import SectionContentCache
 from ..config import GeneratorConfig
-from ..exceptions.errors import LLMError
 from ..models.file_analysis import FileAnalysis
 from ..prompts.sections import get_section_prompt, select_sections
 from ..utils.cost_tracker import CostTracker
+from ..utils.error_classification import describe_error
 from ..utils.usage_tracking import TokenUsageCallback
 
 logger = logging.getLogger(__name__)
@@ -117,18 +117,9 @@ class SectionOrchestrator:
                 content = self._generate_section_with_cache(rag_chain, section_name)
                 html_content = self._convert_markdown_to_html(content)
                 sections.append({"title": section_name, "content": html_content})
-            except Exception as e:
-                error_msg = str(e)
-                logger.error(
-                    f"Failed to generate section '{section_name}': {error_msg}"
-                )
-                errors.append((section_name, error_msg))
-                sections.append(
-                    {
-                        "title": section_name,
-                        "content": f"*Error generating this section: {error_msg}*",
-                    }
-                )
+            # Per-section boundary: see _failed_section
+            except Exception as e:  # noqa: BLE001
+                sections.append(self._failed_section(section_name, e, errors))
 
         return sections, errors
 
@@ -163,19 +154,31 @@ class SectionOrchestrator:
                         "content": html_content,
                     }
                     logger.info(f"Completed section: {section_name}")
-                except Exception as e:
-                    error_msg = str(e)
-                    logger.error(
-                        f"Failed to generate section '{section_name}': {error_msg}"
+                # Per-section boundary: see _failed_section
+                except Exception as e:  # noqa: BLE001
+                    sections_dict[section_name] = self._failed_section(
+                        section_name, e, errors
                     )
-                    errors.append((section_name, error_msg))
-                    sections_dict[section_name] = {
-                        "title": section_name,
-                        "content": f"*Error generating this section: {error_msg}*",
-                    }
 
         sections = [sections_dict[name] for name in section_names]
         return sections, errors
+
+    def _failed_section(
+        self, section_name: str, error: Exception, errors: list[tuple[str, str]]
+    ) -> dict:
+        """Record a section that failed and return the page that reports it.
+
+        Sections are generated independently, so one that fails for any
+        reason (a rate limit, a timeout, a bug) is reported and the others
+        are still generated.
+        """
+        message = describe_error(error)
+        logger.error(f"Failed to generate section '{section_name}': {message}")
+        errors.append((section_name, message))
+        return {
+            "title": section_name,
+            "content": f"*Error generating this section: {message}*",
+        }
 
     def _generate_section_with_cache(
         self,
@@ -241,9 +244,6 @@ class SectionOrchestrator:
 
         Returns:
             Generated section content as a string
-
-        Raises:
-            LLMError: If section generation fails
         """
         return self._run_section(rag_chain, section_name, prompt)[0]
 
@@ -257,30 +257,22 @@ class SectionOrchestrator:
 
         Returns:
             Tuple of (content, whether the content was cut off)
-
-        Raises:
-            LLMError: If section generation fails
         """
-        try:
-            if prompt is None:
-                prompt = self._build_prompt(section_name)
+        if prompt is None:
+            prompt = self._build_prompt(section_name)
 
-            usage = TokenUsageCallback()
-            content = rag_chain.invoke(prompt, config={"callbacks": [usage]})
-            if self.cost_tracker:
-                self.cost_tracker.record_llm_usage(
-                    model=self.model_name,
-                    input_tokens=usage.input_tokens,
-                    output_tokens=usage.output_tokens,
-                )
-            if usage.truncated:
-                logger.warning(
-                    f"Section '{section_name}' was cut off at the model's output "
-                    "limit; it will be regenerated on the next run"
-                )
-                content += TRUNCATION_NOTE
-            return content, usage.truncated
-        except Exception as e:
-            raise LLMError(
-                f"Failed to generate section '{section_name}': {str(e)}"
-            ) from e
+        usage = TokenUsageCallback()
+        content = rag_chain.invoke(prompt, config={"callbacks": [usage]})
+        if self.cost_tracker:
+            self.cost_tracker.record_llm_usage(
+                model=self.model_name,
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+            )
+        if usage.truncated:
+            logger.warning(
+                f"Section '{section_name}' was cut off at the model's output "
+                "limit; it will be regenerated on the next run"
+            )
+            content += TRUNCATION_NOTE
+        return content, usage.truncated

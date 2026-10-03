@@ -24,6 +24,7 @@ from ..exceptions.errors import DocumentationError, VectorStoreError
 from ..models.code_entity import EntityType
 from ..models.file_analysis import FileAnalysis
 from ..prompts.rag_prompt import RAG_PROMPT_TEMPLATE
+from ..utils.error_classification import describe_error
 
 logger = logging.getLogger(__name__)
 
@@ -126,8 +127,10 @@ class RAGPipelineFactory:
             try:
                 if not preserve_cache:
                     self._vector_store.delete_collection()
-            except Exception as e:
-                logger.warning(f"Error cleaning up vector store: {str(e)}")
+            # Cleanup is best effort: a store that cannot be dropped must not
+            # hide the run's result or an error that is already being raised
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"Error cleaning up vector store: {describe_error(e)}")
             finally:
                 self._vector_store = None
 
@@ -199,9 +202,14 @@ class RAGPipelineFactory:
             )
 
             return rag_chain
-        except Exception as e:
-            logger.error(f"Error creating vector store: {str(e)}")
-            raise VectorStoreError(f"Failed to create vector store: {str(e)}")
+        except DocumentationError:
+            raise
+        # Stage boundary: embedding calls and Chroma raise many unrelated
+        # error types, and any of them means the index could not be built
+        except Exception as e:  # noqa: BLE001
+            raise VectorStoreError(
+                f"Failed to create vector store: {describe_error(e)}"
+            ) from e
 
     def _create_retriever(self):
         """Create a retriever with configurable search parameters."""

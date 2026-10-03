@@ -14,6 +14,7 @@ from docgen.models.diagram_validation import (
     ValidationResult,
 )
 from docgen.utils.diagram_rules import COMMON_RULES, ValidationRule
+from docgen.utils.error_classification import describe_error
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +94,10 @@ class BaseValidator:
                         warnings.append(issue)
                     else:
                         info.append(issue)
-            except Exception as e:
-                logger.warning(f"Rule {rule.rule_name} failed: {e}")
+            # Per-rule boundary: a rule that crashes is reported and skipped, so
+            # the other rules still check the diagram
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"Rule {rule.rule_name} failed: {describe_error(e)}")
 
         # Determine if diagram is valid
         is_valid = len(errors) == 0

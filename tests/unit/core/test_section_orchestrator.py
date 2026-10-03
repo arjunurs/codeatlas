@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock
 
+import pytest
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda
 
@@ -161,3 +162,33 @@ def test_truncated_section_is_flagged_and_not_cached(
     # Not served from the cache: both calls reached the model
     assert cost_tracker.usage_by_model["claude-sonnet-5"].cached_requests == 0
     assert cost_tracker.usage_by_model["claude-sonnet-5"].requests == 2
+
+
+def failing_chain(message: str) -> RunnableLambda:
+    """A chain that raises the same error for every section."""
+
+    def generate(prompt: str) -> str:
+        raise RuntimeError(message)
+
+    return RunnableLambda(generate)
+
+
+@pytest.mark.parametrize("parallel", [False, True])
+def test_failed_section_is_reported_once(parallel):
+    """A failed section records its error without a repeated prefix."""
+    orchestrator = SectionOrchestrator(
+        DEFAULT_CONFIG,
+        model_name="claude-sonnet-5",
+        parallel=parallel,
+        selected_sections=["overview", "dependencies"],
+    )
+
+    documentation, errors = orchestrator.generate_documentation_sections(
+        failing_chain("boom")
+    )
+
+    names = [section["title"] for section in documentation["sections"]]
+    assert sorted(errors) == sorted((name, "RuntimeError: boom") for name in names)
+    assert [section["content"] for section in documentation["sections"]] == [
+        "*Error generating this section: RuntimeError: boom*"
+    ] * len(names)

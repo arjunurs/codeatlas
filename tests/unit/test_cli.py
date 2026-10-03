@@ -1,6 +1,7 @@
 """Unit tests for the CLI module."""
 
 import importlib.metadata
+import logging
 from dataclasses import replace
 from unittest.mock import MagicMock, patch
 
@@ -10,6 +11,7 @@ import docgen
 from docgen import cli
 from docgen.cli import __version__, main, parse_args
 from docgen.config import DEFAULT_CONFIG, QualityMode
+from docgen.exceptions.errors import DocumentationError
 
 
 class TestParseArgs:
@@ -303,6 +305,39 @@ class TestMain:
 
         config = generator_cls.call_args.kwargs["config"]
         assert (config.RETRIEVER_K, config.RETRIEVER_SEARCH_TYPE) == (5, "mmr")
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            DocumentationError("No Python files found"),
+            PermissionError("[Errno 13] Permission denied: 'docs'"),
+            ValueError("Invalid source directory: src"),
+        ],
+    )
+    def test_expected_error_exits_1(self, generator_cls, caplog, error):
+        """An expected failure is logged by its message and exits 1."""
+        generator_cls.return_value.generate_documentation.side_effect = error
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(["--source", "./src", "--diagrams-only"])
+
+        assert exc_info.value.code == 1
+        assert f"Documentation generation failed: {error}" in caplog.text
+
+    def test_unexpected_error_exits_1_and_names_its_type(self, generator_cls, caplog):
+        """An unexpected error exits 1, logs its type, and has a debug traceback."""
+        generate = generator_cls.return_value.generate_documentation
+        generate.side_effect = KeyError("name")
+
+        with (
+            caplog.at_level(logging.DEBUG, logger="docgen"),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            main(["--source", "./src", "--diagrams-only"])
+
+        assert exc_info.value.code == 1
+        assert "Unexpected error: KeyError: 'name'" in caplog.text
+        assert "Traceback (most recent call last)" in caplog.text
 
 
 class TestVersion:

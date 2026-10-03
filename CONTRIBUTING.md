@@ -50,7 +50,7 @@ uv run --no-sync pytest tests --no-cov
 
 - **File checks** from `pre-commit-hooks`: valid TOML and YAML, a newline at the end of each
   file, no private keys, and no large files
-- **ruff check** (with `--fix`): lint rules `E`, `F`, `I`, `N`, `W`, `UP` from `pyproject.toml`
+- **ruff check** (with `--fix`): the lint rules selected in `pyproject.toml`
 - **ruff format**: formatting
 - **ty**: type check of `src/`; non-blocking, it reports but never fails a commit
 

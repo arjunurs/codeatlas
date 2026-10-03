@@ -6,16 +6,14 @@ and Mermaid diagrams using Jinja2 templates.
 
 from __future__ import annotations
 
-import logging
 import os
 from typing import Any
 
+import jinja2
 import markdown
 import nh3
 
 from ..exceptions.errors import DocumentationError
-
-logger = logging.getLogger(__name__)
 
 
 class DocumentationRenderer:
@@ -158,9 +156,10 @@ class DocumentationRenderer:
                 "search", search_context, output_dir, "search.html"
             )
 
-        except Exception as e:
-            logger.error(f"Error generating HTML documentation: {str(e)}")
-            raise DocumentationError(f"Failed to generate HTML documentation: {str(e)}")
+        except (OSError, jinja2.TemplateError) as e:
+            raise DocumentationError(
+                f"Failed to generate HTML documentation: {e}"
+            ) from e
 
     def generate_navigation(
         self, active_page: str, sections: list[dict[str, str]], base_url: str

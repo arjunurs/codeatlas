@@ -2,9 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from docgen.exceptions.errors import LLMError
 from docgen.providers.anthropic import AnthropicProvider
 
 
@@ -60,21 +57,6 @@ class TestAnthropicProvider:
                 model=AnthropicProvider.DEFAULT_MODEL,
                 temperature=0.2,
             )
-
-    def test_create_llm_failure(self):
-        """Test LLM creation failure raises LLMError."""
-        with patch(
-            "docgen.providers.anthropic.ChatAnthropic",
-            side_effect=Exception("API error"),
-        ):
-            provider = AnthropicProvider.__new__(AnthropicProvider)
-            provider._api_key = "test-key"
-            provider._model = "test-model"
-            provider._temperature = 0.2
-            provider._llm = None
-
-            with pytest.raises(LLMError, match="Failed to create Anthropic LLM"):
-                provider.get_langchain_llm()
 
 
 def test_anthropicprovider_passes_max_tokens():

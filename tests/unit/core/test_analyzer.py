@@ -92,6 +92,49 @@ def test_analyze_file_syntax_error(analyzer, tmp_path):
         analyzer.analyze_file(str(bad_file))
 
 
+def test_analyze_file_null_byte(analyzer, tmp_path):
+    """A null byte is a parse error on every Python version.
+
+    Python 3.12 reports it as a SyntaxError; 3.10 and 3.11 raise ValueError.
+    """
+    bad_file = tmp_path / "nul.py"
+    bad_file.write_text("x = 1\0\n")
+
+    with pytest.raises(CodeParseError, match="Failed to parse"):
+        analyzer.analyze_file(str(bad_file))
+
+
+def test_analyze_file_does_not_hide_bugs(analyzer, tmp_path):
+    """An error in the analyzer itself is not reported as a parse error."""
+    good_file = tmp_path / "good.py"
+    good_file.write_text("x = 1\n")
+
+    with (
+        patch.object(analyzer, "_extract_entities", side_effect=RuntimeError("bug")),
+        pytest.raises(RuntimeError, match="^bug$"),
+    ):
+        analyzer.analyze_file(str(good_file))
+
+
+def test_analyze_directory_skips_a_file_that_fails(analyzer, tmp_path, caplog):
+    """One file that cannot be analyzed is skipped; the others still are."""
+    (tmp_path / "good.py").write_text("x = 1\n")
+    (tmp_path / "bad.py").write_text("x = 1\n")
+    real_analyze_file = analyzer.analyze_file
+
+    def analyze_file(file_path):
+        if file_path.endswith("bad.py"):
+            raise RuntimeError("bug")
+        return real_analyze_file(file_path)
+
+    with patch.object(analyzer, "analyze_file", side_effect=analyze_file):
+        analyses = analyzer.analyze_directory(str(tmp_path))
+
+    assert [os.path.basename(a.file_path) for a in analyses] == ["good.py"]
+    assert "Skipping" in caplog.text
+    assert "RuntimeError: bug" in caplog.text
+
+
 def test_analyze_directory_success(analyzer, tmp_path, sample_python_code):
     """Test successful directory analysis."""
     # Create test files
@@ -248,6 +291,46 @@ def helper():
     assert "helper" in call_graph["test_method"]
     assert "helper" in call_graph
     assert len(call_graph["helper"]) == 0
+
+
+def test_analyze_function_calls_skips_a_file_that_does_not_parse(analyzer, caplog):
+    """A file with a syntax error adds no calls, and the others still count."""
+    broken = FileAnalysis(
+        file_path="broken.py",
+        entities=[],
+        imports=[],
+        content="def broken(",
+        _skip_validation=True,
+    )
+    working = FileAnalysis(
+        file_path="working.py",
+        entities=[],
+        imports=[],
+        content="def caller():\n    callee()\n",
+        _skip_validation=True,
+    )
+
+    call_graph = analyzer.analyze_function_calls([broken, working])
+
+    assert call_graph == {"caller": {"callee"}}
+    assert "broken.py" in caplog.text
+
+
+def test_analyze_function_calls_does_not_hide_bugs(analyzer):
+    """An error in the call analysis itself reaches the caller."""
+    analysis = FileAnalysis(
+        file_path="app.py",
+        entities=[],
+        imports=[],
+        content="x = 1",
+        _skip_validation=True,
+    )
+
+    with (
+        patch("docgen.core.analyzer.ast.parse", side_effect=RuntimeError("bug")),
+        pytest.raises(RuntimeError, match="^bug$"),
+    ):
+        analyzer.analyze_function_calls([analysis])
 
 
 def test_analyze_directory_with_exclude_patterns(

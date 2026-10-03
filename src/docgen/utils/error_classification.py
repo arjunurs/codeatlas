@@ -1,10 +1,8 @@
-"""API error classification utility.
-
-This module classifies API errors based on common patterns,
-extracted from providers.base for reusability.
-"""
+"""Describing errors for logs and reports, and classifying API errors."""
 
 import re
+
+from ..exceptions.errors import DocumentationError
 
 # Common error patterns for API error classification. Each entry is a regex
 # alternation matched as whole words against the lowercased error message,
@@ -40,3 +38,16 @@ def classify_api_error(error: Exception) -> str | None:
         if pattern.search(error_str):
             return error_type
     return None
+
+
+def describe_error(error: BaseException) -> str:
+    """Describe an error in one line for a log message or an error report.
+
+    codeatlas's own errors are described by their message. Other errors also
+    name their type, since a message alone can be unclear (a KeyError's
+    message is only the missing key).
+    """
+    if isinstance(error, DocumentationError):
+        return str(error)
+    message = str(error)
+    return f"{type(error).__name__}: {message}" if message else type(error).__name__

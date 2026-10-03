@@ -28,6 +28,7 @@ from ..prompts.sections import select_sections
 from ..providers.base import EmbeddingProvider, LLMProvider
 from ..templates.html import get_template_manager
 from ..utils.cost_tracker import CostTracker
+from ..utils.error_classification import describe_error
 from ..utils.usage_tracking import UsageTrackingEmbeddings
 from .analyzer import CodeAnalyzer
 from .cross_reference import cross_reference_preprocessor
@@ -172,110 +173,103 @@ class CodeDocumentationGenerator:
         if not os.path.isdir(abs_directory_path):
             raise ValueError(f"Invalid source directory: {directory_path}")
 
-        try:
-            # Setup output directories
-            self._renderer.setup_output_directories(abs_output_dir)
+        # Setup output directories
+        self._renderer.setup_output_directories(abs_output_dir)
 
-            # Analyze codebase
-            logger.debug("Analyzing Python files...")
-            analyses = self.analyzer.analyze_directory(
-                abs_directory_path,
-                exclude_patterns=self.exclude_patterns,
-                max_files=self.max_files,
-            )
+        # Analyze codebase
+        logger.debug("Analyzing Python files...")
+        analyses = self.analyzer.analyze_directory(
+            abs_directory_path,
+            exclude_patterns=self.exclude_patterns,
+            max_files=self.max_files,
+        )
 
-            if not analyses:
-                logger.error("No Python files found in directory")
-                raise DocumentationError("No Python files found in directory")
+        if not analyses:
+            logger.error("No Python files found in directory")
+            raise DocumentationError("No Python files found in directory")
 
-            logger.info(f"Analyzed {len(analyses)} Python files")
+        logger.info(f"Analyzed {len(analyses)} Python files")
 
-            # Store analyses for section caching
-            self._current_analyses = analyses
+        # Store analyses for section caching
+        self._current_analyses = analyses
 
-            # Initialize section cache if enabled
-            if self.cache_enabled and self.cache_dir:
-                self._section_cache = SectionContentCache(Path(self.cache_dir))
+        # Initialize section cache if enabled
+        if self.cache_enabled and self.cache_dir:
+            self._section_cache = SectionContentCache(Path(self.cache_dir))
 
-            # Generate diagrams (unless skipped)
-            diagrams: dict[str, str] = {}
-            diagram_errors: list[tuple[str, str]] = []
-            if not self.skip_diagrams:
-                diagrams, diagram_errors = self._generate_all_diagrams(analyses)
-                logger.info(f"Generated {len(diagrams)} diagrams")
-                if diagram_errors:
-                    logger.warning(
-                        f"{len(diagram_errors)} diagram(s) failed:\n"
-                        + "\n".join(
-                            f"  - {name}: {error}" for name, error in diagram_errors
-                        )
+        # Generate diagrams (unless skipped)
+        diagrams: dict[str, str] = {}
+        diagram_errors: list[tuple[str, str]] = []
+        if not self.skip_diagrams:
+            diagrams, diagram_errors = self._generate_all_diagrams(analyses)
+            logger.info(f"Generated {len(diagrams)} diagrams")
+            if diagram_errors:
+                logger.warning(
+                    f"{len(diagram_errors)} diagram(s) failed:\n"
+                    + "\n".join(
+                        f"  - {name}: {error}" for name, error in diagram_errors
                     )
-            else:
-                logger.debug("Skipping diagram generation (--no-diagrams)")
-
-            # In diagrams-only mode, skip all section generation
-            if self.diagrams_only:
-                logger.debug(
-                    "Diagrams-only mode: skipping LLM calls and section generation"
                 )
-                documentation = {
-                    "title": "Code Documentation (Diagrams Only)",
-                    "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "sections": [],
-                }
-                section_errors = []
-            # In dry-run mode, skip LLM calls
-            elif self.dry_run:
-                logger.info("Dry-run mode: skipping LLM calls")
-                documentation = {
-                    "title": "Code Documentation (Dry Run)",
-                    "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "sections": [
-                        {
-                            "title": name,
-                            "content": "*Dry-run mode: LLM content not generated*",
-                        }
-                        for name in select_sections(self.selected_sections)
-                    ],
-                }
-                section_errors = []
-            else:
-                # Create vector store and RAG chain
-                rag_chain = self._create_vector_store_and_rag_chain(
-                    analyses,
-                    source_dir=Path(abs_directory_path),
-                )
+        else:
+            logger.debug("Skipping diagram generation (--no-diagrams)")
 
-                # Generate documentation sections (with error aggregation)
-                orchestrator = self._create_section_orchestrator()
-                documentation, section_errors = (
-                    orchestrator.generate_documentation_sections(rag_chain)
-                )
-
-            # Create final HTML output with any generation errors
-            generation_errors = {
-                "diagrams": diagram_errors,
-                "sections": section_errors,
-            }
-            self._renderer.render(
-                documentation, diagrams, abs_output_dir, generation_errors
+        # In diagrams-only mode, skip all section generation
+        if self.diagrams_only:
+            logger.debug(
+                "Diagrams-only mode: skipping LLM calls and section generation"
             )
-            logger.info(f"Documentation written to {abs_output_dir}")
+            documentation = {
+                "title": "Code Documentation (Diagrams Only)",
+                "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "sections": [],
+            }
+            section_errors = []
+        # In dry-run mode, skip LLM calls
+        elif self.dry_run:
+            logger.info("Dry-run mode: skipping LLM calls")
+            documentation = {
+                "title": "Code Documentation (Dry Run)",
+                "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "sections": [
+                    {
+                        "title": name,
+                        "content": "*Dry-run mode: LLM content not generated*",
+                    }
+                    for name in select_sections(self.selected_sections)
+                ],
+            }
+            section_errors = []
+        else:
+            # Create vector store and RAG chain
+            rag_chain = self._create_vector_store_and_rag_chain(
+                analyses,
+                source_dir=Path(abs_directory_path),
+            )
 
-            # Save section cache
-            if self._section_cache:
-                self._section_cache.save_cache()
+            # Generate documentation sections (with error aggregation)
+            orchestrator = self._create_section_orchestrator()
+            documentation, section_errors = (
+                orchestrator.generate_documentation_sections(rag_chain)
+            )
 
-            # Print cost summary
-            if self.cost_tracker:
-                self.cost_tracker.finish()
-                self.cost_tracker.print_summary()
+        # Create final HTML output with any generation errors
+        generation_errors = {
+            "diagrams": diagram_errors,
+            "sections": section_errors,
+        }
+        self._renderer.render(
+            documentation, diagrams, abs_output_dir, generation_errors
+        )
+        logger.info(f"Documentation written to {abs_output_dir}")
 
-        except DocumentationError:
-            raise
-        except Exception as e:
-            logger.error(f"Error generating documentation: {str(e)}")
-            raise DocumentationError(f"Failed to generate documentation: {str(e)}")
+        # Save section cache
+        if self._section_cache:
+            self._section_cache.save_cache()
+
+        # Print cost summary
+        if self.cost_tracker:
+            self.cost_tracker.finish()
+            self.cost_tracker.print_summary()
 
     def _generate_all_diagrams(
         self, analyses: Sequence[FileAnalysis]
@@ -326,8 +320,10 @@ class CodeDocumentationGenerator:
                 continue
             try:
                 diagrams[name] = builder()
-            except Exception as e:
-                errors.append((name, str(e)))
+            # Per-diagram boundary: a diagram that fails, for any reason, is
+            # reported and left out, and the others are still generated
+            except Exception as e:  # noqa: BLE001
+                errors.append((name, describe_error(e)))
         return diagrams, errors
 
     def _create_vector_store_and_rag_chain(

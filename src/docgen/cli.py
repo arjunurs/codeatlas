@@ -22,10 +22,11 @@ from docgen.config import (
 from docgen.core.generator import CodeDocumentationGenerator
 from docgen.providers.registry import create_default_providers
 from docgen.utils.api_keys import get_api_keys
+from docgen.utils.error_classification import describe_error
 from docgen.utils.logging import setup_logging
 
 from .cache.metadata import CacheMetadata
-from .exceptions.errors import ApiKeyError, CacheError, DocumentationError
+from .exceptions.errors import DocumentationError
 
 logger = logging.getLogger(__name__)
 
@@ -449,11 +450,14 @@ def main(argv: list[str] | None = None) -> None:
         # Generate documentation
         generator.generate_documentation(args.source, args.output)
 
-    except (DocumentationError, ApiKeyError, CacheError, ValueError) as e:
-        logger.error(f"Documentation generation failed: {str(e)}")
+    except (DocumentationError, OSError, ValueError) as e:
+        logger.error(f"Documentation generation failed: {e}")
         sys.exit(1)
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
+    # Top-level boundary: anything else is unexpected, so it is reported with
+    # its type, and with a traceback under --verbose
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"Unexpected error: {describe_error(e)}")
+        logger.debug("Traceback:", exc_info=True)
         sys.exit(1)
 
 

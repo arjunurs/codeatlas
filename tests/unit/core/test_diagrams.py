@@ -4,10 +4,12 @@ This module contains comprehensive tests for diagram generation functionality,
 including architecture, class, sequence, dependency, and function call diagrams.
 """
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from docgen.core.diagrams import DiagramGenerator, select_diagrams
-from docgen.exceptions.errors import DiagramGenerationError
+from docgen.exceptions.errors import DiagramGenerationError, DiagramValidationError
 from docgen.models.code_entity import CodeEntity
 from docgen.models.diagram_validation import DiagramType
 from docgen.models.file_analysis import FileAnalysis
@@ -207,10 +209,6 @@ def test_empty_inputs(diagram_generator):
 
 def test_diagram_generation_error_handling(diagram_generator):
     """Test error handling in diagram generation."""
-    # Test with invalid analysis object
-    with pytest.raises(DiagramGenerationError):
-        diagram_generator.generate_architecture_diagram([None])
-
     # Test with invalid dependencies
     with pytest.raises(DiagramGenerationError):
         diagram_generator.generate_dependency_diagram(None)
@@ -218,6 +216,29 @@ def test_diagram_generation_error_handling(diagram_generator):
     # Test with invalid call graph
     with pytest.raises(DiagramGenerationError):
         diagram_generator.generate_sequence_diagram(None)
+
+
+@pytest.mark.parametrize(
+    ("builder", "diagram_type", "make_input"),
+    [
+        ("generate_class_diagram", "class", lambda analyses: analyses),
+        ("generate_architecture_diagram", "architecture", lambda analyses: analyses),
+        ("generate_call_graph_diagram", "callgraph", lambda _: {"main": {"helper"}}),
+    ],
+)
+def test_validation_failure_is_reported_once(
+    sample_analyses, builder, diagram_type, make_input
+):
+    """A diagram that fails validation says so once, without a second prefix."""
+    generator = DiagramGenerator(validate_diagrams=True)
+    generator.validator = MagicMock()
+    generator.validator.validate.side_effect = DiagramValidationError("bad syntax")
+
+    with pytest.raises(
+        DiagramGenerationError,
+        match=f"^Generated {diagram_type} diagram failed validation: bad syntax$",
+    ):
+        getattr(generator, builder)(make_input(sample_analyses))
 
 
 def test_sequence_diagram_no_interactions(diagram_generator):

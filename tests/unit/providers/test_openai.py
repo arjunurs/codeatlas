@@ -2,9 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from docgen.exceptions.errors import EmbeddingError, LLMError
 from docgen.providers.openai import OpenAIEmbeddingProvider, OpenAIProvider
 
 
@@ -59,20 +56,6 @@ class TestOpenAIProvider:
                 temperature=0.2,
             )
 
-    def test_create_llm_failure(self):
-        """Test LLM creation failure raises LLMError."""
-        with patch(
-            "docgen.providers.openai.ChatOpenAI", side_effect=Exception("API error")
-        ):
-            provider = OpenAIProvider.__new__(OpenAIProvider)
-            provider._api_key = "test-key"
-            provider._model = "test-model"
-            provider._temperature = 0.2
-            provider._llm = None
-
-            with pytest.raises(LLMError, match="Failed to create OpenAI LLM"):
-                provider.get_langchain_llm()
-
 
 class TestOpenAIEmbeddingProvider:
     """Test cases for OpenAIEmbeddingProvider."""
@@ -105,22 +88,6 @@ class TestOpenAIEmbeddingProvider:
                 model=OpenAIEmbeddingProvider.DEFAULT_MODEL,
             )
             assert emb is mock_emb
-
-    def test_create_embeddings_failure(self):
-        """Test embeddings creation failure raises EmbeddingError."""
-        with patch(
-            "docgen.providers.openai.OpenAIEmbeddings",
-            side_effect=Exception("API error"),
-        ):
-            provider = OpenAIEmbeddingProvider.__new__(OpenAIEmbeddingProvider)
-            provider._api_key = "test-key"
-            provider._model = "test-model"
-            provider._embeddings = None
-
-            with pytest.raises(
-                EmbeddingError, match="Failed to create OpenAI embeddings"
-            ):
-                provider.get_langchain_embeddings()
 
 
 def test_openaiprovider_passes_max_tokens():

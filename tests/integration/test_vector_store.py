@@ -14,6 +14,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from docgen.config import DEFAULT_CONFIG, GeneratorConfig
 from docgen.core.analyzer import CodeAnalyzer
 from docgen.core.rag_pipeline import RAGPipelineFactory
+from docgen.exceptions.errors import DocumentationError, VectorStoreError
 
 
 @pytest.fixture
@@ -132,6 +133,56 @@ def test_in_memory_store_stays_in_memory_after_a_cached_store(build_store, tmp_p
     store = build_store("beta", "def beta_only():\n    return 2\n")
 
     assert store._client.get_settings().is_persistent is False
+
+
+class FailingEmbeddings(Embeddings):
+    """An embeddings model whose service is down."""
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        raise RuntimeError("embedding service down")
+
+    def embed_query(self, text: str) -> list[float]:
+        raise RuntimeError("embedding service down")
+
+
+@pytest.mark.parametrize("cache_enabled", [False, True])
+def test_embedding_failure_is_reported_once(
+    tmp_path, fake_chat_model_with_usage, cache_enabled
+):
+    """An embedding failure names the stage once, with or without the cache."""
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "app.py").write_text("def app():\n    return 1\n")
+    factory = RAGPipelineFactory(
+        llm=fake_chat_model_with_usage,
+        embeddings=FailingEmbeddings(),
+        config=DEFAULT_CONFIG,
+        text_splitter=RecursiveCharacterTextSplitter(),
+        cache_enabled=cache_enabled,
+        cache_dir=tmp_path / "cache",
+    )
+    analyses = CodeAnalyzer().analyze_directory(str(project))
+
+    with pytest.raises(
+        VectorStoreError,
+        match="^Failed to create vector store: RuntimeError: embedding service down$",
+    ):
+        factory.create_rag_chain(analyses, source_dir=project)
+
+
+def test_no_content_error_is_not_wrapped(fake_chat_model_with_usage, fake_embeddings):
+    """An error codeatlas raised itself keeps its own message."""
+    factory = RAGPipelineFactory(
+        llm=fake_chat_model_with_usage,
+        embeddings=fake_embeddings,
+        config=DEFAULT_CONFIG,
+        text_splitter=RecursiveCharacterTextSplitter(),
+    )
+
+    with pytest.raises(
+        DocumentationError, match="^No documentation content could be generated$"
+    ):
+        factory.create_rag_chain([])
 
 
 class KeywordEmbeddings(Embeddings):

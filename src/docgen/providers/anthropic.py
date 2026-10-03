@@ -9,7 +9,7 @@ from typing import Any
 
 from langchain_anthropic import ChatAnthropic
 
-from ..exceptions.errors import ApiKeyError, LLMError
+from ..exceptions.errors import LLMError
 from .base import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
@@ -56,8 +56,7 @@ class AnthropicProvider(BaseLLMProvider):
             ChatAnthropic instance
 
         Raises:
-            LLMError: If creation fails
-            ApiKeyError: If API key is invalid
+            LLMError: If the settings are invalid
         """
         try:
             kwargs: dict[str, Any] = {
@@ -75,12 +74,3 @@ class AnthropicProvider(BaseLLMProvider):
         except TypeError as e:
             # API changes or incorrect argument types
             raise LLMError(f"Anthropic API incompatibility: {str(e)}") from e
-        except Exception as e:
-            error_str = str(e).lower()
-            if (
-                "api_key" in error_str
-                or "authentication" in error_str
-                or "unauthorized" in error_str
-            ):
-                raise ApiKeyError(f"Invalid Anthropic API key: {str(e)}") from e
-            raise LLMError(f"Failed to create Anthropic LLM: {str(e)}") from e

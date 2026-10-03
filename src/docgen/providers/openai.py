@@ -5,46 +5,14 @@ EmbeddingProvider interfaces.
 """
 
 import logging
-from typing import Any, NoReturn
+from typing import Any
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-from ..exceptions.errors import ApiKeyError, EmbeddingError, LLMError
-from ..utils.error_classification import classify_api_error
+from ..exceptions.errors import EmbeddingError, LLMError
 from .base import BaseEmbeddingProvider, BaseLLMProvider
 
 logger = logging.getLogger(__name__)
-
-
-def _raise_openai_error(
-    e: Exception, operation: str, error_class: type = LLMError
-) -> NoReturn:
-    """Raise appropriate exception for OpenAI errors.
-
-    Args:
-        e: The original exception
-        operation: Description of the operation that failed
-        error_class: Default error class to use (LLMError or EmbeddingError)
-
-    Raises:
-        ApiKeyError: For authentication or quota issues
-        LLMError/EmbeddingError: For other errors
-    """
-    error_type = classify_api_error(e)
-    messages = {
-        "rate_limit": f"OpenAI rate limit exceeded during {operation}. Please wait and retry",
-        "auth": "Invalid or expired OpenAI API key",
-        "timeout": f"OpenAI request timed out during {operation}. Please retry",
-        "connection": f"Connection error to OpenAI API during {operation}",
-        "quota": "OpenAI quota exceeded or billing issue",
-        "context_length": f"Input too long for OpenAI model during {operation}",
-    }
-
-    if error_type in ("auth", "quota"):
-        raise ApiKeyError(f"{messages[error_type]}: {e}") from e
-    if error_type in messages:
-        raise error_class(f"{messages[error_type]}: {e}") from e
-    raise error_class(f"Failed to {operation}: {e}") from e
 
 
 class OpenAIProvider(BaseLLMProvider):
@@ -87,8 +55,7 @@ class OpenAIProvider(BaseLLMProvider):
             ChatOpenAI instance
 
         Raises:
-            LLMError: If creation fails
-            ApiKeyError: If API key is invalid
+            LLMError: If the settings are invalid
         """
         try:
             kwargs: dict[str, Any] = {
@@ -104,8 +71,6 @@ class OpenAIProvider(BaseLLMProvider):
             raise LLMError(f"Invalid OpenAI configuration: {e}") from e
         except TypeError as e:
             raise LLMError(f"OpenAI API incompatibility: {e}") from e
-        except Exception as e:
-            _raise_openai_error(e, "create OpenAI LLM")
 
 
 class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
@@ -140,8 +105,7 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
             OpenAIEmbeddings instance
 
         Raises:
-            EmbeddingError: If creation fails
-            ApiKeyError: If API key is invalid
+            EmbeddingError: If the settings are invalid
         """
         try:
             return OpenAIEmbeddings(
@@ -152,5 +116,3 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
             raise EmbeddingError(f"Invalid OpenAI embeddings configuration: {e}") from e
         except TypeError as e:
             raise EmbeddingError(f"OpenAI embeddings API incompatibility: {e}") from e
-        except Exception as e:
-            _raise_openai_error(e, "create OpenAI embeddings", EmbeddingError)

@@ -8,7 +8,7 @@ import logging
 import os
 import re
 
-from ..exceptions.errors import DiagramGenerationError
+from ..exceptions.errors import DiagramGenerationError, DiagramValidationError
 from ..models.code_entity import EntityType
 from ..models.diagram_validation import DiagramType, ValidationConfig
 from ..models.file_analysis import FileAnalysis
@@ -116,8 +116,7 @@ class DiagramGenerator:
                 for warning in result.warnings:
                     logger.warning(f"  {warning}")
 
-        except Exception as e:
-            logger.error(f"Diagram validation failed: {e}")
+        except DiagramValidationError as e:
             raise DiagramGenerationError(
                 f"Generated {diagram_type.value} diagram failed validation: {e}"
             ) from e
@@ -242,74 +241,71 @@ class DiagramGenerator:
             Mermaid class diagram source
 
         Raises:
-            DiagramGenerationError: If no classes found or diagram generation fails
+            DiagramGenerationError: If no classes are found or the diagram fails
+                validation
         """
-        try:
-            if not analyses:
-                raise DiagramGenerationError("No files to analyze")
+        if not analyses:
+            raise DiagramGenerationError("No files to analyze")
 
-            # Collect unique classes
-            classes = {}  # Use dict to ensure uniqueness by name
-            for analysis in analyses:
-                for entity in analysis.entities:
-                    if entity.type == EntityType.CLASS:
-                        clean_name = self._clean_name(entity.name)
-                        if clean_name not in classes:
-                            classes[clean_name] = entity
+        # Collect unique classes
+        classes = {}  # Use dict to ensure uniqueness by name
+        for analysis in analyses:
+            for entity in analysis.entities:
+                if entity.type == EntityType.CLASS:
+                    clean_name = self._clean_name(entity.name)
+                    if clean_name not in classes:
+                        classes[clean_name] = entity
 
-            if not classes:
-                raise DiagramGenerationError("No classes found in analyzed files")
+        if not classes:
+            raise DiagramGenerationError("No classes found in analyzed files")
 
-            # Start with class diagram declaration
-            diagram_lines = ["classDiagram"]
+        # Start with class diagram declaration
+        diagram_lines = ["classDiagram"]
 
-            # First declare all classes and their members
-            nodes_added = 0
-            for clean_name, cls in classes.items():
-                if nodes_added >= self.max_nodes:
-                    break
+        # First declare all classes and their members
+        nodes_added = 0
+        for clean_name, cls in classes.items():
+            if nodes_added >= self.max_nodes:
+                break
 
-                # Add class declaration
-                if cls.methods:
-                    # Class with methods
-                    diagram_lines.append(f"    class {clean_name} {{")
-                    for method in cls.methods:
-                        # Clean method name and escape special characters
-                        clean_method = method.replace('"', '\\"')
-                        diagram_lines.append(f"        +{clean_method}()")
-                    diagram_lines.append("    }")
-                else:
-                    # Empty class
-                    diagram_lines.append(f"    class {clean_name}")
+            # Add class declaration
+            if cls.methods:
+                # Class with methods
+                diagram_lines.append(f"    class {clean_name} {{")
+                for method in cls.methods:
+                    # Clean method name and escape special characters
+                    clean_method = method.replace('"', '\\"')
+                    diagram_lines.append(f"        +{clean_method}()")
+                diagram_lines.append("    }")
+            else:
+                # Empty class
+                diagram_lines.append(f"    class {clean_name}")
 
-                nodes_added += 1
+            nodes_added += 1
 
-            # Add blank line before relationships
-            if nodes_added > 0:
-                diagram_lines.append("")
+        # Add blank line before relationships
+        if nodes_added > 0:
+            diagram_lines.append("")
 
-            # Add inheritance relationships
-            # Include all parent classes even if not in diagram
-            for clean_name, cls in classes.items():
-                if cls.parent_class:
-                    clean_parent = self._clean_name(cls.parent_class)
-                    # Add relationship regardless of whether parent is in diagram
-                    diagram_lines.append(f"    {clean_name} --|> {clean_parent}")
+        # Add inheritance relationships
+        # Include all parent classes even if not in diagram
+        for clean_name, cls in classes.items():
+            if cls.parent_class:
+                clean_parent = self._clean_name(cls.parent_class)
+                # Add relationship regardless of whether parent is in diagram
+                diagram_lines.append(f"    {clean_name} --|> {clean_parent}")
 
-            # Add truncation note if needed
-            self._append_truncation_note(
-                diagram_lines, nodes_added, "classes", diagram_type="class"
-            )
+        # Add truncation note if needed
+        self._append_truncation_note(
+            diagram_lines, nodes_added, "classes", diagram_type="class"
+        )
 
-            diagram = "\n".join(diagram_lines)
+        diagram = "\n".join(diagram_lines)
 
-            # Validate before returning
-            self._validate_diagram(diagram, DiagramType.CLASS)
+        # Validate before returning
+        self._validate_diagram(diagram, DiagramType.CLASS)
 
-            return diagram
-        except Exception as e:
-            logger.debug(f"Error in class diagram: {str(e)}")
-            raise DiagramGenerationError(f"Failed to generate class diagram: {str(e)}")
+        return diagram
 
     def generate_sequence_diagram(self, call_graph: dict[str, set[str]]) -> str:
         """Generate a sequence diagram from function call graph.
@@ -434,49 +430,41 @@ class DiagramGenerator:
             Mermaid graph diagram markup
 
         Raises:
-            DiagramGenerationError: If diagram generation fails
+            DiagramGenerationError: If the diagram fails validation
         """
-        try:
-            if not call_graph:
-                return 'graph TD\n    note["No function calls found"]'
+        if not call_graph:
+            return 'graph TD\n    note["No function calls found"]'
 
-            diagram = ["graph TD"]
-            nodes_seen = set()
-            nodes_added = 0
+        diagram = ["graph TD"]
+        nodes_seen = set()
+        nodes_added = 0
 
-            for caller, callees in call_graph.items():
+        for caller, callees in call_graph.items():
+            if nodes_added >= self.max_nodes:
+                break
+
+            clean_caller = self._clean_name(caller)
+            if self._add_node_with_limit(diagram, caller, nodes_seen, nodes_added):
+                nodes_added += 1
+
+            for callee in callees:
                 if nodes_added >= self.max_nodes:
                     break
 
-                clean_caller = self._clean_name(caller)
-                if self._add_node_with_limit(diagram, caller, nodes_seen, nodes_added):
+                clean_callee = self._clean_name(callee)
+                if self._add_node_with_limit(diagram, callee, nodes_seen, nodes_added):
                     nodes_added += 1
 
-                for callee in callees:
-                    if nodes_added >= self.max_nodes:
-                        break
+                diagram.append(f"    {clean_caller} --> {clean_callee}")
 
-                    clean_callee = self._clean_name(callee)
-                    if self._add_node_with_limit(
-                        diagram, callee, nodes_seen, nodes_added
-                    ):
-                        nodes_added += 1
+        self._append_truncation_note(diagram, nodes_added)
 
-                    diagram.append(f"    {clean_caller} --> {clean_callee}")
+        diagram_content = "\n".join(diagram)
 
-            self._append_truncation_note(diagram, nodes_added)
+        # Validate before returning
+        self._validate_diagram(diagram_content, DiagramType.CALL_GRAPH)
 
-            diagram_content = "\n".join(diagram)
-
-            # Validate before returning
-            self._validate_diagram(diagram_content, DiagramType.CALL_GRAPH)
-
-            return diagram_content
-        except Exception as e:
-            logger.debug(f"Error in call graph diagram: {str(e)}")
-            raise DiagramGenerationError(
-                f"Failed to generate call graph diagram: {str(e)}"
-            )
+        return diagram_content
 
     def generate_architecture_diagram(self, analyses: list[FileAnalysis]) -> str:
         """Generate an architecture diagram showing module relationships.
@@ -488,60 +476,52 @@ class DiagramGenerator:
             Mermaid graph diagram markup
 
         Raises:
-            DiagramGenerationError: If diagram generation fails
+            DiagramGenerationError: If the diagram fails validation
         """
-        try:
-            if not analyses:
-                return "graph TD\n    note[No files to analyze]"
+        if not analyses:
+            return "graph TD\n    note[No files to analyze]"
 
-            diagram = ["graph TD"]
-            nodes_seen = set()
-            nodes_added = 0
+        diagram = ["graph TD"]
+        nodes_seen = set()
+        nodes_added = 0
 
-            # First add all nodes
-            for analysis in analyses:
+        # First add all nodes
+        for analysis in analyses:
+            if nodes_added >= self.max_nodes:
+                break
+
+            module_name = os.path.splitext(os.path.basename(analysis.file_path))[0]
+            if self._add_node_with_limit(diagram, module_name, nodes_seen, nodes_added):
+                nodes_added += 1
+
+            for imp in analysis.imports:
                 if nodes_added >= self.max_nodes:
                     break
 
-                module_name = os.path.splitext(os.path.basename(analysis.file_path))[0]
-                if self._add_node_with_limit(
-                    diagram, module_name, nodes_seen, nodes_added
-                ):
+                if self._add_node_with_limit(diagram, imp, nodes_seen, nodes_added):
                     nodes_added += 1
 
-                for imp in analysis.imports:
-                    if nodes_added >= self.max_nodes:
-                        break
+        # Then add all edges (between nodes that were added)
+        for analysis in analyses:
+            module_name = os.path.splitext(os.path.basename(analysis.file_path))[0]
+            clean_module = self._clean_name(module_name)
 
-                    if self._add_node_with_limit(diagram, imp, nodes_seen, nodes_added):
-                        nodes_added += 1
+            # Only add edges for modules that were included in the diagram
+            if clean_module not in nodes_seen:
+                continue
 
-            # Then add all edges (between nodes that were added)
-            for analysis in analyses:
-                module_name = os.path.splitext(os.path.basename(analysis.file_path))[0]
-                clean_module = self._clean_name(module_name)
+            for imp in analysis.imports:
+                clean_imp = self._clean_name(imp)
+                # Only add edge if both nodes are in the diagram
+                if clean_imp in nodes_seen:
+                    diagram.append(f"    {clean_module} --> {clean_imp}")
 
-                # Only add edges for modules that were included in the diagram
-                if clean_module not in nodes_seen:
-                    continue
+        # Add node limit note if needed
+        self._append_truncation_note(diagram, nodes_added)
 
-                for imp in analysis.imports:
-                    clean_imp = self._clean_name(imp)
-                    # Only add edge if both nodes are in the diagram
-                    if clean_imp in nodes_seen:
-                        diagram.append(f"    {clean_module} --> {clean_imp}")
+        diagram_content = "\n".join(diagram)
 
-            # Add node limit note if needed
-            self._append_truncation_note(diagram, nodes_added)
+        # Validate before returning
+        self._validate_diagram(diagram_content, DiagramType.ARCHITECTURE)
 
-            diagram_content = "\n".join(diagram)
-
-            # Validate before returning
-            self._validate_diagram(diagram_content, DiagramType.ARCHITECTURE)
-
-            return diagram_content
-        except Exception as e:
-            logger.debug(f"Error in architecture diagram: {str(e)}")
-            raise DiagramGenerationError(
-                f"Failed to generate architecture diagram: {str(e)}"
-            )
+        return diagram_content

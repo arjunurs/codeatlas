@@ -14,6 +14,7 @@ from ..config import DEFAULT_CONFIG
 from ..exceptions.errors import CodeParseError, FileEncodingError
 from ..models.code_entity import CodeEntity
 from ..models.file_analysis import FileAnalysis
+from ..utils.error_classification import describe_error
 
 logger = logging.getLogger(__name__)
 
@@ -89,10 +90,10 @@ class CodeAnalyzer:
         except OSError as e:
             raise CodeParseError(f"Failed to read {file_path}: {str(e)}")
 
-        try:
-            if not self._source and not os.path.basename(file_path) == "__init__.py":
-                raise CodeParseError("File is empty")
+        if not self._source and os.path.basename(file_path) != "__init__.py":
+            raise CodeParseError(f"File is empty: {file_path}")
 
+        try:
             tree = ast.parse(self._source)
             entities = self._extract_entities(tree, file_path)
             imports = self._extract_imports(tree)
@@ -104,10 +105,10 @@ class CodeAnalyzer:
                 content=self._source,
                 _skip_validation=self.skip_validation,
             )
-        except SyntaxError as e:
-            raise CodeParseError(f"Failed to parse {file_path}: {str(e)}")
-        except Exception as e:
-            raise CodeParseError(f"Failed to analyze {file_path}: {str(e)}")
+        # ValueError covers a null byte on Python 3.10 and 3.11 (a SyntaxError
+        # from 3.12) and the FileAnalysis and CodeEntity checks
+        except (SyntaxError, ValueError) as e:
+            raise CodeParseError(f"Failed to parse {file_path}: {e}") from e
 
     def analyze_directory(
         self,
@@ -151,8 +152,10 @@ class CodeAnalyzer:
                 if max_files is not None and len(analyses) >= max_files:
                     logger.info(f"Reached max_files limit ({max_files})")
                     return analyses
-            except Exception as e:
-                logger.warning(f"Skipping {file_path}: {str(e)}")
+            # Per-file boundary: one file the analyzer cannot handle, for any
+            # reason, is skipped so the rest of the codebase is still documented
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"Skipping {file_path}: {describe_error(e)}")
 
         if not python_files_found:
             raise CodeParseError(f"No Python files found in {directory}")
@@ -376,10 +379,6 @@ class CodeAnalyzer:
             except SyntaxError as e:
                 logger.warning(
                     f"Syntax error analyzing function calls in {analysis.file_path}: {str(e)}"
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Unexpected error analyzing function calls in {analysis.file_path}: {str(e)}"
                 )
 
         return call_graph

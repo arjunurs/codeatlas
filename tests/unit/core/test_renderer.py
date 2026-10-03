@@ -2,9 +2,11 @@
 
 from unittest.mock import Mock
 
+import jinja2
 import pytest
 
 from docgen.core.renderer import DocumentationRenderer
+from docgen.exceptions.errors import DocumentationError
 from docgen.templates.html import get_template_manager
 
 SAFE_HTML = (
@@ -89,3 +91,38 @@ def test_generate_navigation_passes_titles_active_page_and_base_url():
     navigation.render.assert_called_once_with(
         active="Overview", sections=["Overview", "Dependencies"], base_url="./"
     )
+
+
+MINIMAL_DOCUMENTATION = {"title": "Docs", "generated_date": "today", "sections": []}
+
+
+def failing_template_manager(error: Exception) -> Mock:
+    """A template manager whose page rendering raises the given error."""
+    navigation = Mock(render=Mock(return_value="<nav></nav>"))
+    return Mock(
+        templates={"navigation": navigation}, render_template=Mock(side_effect=error)
+    )
+
+
+@pytest.mark.parametrize(
+    "error",
+    [PermissionError("output is read-only"), jinja2.TemplateError("bad template")],
+)
+def test_write_and_template_failures_are_documentation_errors(tmp_path, error):
+    """Failures writing the site are reported as one documentation error."""
+    renderer = DocumentationRenderer(failing_template_manager(error))
+
+    with pytest.raises(
+        DocumentationError, match=f"^Failed to generate HTML documentation: {error}$"
+    ):
+        renderer.render(MINIMAL_DOCUMENTATION, {}, str(tmp_path))
+
+
+def test_renderer_bug_is_not_disguised(tmp_path):
+    """An unknown template name is a bug, so it is not reported as a write failure."""
+    renderer = DocumentationRenderer(
+        failing_template_manager(ValueError("Unknown template: x"))
+    )
+
+    with pytest.raises(ValueError, match="^Unknown template: x$"):
+        renderer.render(MINIMAL_DOCUMENTATION, {}, str(tmp_path))

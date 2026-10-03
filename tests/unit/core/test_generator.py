@@ -13,7 +13,7 @@ import pytest
 
 from docgen.config import DEFAULT_CONFIG, GenerationOptions
 from docgen.core.generator import CodeDocumentationGenerator
-from docgen.exceptions.errors import DocumentationError
+from docgen.exceptions.errors import CodeParseError, DocumentationError
 from docgen.models.code_entity import CodeEntity
 from docgen.models.file_analysis import FileAnalysis
 
@@ -256,32 +256,30 @@ def test_generate_documentation_no_files(mock_generator, tmp_path):
         mock_generator.generate_documentation(str(source_dir), str(output_dir))
 
 
-def test_generate_documentation_analysis_error(mock_generator, tmp_path):
-    """Test documentation generation with analysis error."""
+def test_unexpected_error_propagates_unchanged(mock_generator, tmp_path):
+    """An error that is not codeatlas's own is not disguised as one."""
     source_dir = tmp_path / "src"
     source_dir.mkdir()
     output_dir = tmp_path / "docs"
 
-    # Mock analyzer to raise error
-    mock_generator.analyzer.analyze_directory.side_effect = Exception("Analysis failed")
+    mock_generator.analyzer.analyze_directory.side_effect = RuntimeError(
+        "Analysis failed"
+    )
 
-    with pytest.raises(
-        DocumentationError, match="Failed to generate documentation: Analysis failed"
-    ):
+    with pytest.raises(RuntimeError, match="^Analysis failed$"):
         mock_generator.generate_documentation(str(source_dir), str(output_dir))
 
 
-def test_generate_documentation_with_errors(generator, tmp_path):
-    """Test documentation generation with various errors."""
+def test_documentation_error_propagates_unchanged(generator, tmp_path):
+    """A codeatlas error reaches the caller without another prefix."""
     source_dir = tmp_path / "src"
     source_dir.mkdir()
     output_dir = tmp_path / "docs"
 
-    # Test analyzer error
-    generator.analyzer.analyze_directory.side_effect = Exception("Analysis failed")
-    with pytest.raises(DocumentationError) as exc_info:
+    generator.analyzer.analyze_directory.side_effect = CodeParseError("Analysis failed")
+
+    with pytest.raises(CodeParseError, match="^Analysis failed$"):
         generator.generate_documentation(str(source_dir), str(output_dir))
-    assert "Failed to generate documentation" in str(exc_info.value)
 
 
 def test_documentation_content_structure(generator, tmp_path):
@@ -458,7 +456,10 @@ def test_failed_call_analysis_is_reported_for_each_diagram_that_needs_it():
     diagrams, errors = generator._generate_all_diagrams([])
 
     assert set(diagrams) == {"architecture", "class_diagram", "package_dependencies"}
-    assert errors == [("sequence", "bad calls"), ("function_calls", "bad calls")]
+    assert errors == [
+        ("sequence", "RuntimeError: bad calls"),
+        ("function_calls", "RuntimeError: bad calls"),
+    ]
 
 
 def test_call_analysis_runs_once_for_both_diagrams_that_use_it():
