@@ -222,6 +222,39 @@ class CodeAnalyzer:
         """
         return any(fnmatch.fnmatch(name, pattern) for pattern in patterns)
 
+    def analyze_module_imports(
+        self, analyses: Sequence[FileAnalysis], root: str
+    ) -> dict[str, set[str]]:
+        """Map each analyzed module to the analyzed modules it imports.
+
+        Imports of the standard library and third-party packages are left out:
+        the architecture diagram is about the project's own modules.
+
+        Args:
+            analyses: File analysis results
+            root: The source root module names start from
+
+        Returns:
+            Dictionary mapping each module to the project modules it imports
+        """
+        modules = {a.file_path: module_name(a.file_path, root) for a in analyses}
+        index = ModuleIndex(modules.values())
+
+        module_imports: dict[str, set[str]] = {}
+        for analysis in analyses:
+            module = modules[analysis.file_path]
+            is_package = os.path.basename(analysis.file_path) == "__init__.py"
+            imported = module_imports.setdefault(module, set())
+            for name in analysis.imports:
+                placed = index.place(name, module, is_package)
+                if (
+                    placed
+                    and placed.kind is ImportKind.INTERNAL
+                    and placed.name != module
+                ):
+                    imported.add(placed.name)
+        return module_imports
+
     def analyze_package_dependencies(
         self, analyses: Sequence[FileAnalysis], root: str
     ) -> dict[str, set[str]]:

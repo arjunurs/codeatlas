@@ -665,22 +665,29 @@ def test_relative_import_adds_no_unnamed_dependency(analyzer, tmp_path):
     assert dependencies == {"pkg": {"yaml"}}
 
 
-def test_package_dependencies_link_packages_and_skip_the_stdlib(analyzer, tmp_path):
-    """Imports become package-to-package links; the standard library is left out."""
-    files = {
-        "shop/__init__.py": "",
-        "shop/cli.py": "import argparse\nfrom .orders import place_order\n",
-        "shop/orders.py": (
-            "import json\nimport requests\nfrom .payments.gateway import charge\n"
-        ),
-        "shop/catalog.py": "from dataclasses import dataclass\n",
-        "shop/payments/__init__.py": "",
-        "shop/payments/gateway.py": "import stripe\nfrom ..catalog import Catalog\n",
-    }
+SHOP_FILES = {
+    "shop/__init__.py": "",
+    "shop/cli.py": "import argparse\nfrom .orders import place_order\n",
+    "shop/orders.py": (
+        "import json\nimport requests\nfrom .payments.gateway import charge\n"
+    ),
+    "shop/catalog.py": "from dataclasses import dataclass\n",
+    "shop/payments/__init__.py": "",
+    "shop/payments/gateway.py": "import stripe\nfrom ..catalog import Catalog\n",
+}
+
+
+def write_files(root, files: dict[str, str]) -> None:
+    """Write a small project's files under root."""
     for name, code in files.items():
-        path = tmp_path / name
+        path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(code)
+
+
+def test_package_dependencies_link_packages_and_skip_the_stdlib(analyzer, tmp_path):
+    """Imports become package-to-package links; the standard library is left out."""
+    write_files(tmp_path, SHOP_FILES)
     analyses = analyzer.analyze_directory(str(tmp_path))
 
     dependencies = analyzer.analyze_package_dependencies(analyses, root=str(tmp_path))
@@ -688,4 +695,21 @@ def test_package_dependencies_link_packages_and_skip_the_stdlib(analyzer, tmp_pa
     assert dependencies == {
         "shop": {"requests", "shop.payments"},
         "shop.payments": {"shop", "stripe"},
+    }
+
+
+def test_module_imports_link_the_project_modules(analyzer, tmp_path):
+    """Each module maps to the analyzed modules it imports, not to libraries."""
+    write_files(tmp_path, SHOP_FILES)
+    analyses = analyzer.analyze_directory(str(tmp_path))
+
+    module_imports = analyzer.analyze_module_imports(analyses, root=str(tmp_path))
+
+    assert module_imports == {
+        "shop": set(),
+        "shop.cli": {"shop.orders"},
+        "shop.orders": {"shop.payments.gateway"},
+        "shop.catalog": set(),
+        "shop.payments": set(),
+        "shop.payments.gateway": {"shop.catalog"},
     }

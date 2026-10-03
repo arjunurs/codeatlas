@@ -73,15 +73,58 @@ def sample_analyses():
     ]
 
 
-def test_generate_architecture_diagram(diagram_generator, sample_analyses):
-    """Test architecture diagram generation."""
-    diagram = diagram_generator.generate_architecture_diagram(sample_analyses)
+def test_architecture_diagram_groups_modules_by_package(diagram_generator):
+    """Modules sit in their package, named within it; a package's own module is __init__."""
+    module_imports = {
+        "shop.payments.gateway": {"shop"},
+        "shop.orders": {"shop.payments.gateway"},
+        "shop.cli": {"shop.orders", "shop"},
+        "shop": set(),
+        "shop.payments": set(),
+        "main": {"shop.cli"},
+    }
 
-    # Verify diagram structure
-    assert diagram.startswith("graph TD")
-    assert "module1" in diagram
-    assert "module2" in diagram
-    assert "-->" in diagram  # Should have at least one connection
+    diagram = diagram_generator.generate_architecture_diagram(module_imports)
+
+    assert diagram == "\n".join(
+        [
+            "graph TD",
+            '    main["main"]',
+            '    subgraph shop_package["shop"]',
+            '        shop["__init__"]',
+            '        shop_cli["cli"]',
+            '        shop_orders["orders"]',
+            "    end",
+            '    subgraph shop_payments_package["shop.payments"]',
+            '        shop_payments["__init__"]',
+            '        shop_payments_gateway["gateway"]',
+            "    end",
+            "    main --> shop_cli",
+            "    shop_cli --> shop",
+            "    shop_cli --> shop_orders",
+            "    shop_orders --> shop_payments_gateway",
+            "    shop_payments_gateway --> shop",
+        ]
+    )
+
+
+def test_architecture_diagram_keeps_the_most_connected_modules():
+    """When there are too many modules, the most linked ones are kept."""
+    generator = DiagramGenerator(max_nodes=2, validate_diagrams=False)
+    module_imports = {"app.a": {"app.core"}, "app.b": {"app.core"}, "app.core": set()}
+
+    diagram = generator.generate_architecture_diagram(module_imports)
+
+    assert 'app_core["core"]' in diagram and 'app_a["a"]' in diagram
+    assert 'app_b["b"]' not in diagram
+    assert "Diagram truncated: showing top 2 nodes" in diagram
+
+
+def test_architecture_diagram_without_modules_says_so(diagram_generator):
+    """No analyzed modules gives a one-note diagram."""
+    assert diagram_generator.generate_architecture_diagram({}) == (
+        'graph TD\n    note["No files to analyze"]'
+    )
 
 
 def test_generate_class_diagram(diagram_generator, sample_analyses):
@@ -262,7 +305,11 @@ def test_diagram_generation_error_handling(diagram_generator):
     ("builder", "diagram_type", "make_input"),
     [
         ("generate_class_diagram", "class", lambda analyses: analyses),
-        ("generate_architecture_diagram", "architecture", lambda analyses: analyses),
+        (
+            "generate_architecture_diagram",
+            "architecture",
+            lambda _: {"app": {"util"}, "util": set()},
+        ),
         ("generate_call_graph_diagram", "callgraph", lambda _: {"main": {"helper"}}),
     ],
 )

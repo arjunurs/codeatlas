@@ -5,8 +5,8 @@ for code documentation.
 """
 
 import logging
-import os
 import re
+from collections import defaultdict
 from collections.abc import Sequence
 
 from ..exceptions.errors import DiagramGenerationError, DiagramValidationError
@@ -424,10 +424,10 @@ class DiagramGenerator:
         ranked = sorted(nodes, key=lambda node: (-links[node], node))
         return set(ranked[: self.max_nodes])
 
-    def _node_line(self, name: str) -> str:
-        """A node definition, with the name as a quoted label."""
-        label = name.replace('"', "'")
-        return f'    {self._clean_name(name)}["{label}"]'
+    def _node_line(self, name: str, label: str | None = None) -> str:
+        """A node definition, labeled with the name unless a label is given."""
+        text = (name if label is None else label).replace('"', "'")
+        return f'    {self._clean_name(name)}["{text}"]'
 
     def generate_call_graph_diagram(self, call_graph: dict[str, set[str]]) -> str:
         """Generate a call graph diagram showing function calls.
@@ -475,11 +475,17 @@ class DiagramGenerator:
 
         return diagram_content
 
-    def generate_architecture_diagram(self, analyses: Sequence[FileAnalysis]) -> str:
-        """Generate an architecture diagram showing module relationships.
+    def generate_architecture_diagram(self, module_imports: dict[str, set[str]]) -> str:
+        """Generate an architecture diagram of the project's modules.
+
+        Each module sits in a group for its package and is named within it; a
+        package's own __init__ module is named __init__. Edges are imports
+        between the modules. When there are more than max_nodes modules, the
+        most connected are kept.
 
         Args:
-            analyses: List of file analyses
+            module_imports: Each project module, mapped to the project modules
+                it imports
 
         Returns:
             Mermaid graph diagram markup
@@ -487,46 +493,48 @@ class DiagramGenerator:
         Raises:
             DiagramGenerationError: If the diagram fails validation
         """
-        if not analyses:
-            return "graph TD\n    note[No files to analyze]"
+        if not module_imports:
+            return 'graph TD\n    note["No files to analyze"]'
+
+        modules = set(module_imports)
+        edges = {
+            (module, imported)
+            for module, imports in module_imports.items()
+            for imported in imports
+            if imported in modules
+        }
+        shown = self._most_connected(modules, edges)
+
+        # A module that other modules sit inside is a package's __init__
+        packages = {
+            module
+            for module in modules
+            if any(m.startswith(f"{module}.") for m in modules)
+        }
+        groups: dict[str, list[str]] = defaultdict(list)
+        for module in sorted(shown):
+            package = module if module in packages else module.rpartition(".")[0]
+            groups[package].append(module)
 
         diagram = ["graph TD"]
-        nodes_seen = set()
-        nodes_added = 0
-
-        # First add all nodes
-        for analysis in analyses:
-            if nodes_added >= self.max_nodes:
-                break
-
-            module_name = os.path.splitext(os.path.basename(analysis.file_path))[0]
-            if self._add_node_with_limit(diagram, module_name, nodes_seen, nodes_added):
-                nodes_added += 1
-
-            for imp in analysis.imports:
-                if nodes_added >= self.max_nodes:
-                    break
-
-                if self._add_node_with_limit(diagram, imp, nodes_seen, nodes_added):
-                    nodes_added += 1
-
-        # Then add all edges (between nodes that were added)
-        for analysis in analyses:
-            module_name = os.path.splitext(os.path.basename(analysis.file_path))[0]
-            clean_module = self._clean_name(module_name)
-
-            # Only add edges for modules that were included in the diagram
-            if clean_module not in nodes_seen:
+        for package in sorted(groups):
+            members = groups[package]
+            if not package:
+                diagram.extend(self._node_line(module) for module in members)
                 continue
-
-            for imp in analysis.imports:
-                clean_imp = self._clean_name(imp)
-                # Only add edge if both nodes are in the diagram
-                if clean_imp in nodes_seen:
-                    diagram.append(f"    {clean_module} --> {clean_imp}")
-
-        # Add node limit note if needed
-        self._append_truncation_note(diagram, nodes_added)
+            package_id = self._clean_name(package) + "_package"
+            diagram.append(f'    subgraph {package_id}["{package}"]')
+            for module in members:
+                label = module[len(package) + 1 :] if module != package else "__init__"
+                diagram.append(f"    {self._node_line(module, label)}")
+            diagram.append("    end")
+        diagram.extend(
+            f"    {self._clean_name(source)} --> {self._clean_name(target)}"
+            for source, target in sorted(edges)
+            if source in shown and target in shown
+        )
+        if len(shown) < len(modules):
+            self._append_truncation_note(diagram, len(shown))
 
         diagram_content = "\n".join(diagram)
 

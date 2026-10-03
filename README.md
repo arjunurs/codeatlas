@@ -29,7 +29,7 @@ Virtualenvs, `.git`, and build and tool directories are skipped automatically.
 
 **Diagrams** (no API keys needed)
 
-- **Architecture**: each module and what it imports
+- **Architecture**: the project's modules, grouped by package, and which import which
 - **Class**: classes, their methods, and inheritance
 - **Dependencies**: which of the project's packages import which, and the third-party
   packages they use (the standard library is left out)

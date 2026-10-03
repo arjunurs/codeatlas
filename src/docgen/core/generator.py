@@ -338,7 +338,9 @@ class CodeDocumentationGenerator:
         builders = {
             "architecture": (
                 "architecture",
-                lambda: build.generate_architecture_diagram(analyses),
+                lambda: build.generate_architecture_diagram(
+                    self.analyzer.analyze_module_imports(analyses, root=source_dir)
+                ),
             ),
             "class": ("class_diagram", lambda: build.generate_class_diagram(analyses)),
             "sequence": (

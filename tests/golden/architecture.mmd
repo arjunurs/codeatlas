@@ -1,0 +1,15 @@
+graph TD
+    subgraph shop_package["shop"]
+        shop["__init__"]
+        shop_catalog["catalog"]
+        shop_cli["cli"]
+        shop_orders["orders"]
+    end
+    subgraph shop_payments_package["shop.payments"]
+        shop_payments["__init__"]
+        shop_payments_gateway["gateway"]
+    end
+    shop_cli --> shop_catalog
+    shop_cli --> shop_orders
+    shop_orders --> shop_payments_gateway
+    shop_payments_gateway --> shop_catalog

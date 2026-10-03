@@ -19,7 +19,7 @@ from docgen.core.diagrams import DiagramGenerator
 
 GOLDEN_DIR = Path(__file__).parent.parent / "golden"
 HASH_SEEDS = ("1", "2")
-DIAGRAMS = ["dependency"]
+DIAGRAMS = ["architecture", "dependency"]
 
 PROJECT = {
     "shop/__init__.py": '"""A small shop: the fixture for the golden diagrams."""\n',
@@ -108,6 +108,9 @@ def render_diagrams(root: str) -> dict[str, str]:
     analyses = analyzer.analyze_directory(root)
     generator = DiagramGenerator()
     return {
+        "architecture": generator.generate_architecture_diagram(
+            analyzer.analyze_module_imports(analyses, root=root)
+        ),
         "dependency": generator.generate_dependency_diagram(
             analyzer.analyze_package_dependencies(analyses, root=root)
         ),

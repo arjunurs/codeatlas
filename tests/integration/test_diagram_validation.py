@@ -55,22 +55,10 @@ class TestDiagramValidationIntegration:
         """Test that valid architecture diagram passes validation."""
         generator = DiagramGenerator(validate_diagrams=True)
 
-        # Create test data
-        entities = [
-            CodeEntity(
-                name="func1", type=EntityType.FUNCTION, docstring="Test function"
-            ),
-        ]
-        analysis = FileAnalysis(
-            file_path="module1.py",
-            entities=entities,
-            imports=["module2"],
-            content="",
-            _skip_validation=True,
-        )
-
         # Generate diagram - should not raise
-        diagram = generator.generate_architecture_diagram([analysis])
+        diagram = generator.generate_architecture_diagram(
+            {"module1": {"module2"}, "module2": set()}
+        )
         assert diagram.startswith("graph")
 
     def test_validation_disabled_allows_any_diagram(self):
