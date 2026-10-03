@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Data Flow · flask</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-width: 280px;
+            --header-height: 56px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+        }
+
+        /* Skip to content link for accessibility */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: #1a1a1a;
+            color: white;
+            padding: 8px 16px;
+            z-index: 1000;
+            text-decoration: none;
+        }
+        .skip-link:focus {
+            top: 0;
+        }
+
+        /* Mobile header */
+        .mobile-header {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--header-height);
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 16px;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 50;
+        }
+
+        .mobile-menu-btn {
+            background: none;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        .mobile-menu-btn:hover {
+            background: #f3f4f6;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow-y: auto;
+            background: #fafafa;
+            border-right: 1px solid #e5e7eb;
+            padding: 16px;
+            z-index: 40;
+        }
+
+        .sidebar-header {
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .sidebar-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0;
+        }
+
+        .page-subtitle {
+            color: #6b7280;
+            font-size: 14px;
+            margin: 4px 0 24px 0;
+        }
+
+        /* Navigation */
+        .nav-section {
+            margin-bottom: 20px;
+        }
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            padding: 8px 0;
+            margin: 0;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            margin: 2px 0;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #374151;
+            font-size: 14px;
+            transition: background-color 0.15s;
+        }
+        .nav-item:hover {
+            background: #e5e7eb;
+        }
+        .nav-item.active {
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-weight: 500;
+        }
+        .nav-item i {
+            width: 16px;
+            text-align: center;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        /* Main content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 24px 32px;
+            min-height: 100vh;
+            max-width: 1200px;
+        }
+
+        /* Breadcrumbs */
+        .breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .breadcrumbs a {
+            color: #6b7280;
+            text-decoration: none;
+        }
+        .breadcrumbs a:hover {
+            color: #374151;
+            text-decoration: underline;
+        }
+        .breadcrumbs .separator {
+            color: #d1d5db;
+        }
+        .breadcrumbs .current {
+            color: #374151;
+            font-weight: 500;
+        }
+
+        /* Content cards */
+        .content-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .content-card h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #111827;
+            margin: 0 0 16px 0;
+            line-height: 1.3;
+        }
+
+        .content-card h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #111827;
+            margin: 24px 0 12px 0;
+        }
+
+        /* Diagram container */
+        .diagram-container {
+            width: 100%;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: white;
+            position: relative;
+        }
+
+        .diagram-toolbar {
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            z-index: 10;
+        }
+
+        .diagram-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #374151;
+        }
+        .diagram-btn:hover {
+            background: #f3f4f6;
+        }
+        .diagram-btn:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .diagram-content {
+            padding: 16px;
+            display: inline-block;
+            min-width: 100%;
+        }
+
+        .mermaid {
+            display: inline-block;
+        }
+
+        .mermaid svg {
+            display: block;
+        }
+
+        /* Footer navigation */
+        .footer-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 40px;
+            padding-top: 24px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer-nav-link {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 12px 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #374151;
+            max-width: 45%;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .footer-nav-link:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+        }
+        .footer-nav-link.next {
+            text-align: right;
+            margin-left: auto;
+        }
+        .footer-nav-label {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .footer-nav-title {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Sidebar overlay for mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 35;
+        }
+
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            .mobile-header {
+                display: flex;
+            }
+
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                top: var(--header-height);
+                height: calc(100vh - var(--header-height));
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay.open {
+                display: block;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 16px;
+                padding-top: calc(var(--header-height) + 16px);
+            }
+
+            .footer-nav {
+                flex-direction: column;
+            }
+            .footer-nav-link {
+                max-width: 100%;
+            }
+            .footer-nav-link.next {
+                text-align: left;
+            }
+        }
+
+        /* Keyboard shortcut hints */
+        .kbd {
+            display: inline-block;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-family: monospace;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            color: #6b7280;
+        }
+
+        /* Focus visible for keyboard navigation */
+        :focus-visible {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+
+        /* Print styles */
+        @media print {
+            .sidebar, .mobile-header, .diagram-toolbar, .footer-nav {
+                display: none !important;
+            }
+            .main-content {
+                margin-left: 0 !important;
+                padding: 0 !important;
+            }
+        }
+    </style>
+    <script>
+        // Mermaid configuration
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'strict',
+            maxTextSize: 100000,
+            fontSize: 14,
+            flowchart: {
+                useMaxWidth: false,
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            sequence: {
+                useMaxWidth: false,
+                showSequenceNumbers: true
+            }
+        });
+
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            document.querySelector('.sidebar').classList.toggle('open');
+            document.querySelector('.sidebar-overlay').classList.toggle('open');
+        }
+
+        // Close mobile menu when clicking overlay
+        document.addEventListener('DOMContentLoaded', function() {
+            const overlay = document.querySelector('.sidebar-overlay');
+            if (overlay) {
+                overlay.addEventListener('click', toggleMobileMenu);
+            }
+
+            // Close mobile menu on escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const sidebar = document.querySelector('.sidebar');
+                    if (sidebar && sidebar.classList.contains('open')) {
+                        toggleMobileMenu();
+                    }
+                }
+            });
+        });
+
+        // Diagram zoom functionality
+        let diagramScale = 1;
+        let originalSvgWidth = 0;
+        let originalSvgHeight = 0;
+
+        function zoomDiagram(factor) {
+            const content = document.querySelector('.diagram-content');
+            const svg = content ? content.querySelector('svg') : null;
+            if (!svg) return;
+
+            // Store original dimensions on first call
+            if (!originalSvgWidth || !originalSvgHeight) {
+                const rect = svg.getBoundingClientRect();
+                originalSvgWidth = rect.width;
+                originalSvgHeight = rect.height;
+            }
+
+            if (factor === 'reset') {
+                diagramScale = 1;
+                svg.style.transform = '';
+                content.style.width = '';
+                content.style.height = '';
+            } else if (factor === 'fit') {
+                // Calculate scale to fit the diagram container
+                const container = document.querySelector('.diagram-container');
+                const containerRect = container.getBoundingClientRect();
+                const padding = 48; // Account for content padding
+                const availableWidth = containerRect.width - padding;
+                const availableHeight = containerRect.height - padding;
+
+                const scaleX = availableWidth / originalSvgWidth;
+                const scaleY = availableHeight / originalSvgHeight;
+                diagramScale = Math.min(scaleX, scaleY, 1);
+
+                svg.style.transform = `scale(${diagramScale})`;
+                svg.style.transformOrigin = 'top left';
+                content.style.width = (originalSvgWidth * diagramScale) + 'px';
+                content.style.height = (originalSvgHeight * diagramScale) + 'px';
+            } else {
+                diagramScale = Math.max(0.1, Math.min(3, diagramScale * factor));
+                svg.style.transform = `scale(${diagramScale})`;
+                svg.style.transformOrigin = 'top left';
+                // Adjust container size to match scaled SVG
+                content.style.width = (originalSvgWidth * diagramScale) + 'px';
+                content.style.height = (originalSvgHeight * diagramScale) + 'px';
+            }
+
+            // Update zoom level display
+            const zoomLevel = document.getElementById('zoom-level');
+            if (zoomLevel) {
+                zoomLevel.textContent = Math.round(diagramScale * 100) + '%';
+            }
+        }
+
+        // Note: Diagrams render at natural size for best readability
+        // Users can click "Fit" button to fit to panel if needed
+
+        function downloadDiagram() {
+            const svg = document.querySelector('.diagram-content svg');
+            if (!svg) return;
+
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const blob = new Blob([svgData], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'diagram.svg';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function toggleFullscreen() {
+            const container = document.querySelector('.diagram-container');
+            if (!container) return;
+
+            if (!document.fullscreenElement) {
+                container.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+    </script>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Mobile header -->
+    <header class="mobile-header">
+        <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle navigation menu">
+            <i class="fas fa-bars"></i>
+            <span>Menu</span>
+        </button>
+        <span style="font-weight: 500; font-size: 14px;">Data Flow</span>
+    </header>
+
+    <!-- Sidebar overlay for mobile -->
+    <div class="sidebar-overlay" aria-hidden="true"></div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" aria-label="Main navigation">
+        <div class="sidebar-header">
+            <h1 class="sidebar-title">flask</h1>
+        </div>
+
+        <div id="navigation">
+            <nav aria-label="Documentation navigation">
+    <div class="nav-section">
+        <a href="../index.html"
+           class="nav-item "
+           >
+            <i class="fas fa-home" aria-hidden="true"></i>
+            <span>Home</span>
+        </a>
+    </div>
+
+    
+    <div class="nav-section">
+        <h2 class="nav-section-title">Documentation</h2>
+        
+        <a href="../sections/overview.html"
+           class="nav-item "
+           >
+            <span>Overview</span>
+        </a>
+        
+        <a href="../sections/dependencies.html"
+           class="nav-item "
+           >
+            <span>Dependencies</span>
+        </a>
+        
+        <a href="../sections/key_classes_and_functions.html"
+           class="nav-item "
+           >
+            <span>Key Classes and Functions</span>
+        </a>
+        
+        <a href="../sections/data_flow.html"
+           class="nav-item active"
+           aria-current="page">
+            <span>Data Flow</span>
+        </a>
+        
+        <a href="../sections/integration_points.html"
+           class="nav-item "
+           >
+            <span>Integration Points</span>
+        </a>
+        
+    </div>
+    
+
+    
+    <div class="nav-section">
+        <h2 class="nav-section-title">Diagrams</h2>
+        
+        <a href="../diagrams/architecture.html"
+           class="nav-item "
+           >
+            <i class="fas fa-project-diagram" aria-hidden="true"></i>
+            <span>Architecture</span>
+        </a>
+        
+        <a href="../diagrams/dependencies.html"
+           class="nav-item "
+           >
+            <i class="fas fa-cubes" aria-hidden="true"></i>
+            <span>Dependencies</span>
+        </a>
+        
+        <a href="../diagrams/classes.html"
+           class="nav-item "
+           >
+            <i class="fas fa-sitemap" aria-hidden="true"></i>
+            <span>Classes</span>
+        </a>
+        
+        <a href="../diagrams/sequence.html"
+           class="nav-item "
+           >
+            <i class="fas fa-exchange-alt" aria-hidden="true"></i>
+            <span>Sequence</span>
+        </a>
+        
+        <a href="../diagrams/call_graph.html"
+           class="nav-item "
+           >
+            <i class="fas fa-code-branch" aria-hidden="true"></i>
+            <span>Call Graph</span>
+        </a>
+        
+    </div>
+    
+</nav>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main id="main-content" class="main-content">
+        
+<!-- Breadcrumbs -->
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+    <a href="../index.html">Home</a>
+    <span class="separator" aria-hidden="true">›</span>
+    <span class="current">Data Flow</span>
+</nav>
+
+<article class="content-card">
+    <h1 style="font-size: 28px; font-weight: 600; color: #111827; margin: 0 0 24px 0; line-height: 1.3;">
+        Data Flow
+    </h1>
+
+    <div class="prose">
+        <h2>Data Processing Flow</h2>
+<p>A request moves through <code>flask.app</code> and <code>flask.ctx</code> in the stages below. Each stage is a separate method, so subclasses can override one stage without touching the others.</p>
+<h3>1. WSGI entry point</h3>
+<p><code>Flask.__call__()</code> only delegates to <code>Flask.wsgi_app(environ, start_response)</code>. The real logic lives in <code>wsgi_app()</code> so that middleware can wrap <code>wsgi_app</code> without losing the reference to the app object.</p>
+<pre><code>def __call__(self, environ, start_response):
+    return self.wsgi_app(environ, start_response)
+</code></pre>
+<h3>2. Context creation and push</h3>
+<p><code>wsgi_app()</code> builds a context from the raw <code>environ</code> with <code>self.request_context(environ)</code> and calls <code>ctx.push()</code>. <code>AppContext.push()</code> in <code>flask.ctx</code> does the following:</p>
+<ul>
+<li>It increments <code>_push_count</code>. If <code>_cv_token</code> is already set, it returns, so nested pushes only count.</li>
+<li>Otherwise it stores the context in the <code>_cv_app</code> context variable, keeping the token in <code>_cv_token</code>, and sends <code>appcontext_pushed</code>.</li>
+<li>For a request context, it calls <code>_get_session()</code> to open the session first. Then, if <code>url_adapter</code> is not <code>None</code>, it calls <code>match_request()</code>.</li>
+</ul>
+<p>The order is deliberate. The session is opened before routing so that custom <code>open_session</code> implementations can use the request context, and so that custom URL converters can read the session.</p>
+<h3>3. Dispatch</h3>
+<p><code>Flask.full_dispatch_request(ctx)</code> runs the main pipeline:</p>
+<pre><code>request_started.send(self, _async_wrapper=self.ensure_sync)
+rv = self.preprocess_request(ctx)
+if rv is None:
+    rv = self.dispatch_request(ctx)
+</code></pre>
+<p>If <code>preprocess_request()</code> returns a value, <code>dispatch_request()</code> is skipped and that value becomes the response value.</p>
+<p><code>dispatch_request()</code> then does the following:</p>
+<ol>
+<li>It reads <code>req = ctx.request</code>. If <code>req.routing_exception</code> is set, it calls <code>raise_routing_exception(req)</code>.</li>
+<li>It takes <code>rule = req.url_rule</code>. If <code>rule.provide_automatic_options</code> is true and the method is <code>OPTIONS</code>, it returns <code>make_default_options_response(ctx)</code>.</li>
+<li>Otherwise it calls the view with the URL parameters as keyword arguments: <code>self.ensure_sync(self.view_functions[rule.endpoint])(**req.view_args)</code>.</li>
+</ol>
+<p>The view's return value does not have to be a response object. It is normalized in the next stage.</p>
+<h3>4. Finalization</h3>
+<p><code>full_dispatch_request()</code> always ends with <code>finalize_request(ctx, rv)</code>, which does the following:</p>
+<ol>
+<li><code>make_response(rv)</code> converts the return value (or an <code>HTTPException</code>) into a <code>Response</code>.</li>
+<li><code>process_response(ctx, response)</code> runs the postprocessing functions.</li>
+<li><code>request_finished</code> is sent with the response.</li>
+</ol>
+<p><code>process_response()</code> applies functions in this order:</p>
+<ul>
+<li>Functions in <code>ctx._after_request_functions</code> run first.</li>
+<li>Then, for each name in <code>chain(ctx.request.blueprints, (None,))</code>, the functions in <code>self.after_request_funcs[name]</code> run in <code>reversed()</code> order. The <code>None</code> scope holds app-wide functions.</li>
+<li>Finally, unless <code>session_interface.is_null_session(ctx._get_session())</code>, <code>session_interface.save_session()</code> writes the session onto the response.</li>
+</ul>
+<p>Each function receives the response and its return value becomes the new response, so the data is transformed step by step.</p>
+<h3>5. Sending and teardown</h3>
+<p>Back in <code>wsgi_app()</code>, <code>response(environ, start_response)</code> produces the iterable of bytes returned to the server. The <code>finally</code> block then runs:</p>
+<ul>
+<li>If <code>"werkzeug.debug.preserve_context"</code> is in <code>environ</code>, it is called with <code>ctx</code>.</li>
+<li>If <code>should_ignore_error</code> is set and returns true for the error, <code>error</code> is reset to <code>None</code>.</li>
+<li><code>ctx.pop(error)</code> is called.</li>
+</ul>
+<p><code>AppContext.pop(exc)</code> decrements <code>_push_count</code> and returns early while it is still above zero. On the final pop it runs the teardown sequence:</p>
+<ol>
+<li>If there is a request, <code>app.do_teardown_request(self, exc)</code> and then <code>self._request.close()</code>.</li>
+<li><code>app.do_teardown_appcontext(self, exc)</code>.</li>
+<li><code>_cv_app.reset(self._cv_token)</code> and <code>_cv_token = None</code>.</li>
+<li>The <code>appcontext_popped</code> signal.</li>
+</ol>
+<p><code>do_teardown_request()</code> calls each function in <code>teardown_request_funcs</code> for the request's blueprints and then for <code>None</code>, in reversed registration order, passing <code>exc</code>. It then sends <code>request_tearing_down</code>. <code>do_teardown_appcontext()</code> does the same with <code>teardown_appcontext_funcs</code> and sends <code>appcontext_tearing_down</code>.</p>
+<h2>Key Data Structures</h2>
+<h3>Handler registries (<code>flask.sansio.scaffold</code>)</h3>
+<p>The scaffold's <code>__init__</code> creates these registries as <code>defaultdict(list)</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Contents</th>
+<th>Used at</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>before_request_funcs</code></td>
+<td><code>{scope: [functions]}</code> run at the start of each request</td>
+<td>Registered via <code>before_request</code></td>
+</tr>
+<tr>
+<td><code>after_request_funcs</code></td>
+<td><code>{scope: [functions]}</code> run at the end of each request</td>
+<td><code>process_response()</code></td>
+</tr>
+<tr>
+<td><code>teardown_request_funcs</code></td>
+<td><code>{scope: [functions]}</code> run even if an exception is raised</td>
+<td><code>do_teardown_request()</code></td>
+</tr>
+</tbody>
+</table>
+<p>The <code>scope</code> key is a blueprint name, or <code>None</code> for all requests. The attribute comments mark these structures as internal: they should not be modified directly and their format may change. Functions are meant to be registered through the decorators (<code>before_request</code>, <code>after_request</code>, <code>teardown_request</code>).</p>
+<h3>Context state (<code>flask.ctx</code>)</h3>
+<ul>
+<li><code>_push_count</code> is a mutable counter that makes push/pop re-entrant.</li>
+<li><code>_cv_token</code> is the <code>_cv_app</code> context-variable token. <code>None</code> means the context is not pushed.</li>
+<li><code>_cv_app</code> is a context variable holding the active context.</li>
+<li><code>ctx.request.blueprints</code> is the sequence of blueprint names that scopes the handler lookups.</li>
+<li><code>ctx._after_request_functions</code> holds per-request functions, such as those registered with <code>after_this_request</code>.</li>
+<li><code>Flask._got_first_request</code> is a flag set to <code>True</code> in <code>full_dispatch_request()</code>.</li>
+</ul>
+<h3>Signals (<code>flask.signals</code>, re-exported from <code>flask</code>)</h3>
+<p>Signals fire at lifecycle points: <code>appcontext_pushed</code>, <code>request_started</code>, <code>request_finished</code>, <code>got_request_exception</code>, <code>request_tearing_down</code>, <code>appcontext_tearing_down</code>, and <code>appcontext_popped</code>. They are sent with <code>_async_wrapper=self.ensure_sync</code>. <code>message_flashed</code>, <code>template_rendered</code>, and <code>before_render_template</code> are also exported.</p>
+<h3>Tagged JSON (<code>flask.json.tag</code>)</h3>
+<p>Tag classes subclass <code>JSONTag</code> and define <code>check()</code>, <code>to_json()</code> and, for tagged types, <code>to_python()</code>. They convert values that JSON cannot represent:</p>
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th><code>key</code></th>
+<th>Matches</th>
+<th>JSON form</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PassDict</code></td>
+<td>none</td>
+<td><code>dict</code></td>
+<td>values tagged recursively; keys untouched, since JSON keys must be strings</td>
+</tr>
+<tr>
+<td><code>PassList</code></td>
+<td>none</td>
+<td><code>list</code></td>
+<td>each item tagged</td>
+</tr>
+<tr>
+<td><code>TagTuple</code></td>
+<td><code>" t"</code></td>
+<td><code>tuple</code></td>
+<td>list of tagged items; <code>to_python()</code> rebuilds a <code>tuple</code></td>
+</tr>
+<tr>
+<td><code>TagBytes</code></td>
+<td><code>" b"</code></td>
+<td><code>bytes</code></td>
+<td><code>b64encode(value).decode("ascii")</code>; <code>to_python()</code> uses <code>b64decode</code></td>
+</tr>
+<tr>
+<td><code>TagMarkup</code></td>
+<td><code>" m"</code></td>
+<td>objects with a callable <code>__html__</code></td>
+<td><code>str(value.__html__())</code>; always deserializes to <code>Markup</code></td>
+</tr>
+<tr>
+<td><code>TagUUID</code></td>
+<td><code>" u"</code></td>
+<td><code>UUID</code></td>
+<td>(<code>check()</code> uses <code>isinstance(value, UUID)</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><code>PassDict</code> and <code>PassList</code> set <code>tag = to_json</code>, so they pass structure through and recurse into children via <code>self.serializer.tag(...)</code>. All of these classes declare <code>__slots__ = ()</code>.</p>
+<h2>Input/Output Handling</h2>
+<h3>Input</h3>
+<ul>
+<li><strong>Raw input</strong> is the WSGI <code>environ</code>. <code>request_context(environ)</code> wraps it in a context that exposes <code>ctx.request</code>.</li>
+<li><strong>Routing input</strong> is derived during <code>push()</code> by <code>match_request()</code>. It produces <code>req.url_rule</code>, <code>req.view_args</code>, and possibly <code>req.routing_exception</code>. <code>dispatch_request()</code> consumes these.</li>
+<li><strong>Session input</strong> is loaded in <code>push()</code> via <code>_get_session()</code> before routing.</li>
+<li><strong>Streaming responses:</strong> <code>flask.helpers.stream_with_context()</code> wraps a generator, either as a decorator or around an already-created generator. It keeps <code>request</code>, <code>session</code>, and <code>g</code> available while the generator runs, even though the request context has typically ended by then.
+<ul>
+<li>Headers cannot be sent after the body starts. A generator that reads <code>session</code> should also read it in the view so the <code>Vary: cookie</code> header is set.</li>
+<li>The generator must not modify the session, because <code>Set-Cookie</code> has already been sent.</li>
+<li>The documentation recommends passing the needed data as arguments rather than relying on context objects.</li>
+</ul>
+</li>
+</ul>
+<pre><code>@app.get("/stream")
+def streamed_response():
+    @stream_with_context
+    def generate():
+        yield "Hello "
+        yield request.args["name"]
+        yield "!"
+
+    return Response(generate())
+</code></pre>
+<h3>Output</h3>
+<ul>
+<li><strong>Normalization:</strong> <code>finalize_request()</code> calls <code>make_response(rv)</code>. A view may return a non-<code>Response</code> value, and it is converted there.</li>
+<li><strong>Session persistence:</strong> <code>save_session()</code> runs in <code>process_response()</code> and writes onto the response, unless the session is a null session.</li>
+<li><strong>Wire output:</strong> <code>response(environ, start_response)</code> returns <code>Iterable[bytes]</code> to the WSGI server.</li>
+<li><strong>Public API:</strong> the <code>flask</code> package re-exports the user-facing pieces, including <code>Flask</code>, <code>Blueprint</code>, <code>request</code>, <code>session</code>, <code>g</code>, <code>current_app</code>, <code>jsonify</code>, <code>render_template</code>, <code>redirect</code>, <code>abort</code>, <code>send_file</code>, and <code>url_for</code>.</li>
+</ul>
+<h2>Error Handling</h2>
+<p>Errors are handled at several layers, each with a different recovery policy.</p>
+<h3>Layer 1: <code>full_dispatch_request()</code> and <code>handle_user_exception()</code></h3>
+<p>Any <code>Exception</code> from <code>preprocess_request()</code> or <code>dispatch_request()</code> goes to <code>handle_user_exception(ctx, e)</code>:</p>
+<ol>
+<li>For <code>BadRequestKeyError</code>, if <code>debug</code> or <code>TRAP_BAD_REQUEST_ERRORS</code> is set, it sets <code>e.show_exception = True</code>.</li>
+<li>If <code>e</code> is an <code>HTTPException</code> and <code>trap_http_exception(e)</code> is false, it returns <code>handle_http_exception(ctx, e)</code>.</li>
+<li>Otherwise it calls <code>_find_error_handler(e, ctx.request.blueprints)</code>.
+<ul>
+<li>With no handler, it re-raises the original exception with its traceback (bare <code>raise</code>).</li>
+<li>With a handler, it returns <code>self.ensure_sync(handler)(e)</code>.</li>
+</ul>
+</li>
+</ol>
+<p>The returned value then goes through <code>finalize_request()</code> like any view result, so errors become responses by the same path.</p>
+<h3>Layer 2: <code>handle_http_exception()</code></h3>
+<ul>
+<li>If <code>e.code is None</code> (proxy exceptions), it returns <code>e</code> unchanged.</li>
+<li>If <code>e</code> is a <code>RoutingException</code>, it returns <code>e</code> unchanged. These are used internally, for example for slash redirects, and are not handled in user code.</li>
+<li>It looks up a handler. With none, it returns the exception itself, which serves as the response. Otherwise it returns <code>ensure_sync(handler)(e)</code>.</li>
+</ul>
+<h3>Layer 3: <code>handle_exception()</code></h3>
+<p>When <code>wsgi_app()</code> catches an <code>Exception</code> that escaped the layers above (including one raised from an error handler), it calls <code>handle_exception(ctx, e)</code>:</p>
+<ol>
+<li>It sends <code>got_request_exception</code>.</li>
+<li>It reads <code>config["PROPAGATE_EXCEPTIONS"]</code>. If it is <code>None</code>, it defaults to <code>self.testing or self.debug</code>.</li>
+<li>If propagating, it re-raises: a bare <code>raise</code> if <code>sys.exc_info()[1] is e</code>, otherwise <code>raise e</code>.</li>
+<li>Otherwise it calls <code>log_exception(ctx, exc_info)</code> and wraps the error as <code>InternalServerError(original_exception=e)</code>. It looks up a handler for that error and, if one exists, replaces <code>server_error</code> with the handler's result.</li>
+<li>It returns <code>finalize_request(ctx, server_error, from_error_handler=True)</code>.</li>
+</ol>
+<pre><code>server_error = InternalServerError(original_exception=e)
+handler = self._find_error_handler(server_error, ctx.request.blueprints)
+if handler is not None:
+    server_error = self.ensure_sync(handler)(server_error)
+return self.finalize_request(ctx, server_error, from_error_handler=True)
+</code></pre>
+<h3>Finalization failures</h3>
+<p>In <code>finalize_request()</code>, an exception in <code>process_response()</code> or the <code>request_finished</code> signal is re-raised for normal dispatch. When <code>from_error_handler=True</code>, it is logged with <code>self.logger.exception("Request finalizing failed with an error while handling an error")</code> and the response is still returned. This prevents a failure in an already-failing path from masking the original error.</p>
+<h3>Non-<code>Exception</code> failures</h3>
+<p>In <code>wsgi_app()</code>, a bare <code>except:</code> (for example <code>KeyboardInterrupt</code>) records <code>error = sys.exc_info()[1]</code> and re-raises. The <code>finally</code> block still runs, so <code>ctx.pop(error)</code> and teardown happen.</p>
+<h3>Teardown errors</h3>
+<p><code>AppContext.pop()</code>, <code>do_teardown_request()</code>, and <code>do_teardown_appcontext()</code> use <code>_CollectErrors</code>. Each teardown step runs inside <code>with collect_errors:</code>, so a failing teardown function does not stop the remaining ones. After all steps have run, <code>collect_errors.raise_any(...)</code> raises with the messages <code>"Errors during context teardown"</code>, <code>"Errors during request teardown"</code>, or <code>"Errors during app teardown"</code>. This guarantees that <code>_cv_app.reset()</code> and the pop signals run even when a teardown handler fails.</p>
+<p><code>pop()</code> also validates its state and raises <code>RuntimeError</code> if the context is not pushed, if there is no active context, or if the active context is a different one.</p>
+<h3>Error propagation to teardown</h3>
+<p>The <code>error</code> captured in <code>wsgi_app()</code> is passed to <code>ctx.pop(error)</code> and on to every teardown function and teardown signal as <code>exc</code>. <code>should_ignore_error</code> can clear it first. In <code>full_dispatch_request()</code>, using <code>should_ignore_error</code> triggers a <code>DeprecationWarning</code> (removal planned in Flask 3.3) that tells users to handle errors in teardown handlers instead.</p>
+<h3>Debugging aid</h3>
+<p><code>flask.debughelpers.explain_template_loading_attempts</code> is documented as helping developers understand what failed when a template is not found.</p>
+
+    </div>
+</article>
+
+<!-- Footer navigation -->
+
+<nav class="footer-nav" aria-label="Section navigation">
+    
+    <a href="../sections/key_classes_and_functions.html" class="footer-nav-link prev">
+        <span class="footer-nav-label">← Previous</span>
+        <span class="footer-nav-title">Key Classes and Functions</span>
+    </a>
+    
+
+    
+    <a href="../sections/integration_points.html" class="footer-nav-link next">
+        <span class="footer-nav-label">Next →</span>
+        <span class="footer-nav-title">Integration Points</span>
+    </a>
+    
+</nav>
+
+
+<style>
+.prose {
+    font-size: 15px;
+    line-height: 1.75;
+    color: #374151;
+}
+.prose p {
+    margin: 0 0 16px 0;
+}
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+    font-weight: 600;
+    color: #111827;
+    margin: 32px 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.prose h2 { font-size: 22px; }
+.prose h3 { font-size: 18px; border-bottom: none; }
+.prose h4 { font-size: 16px; border-bottom: none; }
+.prose h5 { font-size: 14px; border-bottom: none; }
+.prose h6 { font-size: 13px; border-bottom: none; }
+
+.prose ul, .prose ol {
+    padding-left: 24px;
+    margin: 16px 0;
+}
+.prose ul {
+    list-style-type: disc;
+}
+.prose ol {
+    list-style-type: decimal;
+}
+.prose li {
+    margin: 8px 0;
+    padding-left: 4px;
+}
+
+.prose code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.9em;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #1f2937;
+}
+
+.prose pre {
+    margin: 16px 0;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+}
+.prose pre code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #1f2937;
+    background: transparent;
+    padding: 0;
+}
+
+.prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+}
+.prose th, .prose td {
+    border: 1px solid #e5e7eb;
+    padding: 8px 12px;
+    text-align: left;
+}
+.prose th {
+    background: #f9fafb;
+    font-weight: 600;
+}
+
+.prose blockquote {
+    border-left: 4px solid #e5e7eb;
+    padding-left: 16px;
+    margin: 16px 0;
+    color: #6b7280;
+    font-style: italic;
+}
+
+.prose strong {
+    font-weight: 600;
+    color: #111827;
+}
+
+.prose em {
+    font-style: italic;
+}
+
+.prose a {
+    color: #2563eb;
+    text-decoration: none;
+}
+.prose a:hover {
+    text-decoration: underline;
+}
+
+.prose hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 24px 0;
+}
+</style>
+
+    </main>
+</body>
+</html>

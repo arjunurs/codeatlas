@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Overview · flask</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-width: 280px;
+            --header-height: 56px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+        }
+
+        /* Skip to content link for accessibility */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: #1a1a1a;
+            color: white;
+            padding: 8px 16px;
+            z-index: 1000;
+            text-decoration: none;
+        }
+        .skip-link:focus {
+            top: 0;
+        }
+
+        /* Mobile header */
+        .mobile-header {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--header-height);
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 16px;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 50;
+        }
+
+        .mobile-menu-btn {
+            background: none;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        .mobile-menu-btn:hover {
+            background: #f3f4f6;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow-y: auto;
+            background: #fafafa;
+            border-right: 1px solid #e5e7eb;
+            padding: 16px;
+            z-index: 40;
+        }
+
+        .sidebar-header {
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .sidebar-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0;
+        }
+
+        .page-subtitle {
+            color: #6b7280;
+            font-size: 14px;
+            margin: 4px 0 24px 0;
+        }
+
+        /* Navigation */
+        .nav-section {
+            margin-bottom: 20px;
+        }
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            padding: 8px 0;
+            margin: 0;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            margin: 2px 0;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #374151;
+            font-size: 14px;
+            transition: background-color 0.15s;
+        }
+        .nav-item:hover {
+            background: #e5e7eb;
+        }
+        .nav-item.active {
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-weight: 500;
+        }
+        .nav-item i {
+            width: 16px;
+            text-align: center;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        /* Main content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 24px 32px;
+            min-height: 100vh;
+            max-width: 1200px;
+        }
+
+        /* Breadcrumbs */
+        .breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .breadcrumbs a {
+            color: #6b7280;
+            text-decoration: none;
+        }
+        .breadcrumbs a:hover {
+            color: #374151;
+            text-decoration: underline;
+        }
+        .breadcrumbs .separator {
+            color: #d1d5db;
+        }
+        .breadcrumbs .current {
+            color: #374151;
+            font-weight: 500;
+        }
+
+        /* Content cards */
+        .content-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .content-card h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #111827;
+            margin: 0 0 16px 0;
+            line-height: 1.3;
+        }
+
+        .content-card h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #111827;
+            margin: 24px 0 12px 0;
+        }
+
+        /* Diagram container */
+        .diagram-container {
+            width: 100%;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: white;
+            position: relative;
+        }
+
+        .diagram-toolbar {
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            z-index: 10;
+        }
+
+        .diagram-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #374151;
+        }
+        .diagram-btn:hover {
+            background: #f3f4f6;
+        }
+        .diagram-btn:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .diagram-content {
+            padding: 16px;
+            display: inline-block;
+            min-width: 100%;
+        }
+
+        .mermaid {
+            display: inline-block;
+        }
+
+        .mermaid svg {
+            display: block;
+        }
+
+        /* Footer navigation */
+        .footer-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 40px;
+            padding-top: 24px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer-nav-link {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 12px 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #374151;
+            max-width: 45%;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .footer-nav-link:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+        }
+        .footer-nav-link.next {
+            text-align: right;
+            margin-left: auto;
+        }
+        .footer-nav-label {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .footer-nav-title {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Sidebar overlay for mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 35;
+        }
+
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            .mobile-header {
+                display: flex;
+            }
+
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                top: var(--header-height);
+                height: calc(100vh - var(--header-height));
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay.open {
+                display: block;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 16px;
+                padding-top: calc(var(--header-height) + 16px);
+            }
+
+            .footer-nav {
+                flex-direction: column;
+            }
+            .footer-nav-link {
+                max-width: 100%;
+            }
+            .footer-nav-link.next {
+                text-align: left;
+            }
+        }
+
+        /* Keyboard shortcut hints */
+        .kbd {
+            display: inline-block;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-family: monospace;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            color: #6b7280;
+        }
+
+        /* Focus visible for keyboard navigation */
+        :focus-visible {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+
+        /* Print styles */
+        @media print {
+            .sidebar, .mobile-header, .diagram-toolbar, .footer-nav {
+                display: none !important;
+            }
+            .main-content {
+                margin-left: 0 !important;
+                padding: 0 !important;
+            }
+        }
+    </style>
+    <script>
+        // Mermaid configuration
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'strict',
+            maxTextSize: 100000,
+            fontSize: 14,
+            flowchart: {
+                useMaxWidth: false,
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            sequence: {
+                useMaxWidth: false,
+                showSequenceNumbers: true
+            }
+        });
+
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            document.querySelector('.sidebar').classList.toggle('open');
+            document.querySelector('.sidebar-overlay').classList.toggle('open');
+        }
+
+        // Close mobile menu when clicking overlay
+        document.addEventListener('DOMContentLoaded', function() {
+            const overlay = document.querySelector('.sidebar-overlay');
+            if (overlay) {
+                overlay.addEventListener('click', toggleMobileMenu);
+            }
+
+            // Close mobile menu on escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const sidebar = document.querySelector('.sidebar');
+                    if (sidebar && sidebar.classList.contains('open')) {
+                        toggleMobileMenu();
+                    }
+                }
+            });
+        });
+
+        // Diagram zoom functionality
+        let diagramScale = 1;
+        let originalSvgWidth = 0;
+        let originalSvgHeight = 0;
+
+        function zoomDiagram(factor) {
+            const content = document.querySelector('.diagram-content');
+            const svg = content ? content.querySelector('svg') : null;
+            if (!svg) return;
+
+            // Store original dimensions on first call
+            if (!originalSvgWidth || !originalSvgHeight) {
+                const rect = svg.getBoundingClientRect();
+                originalSvgWidth = rect.width;
+                originalSvgHeight = rect.height;
+            }
+
+            if (factor === 'reset') {
+                diagramScale = 1;
+                svg.style.transform = '';
+                content.style.width = '';
+                content.style.height = '';
+            } else if (factor === 'fit') {
+                // Calculate scale to fit the diagram container
+                const container = document.querySelector('.diagram-container');
+                const containerRect = container.getBoundingClientRect();
+                const padding = 48; // Account for content padding
+                const availableWidth = containerRect.width - padding;
+                const availableHeight = containerRect.height - padding;
+
+                const scaleX = availableWidth / originalSvgWidth;
+                const scaleY = availableHeight / originalSvgHeight;
+                diagramScale = Math.min(scaleX, scaleY, 1);
+
+                svg.style.transform = `scale(${diagramScale})`;
+                svg.style.transformOrigin = 'top left';
+                content.style.width = (originalSvgWidth * diagramScale) + 'px';
+                content.style.height = (originalSvgHeight * diagramScale) + 'px';
+            } else {
+                diagramScale = Math.max(0.1, Math.min(3, diagramScale * factor));
+                svg.style.transform = `scale(${diagramScale})`;
+                svg.style.transformOrigin = 'top left';
+                // Adjust container size to match scaled SVG
+                content.style.width = (originalSvgWidth * diagramScale) + 'px';
+                content.style.height = (originalSvgHeight * diagramScale) + 'px';
+            }
+
+            // Update zoom level display
+            const zoomLevel = document.getElementById('zoom-level');
+            if (zoomLevel) {
+                zoomLevel.textContent = Math.round(diagramScale * 100) + '%';
+            }
+        }
+
+        // Note: Diagrams render at natural size for best readability
+        // Users can click "Fit" button to fit to panel if needed
+
+        function downloadDiagram() {
+            const svg = document.querySelector('.diagram-content svg');
+            if (!svg) return;
+
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const blob = new Blob([svgData], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'diagram.svg';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function toggleFullscreen() {
+            const container = document.querySelector('.diagram-container');
+            if (!container) return;
+
+            if (!document.fullscreenElement) {
+                container.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+    </script>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Mobile header -->
+    <header class="mobile-header">
+        <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle navigation menu">
+            <i class="fas fa-bars"></i>
+            <span>Menu</span>
+        </button>
+        <span style="font-weight: 500; font-size: 14px;">Overview</span>
+    </header>
+
+    <!-- Sidebar overlay for mobile -->
+    <div class="sidebar-overlay" aria-hidden="true"></div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" aria-label="Main navigation">
+        <div class="sidebar-header">
+            <h1 class="sidebar-title">flask</h1>
+        </div>
+
+        <div id="navigation">
+            <nav aria-label="Documentation navigation">
+    <div class="nav-section">
+        <a href="../index.html"
+           class="nav-item "
+           >
+            <i class="fas fa-home" aria-hidden="true"></i>
+            <span>Home</span>
+        </a>
+    </div>
+
+    
+    <div class="nav-section">
+        <h2 class="nav-section-title">Documentation</h2>
+        
+        <a href="../sections/overview.html"
+           class="nav-item active"
+           aria-current="page">
+            <span>Overview</span>
+        </a>
+        
+        <a href="../sections/dependencies.html"
+           class="nav-item "
+           >
+            <span>Dependencies</span>
+        </a>
+        
+        <a href="../sections/key_classes_and_functions.html"
+           class="nav-item "
+           >
+            <span>Key Classes and Functions</span>
+        </a>
+        
+        <a href="../sections/data_flow.html"
+           class="nav-item "
+           >
+            <span>Data Flow</span>
+        </a>
+        
+        <a href="../sections/integration_points.html"
+           class="nav-item "
+           >
+            <span>Integration Points</span>
+        </a>
+        
+    </div>
+    
+
+    
+    <div class="nav-section">
+        <h2 class="nav-section-title">Diagrams</h2>
+        
+        <a href="../diagrams/architecture.html"
+           class="nav-item "
+           >
+            <i class="fas fa-project-diagram" aria-hidden="true"></i>
+            <span>Architecture</span>
+        </a>
+        
+        <a href="../diagrams/dependencies.html"
+           class="nav-item "
+           >
+            <i class="fas fa-cubes" aria-hidden="true"></i>
+            <span>Dependencies</span>
+        </a>
+        
+        <a href="../diagrams/classes.html"
+           class="nav-item "
+           >
+            <i class="fas fa-sitemap" aria-hidden="true"></i>
+            <span>Classes</span>
+        </a>
+        
+        <a href="../diagrams/sequence.html"
+           class="nav-item "
+           >
+            <i class="fas fa-exchange-alt" aria-hidden="true"></i>
+            <span>Sequence</span>
+        </a>
+        
+        <a href="../diagrams/call_graph.html"
+           class="nav-item "
+           >
+            <i class="fas fa-code-branch" aria-hidden="true"></i>
+            <span>Call Graph</span>
+        </a>
+        
+    </div>
+    
+</nav>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main id="main-content" class="main-content">
+        
+<!-- Breadcrumbs -->
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+    <a href="../index.html">Home</a>
+    <span class="separator" aria-hidden="true">›</span>
+    <span class="current">Overview</span>
+</nav>
+
+<article class="content-card">
+    <h1 style="font-size: 28px; font-weight: 600; color: #111827; margin: 0 0 24px 0; line-height: 1.3;">
+        Overview
+    </h1>
+
+    <div class="prose">
+        <h2>Main Purpose and Functionality</h2>
+<p>This is Flask, a WSGI web application framework. A <code>Flask</code> object (<code>flask.app</code>) is the central object of an application. It is created with the application's import name and acts as the registry for view functions, URL rules, template configuration and more. A WSGI server calls the app directly, and <code>Flask.__call__()</code> delegates to <code>Flask.wsgi_app()</code>.</p>
+<p>The <code>flask</code> package re-exports its public API from the modules that define it:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Exported names</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>flask.app</code></td>
+<td><code>Flask</code></td>
+</tr>
+<tr>
+<td><code>flask.blueprints</code></td>
+<td><code>Blueprint</code></td>
+</tr>
+<tr>
+<td><code>flask.config</code></td>
+<td><code>Config</code></td>
+</tr>
+<tr>
+<td><code>flask.ctx</code></td>
+<td><code>after_this_request</code>, <code>copy_current_request_context</code>, <code>has_app_context</code>, <code>has_request_context</code></td>
+</tr>
+<tr>
+<td><code>flask.helpers</code></td>
+<td><code>abort</code>, <code>flash</code>, <code>get_flashed_messages</code>, <code>get_template_attribute</code>, <code>make_response</code>, <code>redirect</code>, <code>send_file</code>, <code>send_from_directory</code>, <code>stream_with_context</code>, <code>url_for</code></td>
+</tr>
+<tr>
+<td><code>flask.json</code></td>
+<td><code>jsonify</code></td>
+</tr>
+<tr>
+<td><code>flask.templating</code></td>
+<td><code>render_template</code>, <code>render_template_string</code>, <code>stream_template</code>, <code>stream_template_string</code></td>
+</tr>
+<tr>
+<td><code>flask.wrappers</code></td>
+<td><code>Request</code>, <code>Response</code></td>
+</tr>
+</tbody>
+</table>
+<p>The package also includes a <code>flask.cli</code> command-line interface for running a development server, opening a shell and listing routes.</p>
+<h2>Key Components and Responsibilities</h2>
+<h3>Application classes</h3>
+<ul>
+<li><code>Scaffold</code> (<code>flask.sansio.scaffold</code>) holds behavior shared by <code>Flask</code> and <code>Blueprint</code>. It provides:
+<ul>
+<li>the route decorators <code>route()</code>, <code>get()</code>, <code>post()</code>, <code>put()</code>, <code>delete()</code>, <code>patch()</code> and <code>query()</code>, plus <code>add_url_rule()</code> and <code>endpoint()</code>;</li>
+<li>the hook registrars <code>before_request()</code>, <code>after_request()</code>, <code>teardown_request()</code>, <code>context_processor()</code> and <code>url_value_preprocessor()</code>;</li>
+<li>the <code>static_folder</code> and <code>static_url_path</code> properties and <code>jinja_loader</code>.</li>
+</ul>
+</li>
+<li><code>App(Scaffold)</code> (<code>flask.sansio.app</code>) is the I/O-independent application base. It handles:
+<ul>
+<li>construction parameters: <code>import_name</code>, static and template folders, <code>instance_path</code>, <code>host_matching</code>, <code>subdomain_matching</code> and <code>root_path</code>;</li>
+<li>the <code>name</code>, <code>logger</code>, <code>jinja_env</code> and <code>debug</code> properties;</li>
+<li><code>make_config()</code>, <code>make_aborter()</code>, <code>auto_find_instance_path()</code>, <code>create_global_jinja_loader()</code> and <code>select_jinja_autoescape()</code>;</li>
+<li><code>register_blueprint()</code>, <code>iter_blueprints()</code> and <code>add_url_rule()</code>;</li>
+<li>template registration decorators such as <code>template_filter()</code>.</li>
+</ul>
+</li>
+<li><code>Flask(App)</code> (<code>flask.app</code>) adds the runtime parts:
+<ul>
+<li><code>wsgi_app()</code> and <code>__call__()</code>;</li>
+<li><code>run()</code>, <code>send_static_file()</code>, <code>get_send_file_max_age()</code>, <code>open_resource()</code> and <code>open_instance_resource()</code>;</li>
+<li><code>create_jinja_environment()</code>, <code>create_url_adapter()</code>, <code>raise_routing_exception()</code>, <code>update_template_context()</code> and <code>make_shell_context()</code>.</li>
+</ul>
+</li>
+<li><code>Blueprint(Scaffold)</code> (<code>flask.sansio.blueprints</code>) is a collection of routes and app-related functions that is registered on an application later. It provides:
+<ul>
+<li><code>record()</code> and <code>record_once()</code> for deferred setup functions;</li>
+<li><code>make_setup_state()</code>, <code>register()</code> and <code>register_blueprint()</code> for nested blueprints;</li>
+<li><code>app_template_filter()</code>, <code>add_app_template_filter()</code> and <code>app_template_test()</code> for app-wide template registrations.</li>
+</ul>
+</li>
+<li><code>Blueprint(SansioBlueprint)</code> (<code>flask.blueprints</code>) adds <code>get_send_file_max_age()</code>, <code>send_static_file()</code> and <code>open_resource()</code>.</li>
+</ul>
+<h3>Configuration</h3>
+<p><code>Config(dict)</code> (<code>flask.config</code>) behaves like a dict and can be filled from several sources:</p>
+<ul>
+<li><code>from_envvar()</code></li>
+<li><code>from_prefixed_env()</code> (prefix defaults to <code>"FLASK"</code>, values parsed with <code>json.loads</code> by default)</li>
+<li><code>from_pyfile()</code></li>
+<li><code>from_object()</code></li>
+<li><code>from_file()</code> (takes a caller-supplied <code>load</code> callable)</li>
+<li><code>from_mapping()</code></li>
+</ul>
+<p><code>get_namespace()</code> extracts the keys under a given prefix.</p>
+<h3>Request, response and context</h3>
+<ul>
+<li><code>Request</code> (<code>flask.wrappers</code>) is the default request object. It records the matched endpoint and view arguments, and exposes <code>endpoint</code>, <code>blueprint</code>, <code>blueprints</code>, <code>max_content_length</code>, <code>max_form_memory_size</code> and <code>max_form_parts</code>. It also provides <code>on_json_loading_failed()</code>.</li>
+<li><code>Response</code> (<code>flask.wrappers</code>) works like Werkzeug's response but defaults to an HTML mimetype. It exposes <code>max_cookie_size</code>. <code>Flask.make_response()</code> normally creates it.</li>
+<li><code>AppContext</code> (<code>flask.ctx</code>) carries information about the app and, when handling a request, about the request. It is pushed at the start of each request or CLI command and popped at the end. It has <code>push()</code>, <code>pop(exc)</code>, <code>from_environ()</code>, <code>has_request</code>, <code>copy()</code>, <code>request</code>, <code>session</code> and <code>match_request()</code>.</li>
+</ul>
+<h3>JSON</h3>
+<p><code>JSONProvider</code> (<code>flask.json.provider</code>) is constructed with the app and defines <code>dumps()</code>, <code>dump()</code>, <code>loads()</code>, <code>load()</code> and <code>response()</code>. Subclasses can customize JSON behavior or use a different JSON library.</p>
+<h3>Debug helpers</h3>
+<p><code>flask.debughelpers.explain_template_loading_attempts()</code> builds a report of each template loader tried. For each loader it lists the source (application or blueprint), the loader's public attributes via <code>_dump_loader_info()</code>, and whether the template was matched. It also looks up the current request's blueprint through the app context.</p>
+<h3>CLI</h3>
+<p><code>flask.cli</code> is built on <code>click</code>:</p>
+<ul>
+<li>The group's <code>make_context()</code> sets <code>FLASK_RUN_FROM_CLI=true</code> so <code>app.run()</code> becomes a no-op. It also attaches a <code>ScriptInfo</code> as <code>obj</code>, built from the group's <code>create_app</code>, <code>set_debug_flag</code> and <code>load_dotenv</code> settings.</li>
+<li>The group's <code>parse_args()</code> handles the <code>no_args_is_help</code> and help-option cases by calling <code>handle_parse_result()</code> on the <code>--env-file</code> and <code>--app</code> options early, so commands from <code>app.cli</code> can be listed.</li>
+<li>When listing commands, the group merges in the loaded app's <code>cli</code> commands. A <code>NoAppException</code> shows only its message, and any other exception shows the full traceback.</li>
+<li><code>run_command</code> (<code>run</code>) accepts <code>--host</code>, <code>--port</code>, <code>--cert</code>, <code>--key</code>, <code>--reload/--no-reload</code>, <code>--debugger/--no-debugger</code>, <code>--with-threads/--without-threads</code>, <code>--extra-files</code> and <code>--exclude-patterns</code>.</li>
+<li>The <code>shell</code> command opens an interactive interpreter with a banner showing the Python version, app and instance path. It runs any <code>PYTHONSTARTUP</code> script, loads <code>current_app.make_shell_context()</code> into the namespace and installs a <code>readline</code> completer bound to that namespace.</li>
+<li><code>routes_command</code> (<code>routes</code>) lists <code>current_app.url_map</code> rules. <code>--sort</code> accepts <code>endpoint</code>, <code>methods</code>, <code>domain</code>, <code>rule</code> or <code>match</code>, where <code>match</code> is the order Flask matches routes when dispatching. <code>--all-methods</code> includes HEAD and OPTIONS.</li>
+<li><code>main</code> is the CLI entry point.</li>
+</ul>
+<h2>How Different Parts Work Together</h2>
+<h3>Request handling</h3>
+<p><code>Flask.wsgi_app()</code> is the core of request processing:</p>
+<ol>
+<li>It creates a context with <code>self.request_context(environ)</code>, then calls <code>ctx.push()</code> and <code>self.full_dispatch_request(ctx)</code>.</li>
+<li>If an <code>Exception</code> is raised, it records the error and produces the response through <code>self.handle_exception(ctx, e)</code>. Non-<code>Exception</code> exceptions are recorded and re-raised.</li>
+<li>It calls the response as a WSGI application with <code>(environ, start_response)</code>.</li>
+<li>In the <code>finally</code> block it hands the context to <code>environ["werkzeug.debug.preserve_context"]</code> if that key is present. If <code>should_ignore_error</code> is set and returns true for the error, the error is cleared. It then calls <code>ctx.pop(error)</code>.</li>
+</ol>
+<p><code>__call__()</code> is kept separate from <code>wsgi_app()</code> so middleware can wrap <code>app.wsgi_app</code> without losing the reference to the app object:</p>
+<pre><code>app.wsgi_app = MyMiddleware(app.wsgi_app)
+</code></pre>
+<h3>Registration and blueprints</h3>
+<p>Both <code>Flask</code> and <code>Blueprint</code> get their decorators (<code>route()</code>, <code>before_request()</code> and so on) from <code>Scaffold</code>, so they are used the same way. A blueprint does not act immediately. Its <code>Blueprint.register(app, options)</code> is called when it is registered on an app, and <code>record()</code> and <code>record_once()</code> store deferred setup functions. <code>Blueprint.make_setup_state()</code> creates the state those functions run against. Blueprints can also register other blueprints through <code>register_blueprint()</code>.</p>
+<h3>Configuration and CLI flow</h3>
+<p>The app builds its config in <code>App.make_config()</code>, and <code>Config</code> loads values from files, objects, mappings or environment variables. The CLI group loads the app through <code>ScriptInfo</code>, and commands such as <code>shell</code> and <code>routes</code> use <code>current_app</code> inside an app context. <code>shell</code> also relies on <code>Flask.make_shell_context()</code>.</p>
+<h2>Overall Architecture and Design Patterns</h2>
+<ul>
+<li><strong>Library/framework style:</strong> Flask is a micro-framework built around one central application object plus context objects, not a service.</li>
+<li><strong>Sans-I/O layering:</strong> I/O-independent logic lives in <code>flask.sansio</code> (<code>Scaffold</code>, <code>App</code>, <code>Blueprint</code>). The concrete <code>Flask</code> and <code>Blueprint</code> classes in <code>flask.app</code> and <code>flask.blueprints</code> subclass those and add file access, static file serving and the WSGI interface. Within <code>flask.sansio</code>, <code>Scaffold</code> is the common base for both <code>App</code> and <code>Blueprint</code>.</li>
+<li><strong>Template Method / extension points:</strong> <code>App</code> has overridable factory-style methods, such as <code>make_config()</code>, <code>make_aborter()</code>, <code>create_jinja_environment()</code>, <code>create_url_adapter()</code> and <code>make_setup_state()</code>. These let subclasses customize the objects the app builds.</li>
+<li><strong>Strategy:</strong> <code>JSONProvider</code> defines a pluggable JSON interface bound to an app, so serialization can be swapped without changing callers like <code>jsonify</code>.</li>
+<li><strong>Decorator-based registration:</strong> routes, request hooks, context processors and template filters are all registered with decorators, with <code>add_url_rule()</code> as the underlying call.</li>
+<li><strong>Command pattern with deferred execution:</strong> blueprints record setup functions and replay them at registration time.</li>
+<li><strong>Context objects:</strong> <code>AppContext</code> is pushed and popped around each request and CLI command, which is how helpers like <code>current_app</code> work. <code>wsgi_app()</code> guarantees the pop, passing along any error, even when handling fails.</li>
+<li><strong>Decorator/wrapper pattern:</strong> <code>Request</code> and <code>Response</code> extend Werkzeug's classes with Flask-specific behavior, and the WSGI middleware pattern is supported directly through the <code>__call__()</code>/<code>wsgi_app()</code> split.</li>
+</ul>
+
+    </div>
+</article>
+
+<!-- Footer navigation -->
+
+<nav class="footer-nav" aria-label="Section navigation">
+    
+    <div></div>
+    
+
+    
+    <a href="../sections/dependencies.html" class="footer-nav-link next">
+        <span class="footer-nav-label">Next →</span>
+        <span class="footer-nav-title">Dependencies</span>
+    </a>
+    
+</nav>
+
+
+<style>
+.prose {
+    font-size: 15px;
+    line-height: 1.75;
+    color: #374151;
+}
+.prose p {
+    margin: 0 0 16px 0;
+}
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+    font-weight: 600;
+    color: #111827;
+    margin: 32px 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.prose h2 { font-size: 22px; }
+.prose h3 { font-size: 18px; border-bottom: none; }
+.prose h4 { font-size: 16px; border-bottom: none; }
+.prose h5 { font-size: 14px; border-bottom: none; }
+.prose h6 { font-size: 13px; border-bottom: none; }
+
+.prose ul, .prose ol {
+    padding-left: 24px;
+    margin: 16px 0;
+}
+.prose ul {
+    list-style-type: disc;
+}
+.prose ol {
+    list-style-type: decimal;
+}
+.prose li {
+    margin: 8px 0;
+    padding-left: 4px;
+}
+
+.prose code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.9em;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #1f2937;
+}
+
+.prose pre {
+    margin: 16px 0;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+}
+.prose pre code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #1f2937;
+    background: transparent;
+    padding: 0;
+}
+
+.prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+}
+.prose th, .prose td {
+    border: 1px solid #e5e7eb;
+    padding: 8px 12px;
+    text-align: left;
+}
+.prose th {
+    background: #f9fafb;
+    font-weight: 600;
+}
+
+.prose blockquote {
+    border-left: 4px solid #e5e7eb;
+    padding-left: 16px;
+    margin: 16px 0;
+    color: #6b7280;
+    font-style: italic;
+}
+
+.prose strong {
+    font-weight: 600;
+    color: #111827;
+}
+
+.prose em {
+    font-style: italic;
+}
+
+.prose a {
+    color: #2563eb;
+    text-decoration: none;
+}
+.prose a:hover {
+    text-decoration: underline;
+}
+
+.prose hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 24px 0;
+}
+</style>
+
+    </main>
+</body>
+</html>

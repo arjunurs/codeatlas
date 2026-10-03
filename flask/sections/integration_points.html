@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Integration Points · flask</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-width: 280px;
+            --header-height: 56px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+        }
+
+        /* Skip to content link for accessibility */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: #1a1a1a;
+            color: white;
+            padding: 8px 16px;
+            z-index: 1000;
+            text-decoration: none;
+        }
+        .skip-link:focus {
+            top: 0;
+        }
+
+        /* Mobile header */
+        .mobile-header {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--header-height);
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 16px;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 50;
+        }
+
+        .mobile-menu-btn {
+            background: none;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        .mobile-menu-btn:hover {
+            background: #f3f4f6;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow-y: auto;
+            background: #fafafa;
+            border-right: 1px solid #e5e7eb;
+            padding: 16px;
+            z-index: 40;
+        }
+
+        .sidebar-header {
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .sidebar-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0;
+        }
+
+        .page-subtitle {
+            color: #6b7280;
+            font-size: 14px;
+            margin: 4px 0 24px 0;
+        }
+
+        /* Navigation */
+        .nav-section {
+            margin-bottom: 20px;
+        }
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            padding: 8px 0;
+            margin: 0;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            margin: 2px 0;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #374151;
+            font-size: 14px;
+            transition: background-color 0.15s;
+        }
+        .nav-item:hover {
+            background: #e5e7eb;
+        }
+        .nav-item.active {
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-weight: 500;
+        }
+        .nav-item i {
+            width: 16px;
+            text-align: center;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        /* Main content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 24px 32px;
+            min-height: 100vh;
+            max-width: 1200px;
+        }
+
+        /* Breadcrumbs */
+        .breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .breadcrumbs a {
+            color: #6b7280;
+            text-decoration: none;
+        }
+        .breadcrumbs a:hover {
+            color: #374151;
+            text-decoration: underline;
+        }
+        .breadcrumbs .separator {
+            color: #d1d5db;
+        }
+        .breadcrumbs .current {
+            color: #374151;
+            font-weight: 500;
+        }
+
+        /* Content cards */
+        .content-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .content-card h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #111827;
+            margin: 0 0 16px 0;
+            line-height: 1.3;
+        }
+
+        .content-card h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #111827;
+            margin: 24px 0 12px 0;
+        }
+
+        /* Diagram container */
+        .diagram-container {
+            width: 100%;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: white;
+            position: relative;
+        }
+
+        .diagram-toolbar {
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            z-index: 10;
+        }
+
+        .diagram-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #374151;
+        }
+        .diagram-btn:hover {
+            background: #f3f4f6;
+        }
+        .diagram-btn:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .diagram-content {
+            padding: 16px;
+            display: inline-block;
+            min-width: 100%;
+        }
+
+        .mermaid {
+            display: inline-block;
+        }
+
+        .mermaid svg {
+            display: block;
+        }
+
+        /* Footer navigation */
+        .footer-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 40px;
+            padding-top: 24px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer-nav-link {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 12px 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #374151;
+            max-width: 45%;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .footer-nav-link:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+        }
+        .footer-nav-link.next {
+            text-align: right;
+            margin-left: auto;
+        }
+        .footer-nav-label {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .footer-nav-title {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Sidebar overlay for mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 35;
+        }
+
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            .mobile-header {
+                display: flex;
+            }
+
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                top: var(--header-height);
+                height: calc(100vh - var(--header-height));
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay.open {
+                display: block;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 16px;
+                padding-top: calc(var(--header-height) + 16px);
+            }
+
+            .footer-nav {
+                flex-direction: column;
+            }
+            .footer-nav-link {
+                max-width: 100%;
+            }
+            .footer-nav-link.next {
+                text-align: left;
+            }
+        }
+
+        /* Keyboard shortcut hints */
+        .kbd {
+            display: inline-block;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-family: monospace;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            color: #6b7280;
+        }
+
+        /* Focus visible for keyboard navigation */
+        :focus-visible {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+
+        /* Print styles */
+        @media print {
+            .sidebar, .mobile-header, .diagram-toolbar, .footer-nav {
+                display: none !important;
+            }
+            .main-content {
+                margin-left: 0 !important;
+                padding: 0 !important;
+            }
+        }
+    </style>
+    <script>
+        // Mermaid configuration
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'strict',
+            maxTextSize: 100000,
+            fontSize: 14,
+            flowchart: {
+                useMaxWidth: false,
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            sequence: {
+                useMaxWidth: false,
+                showSequenceNumbers: true
+            }
+        });
+
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            document.querySelector('.sidebar').classList.toggle('open');
+            document.querySelector('.sidebar-overlay').classList.toggle('open');
+        }
+
+        // Close mobile menu when clicking overlay
+        document.addEventListener('DOMContentLoaded', function() {
+            const overlay = document.querySelector('.sidebar-overlay');
+            if (overlay) {
+                overlay.addEventListener('click', toggleMobileMenu);
+            }
+
+            // Close mobile menu on escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const sidebar = document.querySelector('.sidebar');
+                    if (sidebar && sidebar.classList.contains('open')) {
+                        toggleMobileMenu();
+                    }
+                }
+            });
+        });
+
+        // Diagram zoom functionality
+        let diagramScale = 1;
+        let originalSvgWidth = 0;
+        let originalSvgHeight = 0;
+
+        function zoomDiagram(factor) {
+            const content = document.querySelector('.diagram-content');
+            const svg = content ? content.querySelector('svg') : null;
+            if (!svg) return;
+
+            // Store original dimensions on first call
+            if (!originalSvgWidth || !originalSvgHeight) {
+                const rect = svg.getBoundingClientRect();
+                originalSvgWidth = rect.width;
+                originalSvgHeight = rect.height;
+            }
+
+            if (factor === 'reset') {
+                diagramScale = 1;
+                svg.style.transform = '';
+                content.style.width = '';
+                content.style.height = '';
+            } else if (factor === 'fit') {
+                // Calculate scale to fit the diagram container
+                const container = document.querySelector('.diagram-container');
+                const containerRect = container.getBoundingClientRect();
+                const padding = 48; // Account for content padding
+                const availableWidth = containerRect.width - padding;
+                const availableHeight = containerRect.height - padding;
+
+                const scaleX = availableWidth / originalSvgWidth;
+                const scaleY = availableHeight / originalSvgHeight;
+                diagramScale = Math.min(scaleX, scaleY, 1);
+
+                svg.style.transform = `scale(${diagramScale})`;
+                svg.style.transformOrigin = 'top left';
+                content.style.width = (originalSvgWidth * diagramScale) + 'px';
+                content.style.height = (originalSvgHeight * diagramScale) + 'px';
+            } else {
+                diagramScale = Math.max(0.1, Math.min(3, diagramScale * factor));
+                svg.style.transform = `scale(${diagramScale})`;
+                svg.style.transformOrigin = 'top left';
+                // Adjust container size to match scaled SVG
+                content.style.width = (originalSvgWidth * diagramScale) + 'px';
+                content.style.height = (originalSvgHeight * diagramScale) + 'px';
+            }
+
+            // Update zoom level display
+            const zoomLevel = document.getElementById('zoom-level');
+            if (zoomLevel) {
+                zoomLevel.textContent = Math.round(diagramScale * 100) + '%';
+            }
+        }
+
+        // Note: Diagrams render at natural size for best readability
+        // Users can click "Fit" button to fit to panel if needed
+
+        function downloadDiagram() {
+            const svg = document.querySelector('.diagram-content svg');
+            if (!svg) return;
+
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const blob = new Blob([svgData], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'diagram.svg';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function toggleFullscreen() {
+            const container = document.querySelector('.diagram-container');
+            if (!container) return;
+
+            if (!document.fullscreenElement) {
+                container.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+    </script>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Mobile header -->
+    <header class="mobile-header">
+        <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle navigation menu">
+            <i class="fas fa-bars"></i>
+            <span>Menu</span>
+        </button>
+        <span style="font-weight: 500; font-size: 14px;">Integration Points</span>
+    </header>
+
+    <!-- Sidebar overlay for mobile -->
+    <div class="sidebar-overlay" aria-hidden="true"></div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" aria-label="Main navigation">
+        <div class="sidebar-header">
+            <h1 class="sidebar-title">flask</h1>
+        </div>
+
+        <div id="navigation">
+            <nav aria-label="Documentation navigation">
+    <div class="nav-section">
+        <a href="../index.html"
+           class="nav-item "
+           >
+            <i class="fas fa-home" aria-hidden="true"></i>
+            <span>Home</span>
+        </a>
+    </div>
+
+    
+    <div class="nav-section">
+        <h2 class="nav-section-title">Documentation</h2>
+        
+        <a href="../sections/overview.html"
+           class="nav-item "
+           >
+            <span>Overview</span>
+        </a>
+        
+        <a href="../sections/dependencies.html"
+           class="nav-item "
+           >
+            <span>Dependencies</span>
+        </a>
+        
+        <a href="../sections/key_classes_and_functions.html"
+           class="nav-item "
+           >
+            <span>Key Classes and Functions</span>
+        </a>
+        
+        <a href="../sections/data_flow.html"
+           class="nav-item "
+           >
+            <span>Data Flow</span>
+        </a>
+        
+        <a href="../sections/integration_points.html"
+           class="nav-item active"
+           aria-current="page">
+            <span>Integration Points</span>
+        </a>
+        
+    </div>
+    
+
+    
+    <div class="nav-section">
+        <h2 class="nav-section-title">Diagrams</h2>
+        
+        <a href="../diagrams/architecture.html"
+           class="nav-item "
+           >
+            <i class="fas fa-project-diagram" aria-hidden="true"></i>
+            <span>Architecture</span>
+        </a>
+        
+        <a href="../diagrams/dependencies.html"
+           class="nav-item "
+           >
+            <i class="fas fa-cubes" aria-hidden="true"></i>
+            <span>Dependencies</span>
+        </a>
+        
+        <a href="../diagrams/classes.html"
+           class="nav-item "
+           >
+            <i class="fas fa-sitemap" aria-hidden="true"></i>
+            <span>Classes</span>
+        </a>
+        
+        <a href="../diagrams/sequence.html"
+           class="nav-item "
+           >
+            <i class="fas fa-exchange-alt" aria-hidden="true"></i>
+            <span>Sequence</span>
+        </a>
+        
+        <a href="../diagrams/call_graph.html"
+           class="nav-item "
+           >
+            <i class="fas fa-code-branch" aria-hidden="true"></i>
+            <span>Call Graph</span>
+        </a>
+        
+    </div>
+    
+</nav>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main id="main-content" class="main-content">
+        
+<!-- Breadcrumbs -->
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+    <a href="../index.html">Home</a>
+    <span class="separator" aria-hidden="true">›</span>
+    <span class="current">Integration Points</span>
+</nav>
+
+<article class="content-card">
+    <h1 style="font-size: 28px; font-weight: 600; color: #111827; margin: 0 0 24px 0; line-height: 1.3;">
+        Integration Points
+    </h1>
+
+    <div class="prose">
+        <h2>External Integrations</h2>
+<p>Flask connects to other systems through WSGI, Werkzeug, Jinja, Click, <code>python-dotenv</code>, <code>itsdangerous</code>, and Python's <code>json</code> library.</p>
+<h3>WSGI servers and middleware</h3>
+<p><code>Flask.__call__()</code> in <code>flask.app</code> is the WSGI entry point a server calls. It delegates to <code>Flask.wsgi_app()</code>. The logic lives in a separate method so middleware can wrap <code>wsgi_app</code> without losing the reference to the app object:</p>
+<pre><code>app.wsgi_app = MyMiddleware(app.wsgi_app)
+</code></pre>
+<p><code>wsgi_app()</code> does the following:</p>
+<ol>
+<li>It creates a request context with <code>self.request_context(environ)</code> and calls <code>ctx.push()</code>.</li>
+<li>It calls <code>self.full_dispatch_request(ctx)</code>.</li>
+<li>It calls the resulting response as a WSGI application: <code>response(environ, start_response)</code>.</li>
+<li>In the <code>finally</code> block, it checks <code>environ</code> for <code>"werkzeug.debug.preserve_context"</code>. If present, it calls that callable with <code>ctx</code>, which lets Werkzeug's debugger keep the context.</li>
+<li>It pops the context with <code>ctx.pop(error)</code>.</li>
+</ol>
+<h3>Werkzeug</h3>
+<p><code>flask.app</code> imports from Werkzeug's <code>datastructures</code>, <code>exceptions</code>, <code>routing</code>, <code>serving</code>, <code>wrappers</code> and <code>wsgi</code> modules.</p>
+<ul>
+<li><code>flask.wrappers.Request</code> subclasses Werkzeug's request base. It remembers the matched endpoint and view arguments, and exposes <code>endpoint</code>, <code>blueprint</code>, <code>blueprints</code>, <code>max_content_length</code>, <code>max_form_memory_size</code> and <code>max_form_parts</code>.</li>
+<li><code>flask.wrappers.Response</code> subclasses Werkzeug's response base, with an HTML mimetype by default. It also has <code>max_cookie_size</code>. <code>Flask.make_response()</code> normally creates it for you.</li>
+</ul>
+<h3>Jinja templating</h3>
+<p><code>flask.templating.Environment</code> extends Jinja's environment, and its constructor is <code>Environment(app, **options)</code>. It knows about blueprints, so it can prepend the blueprint name to referenced templates when necessary. The package exports <code>render_template</code>, <code>render_template_string</code>, <code>stream_template</code> and <code>stream_template_string</code> from <code>flask.templating</code>.</p>
+<h3>Click CLI</h3>
+<p><code>flask.cli</code> builds commands with Click:</p>
+<ul>
+<li><code>routes_command</code> is registered as <code>routes</code>. It takes <code>--sort/-s</code>, one of <code>endpoint</code>, <code>methods</code>, <code>domain</code>, <code>rule</code> or <code>match</code> (default <code>endpoint</code>), and <code>--all-methods</code> to include HEAD and OPTIONS. It reads <code>current_app.url_map.iter_rules()</code>.</li>
+<li>The shell command builds a banner with the Python version, platform, <code>current_app.import_name</code> and <code>current_app.instance_path</code>. It then:
+<ul>
+<li>runs the script named by <code>PYTHONSTARTUP</code>, if the file exists, into the shell namespace;</li>
+<li>merges in <code>current_app.make_shell_context()</code>;</li>
+<li>sets up <code>readline</code> completion over that namespace when <code>sys.__interactivehook__</code> is set and <code>readline</code> is importable;</li>
+<li>starts <code>code.interact(banner=banner, local=ctx)</code>.</li>
+</ul>
+</li>
+</ul>
+<h3>python-dotenv</h3>
+<p><code>flask.cli.load_dotenv()</code> uses <code>dotenv.find_dotenv()</code> and <code>dotenv.dotenv_values()</code>. See <a href="#configuration" rel="noopener noreferrer">Configuration</a>.</p>
+<h3>JSON libraries</h3>
+<p><code>flask.json.provider.JSONProvider</code> is the standard set of JSON operations for an application: <code>dumps()</code>, <code>dump()</code>, <code>loads()</code>, <code>load()</code> and <code>response()</code>. Subclasses can customize JSON behavior or use a different JSON library. <code>DefaultJSONProvider</code> implements <code>dumps()</code>, <code>loads()</code> and <code>response()</code> with Python's built-in <code>json</code> module and serializes some additional data types. <code>flask.json.jsonify</code> is the exported helper.</p>
+<h3>Blueprint composition</h3>
+<p>Registering a blueprint merges its settings into the parent app or blueprint (<code>flask.sansio.blueprints</code>):</p>
+<ul>
+<li><strong>Subdomain:</strong> if both the registration state and the blueprint have one, they are joined as <code>bp_subdomain + "." + state.subdomain</code>.</li>
+<li><strong>URL prefix:</strong> if both are set, they are joined as <code>state.url_prefix.rstrip("/") + "/" + bp_url_prefix.lstrip("/")</code>. If only one is set, that one is used.</li>
+<li><strong>Name prefix:</strong> <code>bp_options["name_prefix"]</code> is set to the blueprint name before <code>blueprint.register(app, bp_options)</code> is called.</li>
+<li><strong>Handlers and views:</strong> <code>_merge_blueprint_funcs()</code> copies <code>error_handler_spec</code> entries into the app under <code>name</code> or <code>f"{name}.{key}"</code>, and copies <code>view_functions</code> across.</li>
+</ul>
+<h2>Authentication</h2>
+<p>The authentication-related integration is session handling with signed cookies, through <code>flask.sessions</code>.</p>
+<ul>
+<li><code>SessionInterface</code> is the interface to implement to replace the default session handling. Only <code>open_session(app, request)</code> and <code>save_session(app, session, response)</code> must be implemented. The other methods have defaults:
+<ul>
+<li><code>make_null_session()</code> and <code>is_null_session()</code>;</li>
+<li><code>get_cookie_name()</code>, <code>get_cookie_domain()</code>, <code>get_cookie_path()</code>, <code>get_cookie_httponly()</code>, <code>get_cookie_secure()</code>, <code>get_cookie_samesite()</code> and <code>get_cookie_partitioned()</code>;</li>
+<li><code>get_expiration_time()</code> and <code>should_set_cookie()</code>.</li>
+</ul>
+</li>
+<li><code>SecureCookieSessionInterface</code> is the default. It stores sessions in signed cookies through <code>itsdangerous</code>, and <code>get_signing_serializer(app)</code> provides the serializer.</li>
+<li><code>SecureCookieSession</code> is a <code>CallbackDict</code> combined with <code>SessionMixin</code>. It takes an optional <code>initial</code> mapping.</li>
+<li><code>SessionMixin</code> adds a <code>permanent</code> property with a setter.</li>
+<li><code>NullSession</code> is used for clearer error messages when sessions are not available. It allows read-only access to the empty session but fails on setting.</li>
+</ul>
+<h2>Error Handling</h2>
+<h3>Request dispatch</h3>
+<p>In <code>Flask.wsgi_app()</code>:</p>
+<ul>
+<li>An <code>Exception</code> raised during <code>ctx.push()</code> or <code>full_dispatch_request()</code> is stored in <code>error</code> and turned into a response by <code>self.handle_exception(ctx, e)</code>.</li>
+<li>Any other <code>BaseException</code> is stored from <code>sys.exc_info()[1]</code> and re-raised.</li>
+<li>In <code>finally</code>, if <code>error</code> is set and <code>self.should_ignore_error</code> is set and returns true for it, <code>error</code> is reset to <code>None</code>. <code>ctx.pop(error)</code> is then called, so the context teardown receives the error unless it was ignored.</li>
+</ul>
+<h3>Configuration errors</h3>
+<ul>
+<li><code>Config.from_envvar()</code> raises <code>RuntimeError</code> when the variable is unset or empty, with a message saying to set the variable and point it at a configuration file. With <code>silent=True</code> it returns <code>False</code> instead.</li>
+<li><code>Config.from_prefixed_env()</code> keeps a value as a string if the <code>loads</code> function raises.</li>
+<li><code>load_dotenv()</code> returns <code>False</code> if <code>python-dotenv</code> is not installed. If a <code>path</code>, <code>.env</code> or <code>.flaskenv</code> exists, it first prints a yellow tip to stderr with <code>click.secho(..., err=True)</code>.</li>
+</ul>
+<h3>Request and JSON errors</h3>
+<p><code>Request.on_json_loading_failed(e)</code> handles JSON parsing failures, taking a <code>ValueError | None</code>.</p>
+<h2>Configuration</h2>
+<h3><code>Config</code> object</h3>
+<p><code>flask.config.Config</code> is a <code>dict</code> subclass created with <code>Config(root_path, defaults=None)</code>. It can be filled from several sources:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>from_envvar(variable_name, silent=False)</code></td>
+<td>An environment variable holding the path of a config file; calls <code>from_pyfile()</code></td>
+</tr>
+<tr>
+<td><code>from_prefixed_env(prefix="FLASK", *, loads=json.loads)</code></td>
+<td>Environment variables starting with the prefix</td>
+</tr>
+<tr>
+<td><code>from_pyfile(filename, silent=False)</code></td>
+<td>A Python file</td>
+</tr>
+<tr>
+<td><code>from_object(obj)</code></td>
+<td>An object or an import string</td>
+</tr>
+<tr>
+<td><code>from_file(filename, load, silent=False, text=True)</code></td>
+<td>Any file, parsed by the <code>load</code> callable</td>
+</tr>
+<tr>
+<td><code>from_mapping(mapping=None, **kwargs)</code></td>
+<td>A mapping or keyword arguments</td>
+</tr>
+<tr>
+<td><code>get_namespace(namespace, lowercase=True, trim_namespace=True)</code></td>
+<td>Reads out a namespaced subset of the config</td>
+</tr>
+</tbody>
+</table>
+<h3>Environment variables</h3>
+<p><code>from_prefixed_env()</code> reads each variable beginning with <code>FLASK_</code> (the prefix plus an underscore), in sorted order. It removes the prefix to form the config key and passes the value through <code>loads</code>, which is <code>json.loads</code> by default. Values such as <code>"true"</code> or <code>"5432"</code> therefore become typed values. A <code>__</code> in the key creates nested dictionaries, and missing intermediate dicts are created.</p>
+<pre><code># FLASK_SECRET_KEY=abc
+# FLASK_DEBUG_MODE=true
+# FLASK_DATABASE__PORT=5432
+
+app.config.from_prefixed_env()
+# app.config["SECRET_KEY"] == "abc"          (not valid JSON, stays a string)
+# app.config["DEBUG_MODE"] is True
+# app.config["DATABASE"]["PORT"] == 5432
+</code></pre>
+<p>The method always returns <code>True</code>.</p>
+<pre><code>app.config.from_envvar("YOURAPPLICATION_SETTINGS")
+</code></pre>
+<h3>Dotenv files</h3>
+<p><code>flask.cli.load_dotenv(path=None, load_defaults=True)</code> combines files in this order of precedence: the given <code>path</code>, then <code>.env</code>, then <code>.flaskenv</code>. With <code>load_defaults</code>, it loads <code>.flaskenv</code> and then <code>.env</code> via <code>dotenv.find_dotenv(..., usecwd=True)</code>. A <code>path</code> is applied only if it is an existing file. Files are read as UTF-8. After combining, a value is set in <code>os.environ</code> only if the key is not already set and the value is not <code>None</code>. This means real environment variables always win over dotenv files. It returns <code>bool(data)</code>.</p>
+<h3>Debug flag</h3>
+<p><code>flask.helpers.get_debug_flag()</code> reads <code>FLASK_DEBUG</code>. The result is <code>False</code> if the variable is unset or empty, or if its lowercase value is <code>"0"</code>, <code>"false"</code> or <code>"no"</code>. Any other value enables debug mode.</p>
+<p>On the command line, <code>flask.cli._set_debug()</code> is the callback for the debug option. If the flag was not given and its value comes from the default or the default map, it returns <code>None</code>, so the environment decides. Otherwise it sets <code>os.environ["FLASK_DEBUG"]</code> to <code>"1"</code> or <code>"0"</code>. It uses an environment variable rather than <code>ScriptInfo.load</code> so the value can be read early, for example inside an app factory function.</p>
+
+    </div>
+</article>
+
+<!-- Footer navigation -->
+
+<nav class="footer-nav" aria-label="Section navigation">
+    
+    <a href="../sections/data_flow.html" class="footer-nav-link prev">
+        <span class="footer-nav-label">← Previous</span>
+        <span class="footer-nav-title">Data Flow</span>
+    </a>
+    
+
+    
+</nav>
+
+
+<style>
+.prose {
+    font-size: 15px;
+    line-height: 1.75;
+    color: #374151;
+}
+.prose p {
+    margin: 0 0 16px 0;
+}
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+    font-weight: 600;
+    color: #111827;
+    margin: 32px 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.prose h2 { font-size: 22px; }
+.prose h3 { font-size: 18px; border-bottom: none; }
+.prose h4 { font-size: 16px; border-bottom: none; }
+.prose h5 { font-size: 14px; border-bottom: none; }
+.prose h6 { font-size: 13px; border-bottom: none; }
+
+.prose ul, .prose ol {
+    padding-left: 24px;
+    margin: 16px 0;
+}
+.prose ul {
+    list-style-type: disc;
+}
+.prose ol {
+    list-style-type: decimal;
+}
+.prose li {
+    margin: 8px 0;
+    padding-left: 4px;
+}
+
+.prose code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.9em;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #1f2937;
+}
+
+.prose pre {
+    margin: 16px 0;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+}
+.prose pre code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #1f2937;
+    background: transparent;
+    padding: 0;
+}
+
+.prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+}
+.prose th, .prose td {
+    border: 1px solid #e5e7eb;
+    padding: 8px 12px;
+    text-align: left;
+}
+.prose th {
+    background: #f9fafb;
+    font-weight: 600;
+}
+
+.prose blockquote {
+    border-left: 4px solid #e5e7eb;
+    padding-left: 16px;
+    margin: 16px 0;
+    color: #6b7280;
+    font-style: italic;
+}
+
+.prose strong {
+    font-weight: 600;
+    color: #111827;
+}
+
+.prose em {
+    font-style: italic;
+}
+
+.prose a {
+    color: #2563eb;
+    text-decoration: none;
+}
+.prose a:hover {
+    text-decoration: underline;
+}
+
+.prose hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 24px 0;
+}
+</style>
+
+    </main>
+</body>
+</html>

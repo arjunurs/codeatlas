@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Classes · flask</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-width: 280px;
+            --header-height: 56px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+        }
+
+        /* Skip to content link for accessibility */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: #1a1a1a;
+            color: white;
+            padding: 8px 16px;
+            z-index: 1000;
+            text-decoration: none;
+        }
+        .skip-link:focus {
+            top: 0;
+        }
+
+        /* Mobile header */
+        .mobile-header {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--header-height);
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 16px;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 50;
+        }
+
+        .mobile-menu-btn {
+            background: none;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        .mobile-menu-btn:hover {
+            background: #f3f4f6;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow-y: auto;
+            background: #fafafa;
+            border-right: 1px solid #e5e7eb;
+            padding: 16px;
+            z-index: 40;
+        }
+
+        .sidebar-header {
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .sidebar-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0;
+        }
+
+        .page-subtitle {
+            color: #6b7280;
+            font-size: 14px;
+            margin: 4px 0 24px 0;
+        }
+
+        /* Navigation */
+        .nav-section {
+            margin-bottom: 20px;
+        }
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            padding: 8px 0;
+            margin: 0;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            margin: 2px 0;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #374151;
+            font-size: 14px;
+            transition: background-color 0.15s;
+        }
+        .nav-item:hover {
+            background: #e5e7eb;
+        }
+        .nav-item.active {
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-weight: 500;
+        }
+        .nav-item i {
+            width: 16px;
+            text-align: center;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        /* Main content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 24px 32px;
+            min-height: 100vh;
+            max-width: 1200px;
+        }
+
+        /* Breadcrumbs */
+        .breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .breadcrumbs a {
+            color: #6b7280;
+            text-decoration: none;
+        }
+        .breadcrumbs a:hover {
+            color: #374151;
+            text-decoration: underline;
+        }
+        .breadcrumbs .separator {
+            color: #d1d5db;
+        }
+        .breadcrumbs .current {
+            color: #374151;
+            font-weight: 500;
+        }
+
+        /* Content cards */
+        .content-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .content-card h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #111827;
+            margin: 0 0 16px 0;
+            line-height: 1.3;
+        }
+
+        .content-card h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #111827;
+            margin: 24px 0 12px 0;
+        }
+
+        /* Diagram container */
+        .diagram-container {
+            width: 100%;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: white;
+            position: relative;
+        }
+
+        .diagram-toolbar {
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            z-index: 10;
+        }
+
+        .diagram-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #374151;
+        }
+        .diagram-btn:hover {
+            background: #f3f4f6;
+        }
+        .diagram-btn:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .diagram-content {
+            padding: 16px;
+            display: inline-block;
+            min-width: 100%;
+        }
+
+        .mermaid {
+            display: inline-block;
+        }
+
+        .mermaid svg {
+            display: block;
+        }
+
+        /* Footer navigation */
+        .footer-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 40px;
+            padding-top: 24px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer-nav-link {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 12px 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #374151;
+            max-width: 45%;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .footer-nav-link:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+        }
+        .footer-nav-link.next {
+            text-align: right;
+            margin-left: auto;
+        }
+        .footer-nav-label {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .footer-nav-title {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Sidebar overlay for mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 35;
+        }
+
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            .mobile-header {
+                display: flex;
+            }
+
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                top: var(--header-height);
+                height: calc(100vh - var(--header-height));
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay.open {
+                display: block;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 16px;
+                padding-top: calc(var(--header-height) + 16px);
+            }
+
+            .footer-nav {
+                flex-direction: column;
+            }
+            .footer-nav-link {
+                max-width: 100%;
+            }
+            .footer-nav-link.next {
+                text-align: left;
+            }
+        }
+
+        /* Keyboard shortcut hints */
+        .kbd {
+            display: inline-block;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-family: monospace;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            color: #6b7280;
+        }
+
+        /* Focus visible for keyboard navigation */
+        :focus-visible {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+
+        /* Print styles */
+        @media print {
+            .sidebar, .mobile-header, .diagram-toolbar, .footer-nav {
+                display: none !important;
+            }
+            .main-content {
+                margin-left: 0 !important;
+                padding: 0 !important;
+            }
+        }
+    </style>
+    <script>
+        // Mermaid configuration
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'strict',
+            maxTextSize: 100000,
+            fontSize: 14,
+            flowchart: {
+                useMaxWidth: false,
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            sequence: {
+                useMaxWidth: false,
+                showSequenceNumbers: true
+            }
+        });
+
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            document.querySelector('.sidebar').classList.toggle('open');
+            document.querySelector('.sidebar-overlay').classList.toggle('open');
+        }
+
+        // Close mobile menu when clicking overlay
+        document.addEventListener('DOMContentLoaded', function() {
+            const overlay = document.querySelector('.sidebar-overlay');
+            if (overlay) {
+                overlay.addEventListener('click', toggleMobileMenu);
+            }
+
+            // Close mobile menu on escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const sidebar = document.querySelector('.sidebar');
+                    if (sidebar && sidebar.classList.contains('open')) {
+                        toggleMobileMenu();
+                    }
+                }
+            });
+        });
+
+        // Diagram zoom functionality
+        let diagramScale = 1;
+        let originalSvgWidth = 0;
+        let originalSvgHeight = 0;
+
+        function zoomDiagram(factor) {
+            const content = document.querySelector('.diagram-content');
+            const svg = content ? content.querySelector('svg') : null;
+            if (!svg) return;
+
+            // Store original dimensions on first call
+            if (!originalSvgWidth || !originalSvgHeight) {
+                const rect = svg.getBoundingClientRect();
+                originalSvgWidth = rect.width;
+                originalSvgHeight = rect.height;
+            }
+
+            if (factor === 'reset') {
+                diagramScale = 1;
+                svg.style.transform = '';
+                content.style.width = '';
+                content.style.height = '';
+            } else if (factor === 'fit') {
+                // Calculate scale to fit the diagram container
+                const container = document.querySelector('.diagram-container');
+                const containerRect = container.getBoundingClientRect();
+                const padding = 48; // Account for content padding
+                const availableWidth = containerRect.width - padding;
+                const availableHeight = containerRect.height - padding;
+
+                const scaleX = availableWidth / originalSvgWidth;
+                const scaleY = availableHeight / originalSvgHeight;
+                diagramScale = Math.min(scaleX, scaleY, 1);
+
+                svg.style.transform = `scale(${diagramScale})`;
+                svg.style.transformOrigin = 'top left';
+                content.style.width = (originalSvgWidth * diagramScale) + 'px';
+                content.style.height = (originalSvgHeight * diagramScale) + 'px';
+            } else {
+                diagramScale = Math.max(0.1, Math.min(3, diagramScale * factor));
+                svg.style.transform = `scale(${diagramScale})`;
+                svg.style.transformOrigin = 'top left';
+                // Adjust container size to match scaled SVG
+                content.style.width = (originalSvgWidth * diagramScale) + 'px';
+                content.style.height = (originalSvgHeight * diagramScale) + 'px';
+            }
+
+            // Update zoom level display
+            const zoomLevel = document.getElementById('zoom-level');
+            if (zoomLevel) {
+                zoomLevel.textContent = Math.round(diagramScale * 100) + '%';
+            }
+        }
+
+        // Note: Diagrams render at natural size for best readability
+        // Users can click "Fit" button to fit to panel if needed
+
+        function downloadDiagram() {
+            const svg = document.querySelector('.diagram-content svg');
+            if (!svg) return;
+
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const blob = new Blob([svgData], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'diagram.svg';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function toggleFullscreen() {
+            const container = document.querySelector('.diagram-container');
+            if (!container) return;
+
+            if (!document.fullscreenElement) {
+                container.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+    </script>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Mobile header -->
+    <header class="mobile-header">
+        <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle navigation menu">
+            <i class="fas fa-bars"></i>
+            <span>Menu</span>
+        </button>
+        <span style="font-weight: 500; font-size: 14px;">Classes</span>
+    </header>
+
+    <!-- Sidebar overlay for mobile -->
+    <div class="sidebar-overlay" aria-hidden="true"></div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" aria-label="Main navigation">
+        <div class="sidebar-header">
+            <h1 class="sidebar-title">flask</h1>
+        </div>
+
+        <div id="navigation">
+            <nav aria-label="Documentation navigation">
+    <div class="nav-section">
+        <a href="../index.html"
+           class="nav-item "
+           >
+            <i class="fas fa-home" aria-hidden="true"></i>
+            <span>Home</span>
+        </a>
+    </div>
+
+    
+    <div class="nav-section">
+        <h2 class="nav-section-title">Documentation</h2>
+        
+        <a href="../sections/overview.html"
+           class="nav-item "
+           >
+            <span>Overview</span>
+        </a>
+        
+        <a href="../sections/dependencies.html"
+           class="nav-item "
+           >
+            <span>Dependencies</span>
+        </a>
+        
+        <a href="../sections/key_classes_and_functions.html"
+           class="nav-item "
+           >
+            <span>Key Classes and Functions</span>
+        </a>
+        
+        <a href="../sections/data_flow.html"
+           class="nav-item "
+           >
+            <span>Data Flow</span>
+        </a>
+        
+        <a href="../sections/integration_points.html"
+           class="nav-item "
+           >
+            <span>Integration Points</span>
+        </a>
+        
+    </div>
+    
+
+    
+    <div class="nav-section">
+        <h2 class="nav-section-title">Diagrams</h2>
+        
+        <a href="../diagrams/architecture.html"
+           class="nav-item "
+           >
+            <i class="fas fa-project-diagram" aria-hidden="true"></i>
+            <span>Architecture</span>
+        </a>
+        
+        <a href="../diagrams/dependencies.html"
+           class="nav-item "
+           >
+            <i class="fas fa-cubes" aria-hidden="true"></i>
+            <span>Dependencies</span>
+        </a>
+        
+        <a href="../diagrams/classes.html"
+           class="nav-item active"
+           aria-current="page">
+            <i class="fas fa-sitemap" aria-hidden="true"></i>
+            <span>Classes</span>
+        </a>
+        
+        <a href="../diagrams/sequence.html"
+           class="nav-item "
+           >
+            <i class="fas fa-exchange-alt" aria-hidden="true"></i>
+            <span>Sequence</span>
+        </a>
+        
+        <a href="../diagrams/call_graph.html"
+           class="nav-item "
+           >
+            <i class="fas fa-code-branch" aria-hidden="true"></i>
+            <span>Call Graph</span>
+        </a>
+        
+    </div>
+    
+</nav>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main id="main-content" class="main-content">
+        
+<!-- Breadcrumbs -->
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+    <a href="../index.html">Home</a>
+    <span class="separator" aria-hidden="true">›</span>
+    <a href="../index.html#diagrams">Diagrams</a>
+    <span class="separator" aria-hidden="true">›</span>
+    <span class="current">Classes</span>
+</nav>
+
+<div class="content-card" style="padding: 0; overflow: hidden;">
+    <div style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <h1 style="font-size: 20px; font-weight: 600; color: #111827; margin: 0;">Classes</h1>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 4px; background: #f3f4f6; border-radius: 6px; padding: 2px;">
+                <button class="diagram-btn" onclick="zoomDiagram(0.8)" title="Zoom out (-)">
+                    <i class="fas fa-minus" aria-hidden="true"></i>
+                </button>
+                <span id="zoom-level" style="min-width: 50px; text-align: center; font-size: 13px; color: #374151;">100%</span>
+                <button class="diagram-btn" onclick="zoomDiagram(1.25)" title="Zoom in (+)">
+                    <i class="fas fa-plus" aria-hidden="true"></i>
+                </button>
+            </div>
+            <button class="diagram-btn" onclick="zoomDiagram('reset')" title="Reset to 100%">
+                <i class="fas fa-undo" aria-hidden="true"></i>
+                <span>Reset</span>
+            </button>
+            <button class="diagram-btn" onclick="zoomDiagram('fit')" title="Fit to panel">
+                <i class="fas fa-compress-arrows-alt" aria-hidden="true"></i>
+                <span>Fit</span>
+            </button>
+            <button class="diagram-btn" onclick="toggleFullscreen()" title="Fullscreen (F)">
+                <i class="fas fa-expand" aria-hidden="true"></i>
+                <span>Fullscreen</span>
+            </button>
+            <button class="diagram-btn" onclick="downloadDiagram()" title="Download SVG">
+                <i class="fas fa-download" aria-hidden="true"></i>
+                <span>Download</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="diagram-container" id="diagram-container" style="border: none; border-radius: 0;">
+        <div class="diagram-content">
+            <pre class="mermaid">classDiagram
+    class SessionMixin {
+        +permanent()
+        +permanent()
+    }
+    class SecureCookieSession {
+        +__init__()
+    }
+    class NullSession {
+        +_fail()
+    }
+    class SessionInterface {
+        +make_null_session()
+        +is_null_session()
+        +get_cookie_name()
+        +get_cookie_domain()
+        +get_cookie_path()
+        +get_cookie_httponly()
+        +get_cookie_secure()
+        +get_cookie_samesite()
+        +get_cookie_partitioned()
+        +get_expiration_time()
+        +should_set_cookie()
+        +open_session()
+        +save_session()
+    }
+    class SecureCookieSessionInterface {
+        +get_signing_serializer()
+        +open_session()
+        +save_session()
+    }
+    class ConfigAttribute {
+        +__init__()
+        +__get__()
+        +__get__()
+        +__get__()
+        +__set__()
+    }
+    class Config {
+        +__init__()
+        +from_envvar()
+        +from_prefixed_env()
+        +from_pyfile()
+        +from_object()
+        +from_file()
+        +from_mapping()
+        +get_namespace()
+        +__repr__()
+    }
+    class Environment {
+        +__init__()
+    }
+    class DispatchingJinjaLoader {
+        +__init__()
+        +get_source()
+        +_get_source_explained()
+        +_get_source_fast()
+        +_iter_loaders()
+        +list_templates()
+    }
+    class Blueprint {
+        +__init__()
+        +get_send_file_max_age()
+        +send_static_file()
+        +open_resource()
+    }
+    class NoAppException
+    class ScriptInfo {
+        +__init__()
+        +load_app()
+    }
+    class AppGroup {
+        +command()
+        +group()
+    }
+    class FlaskGroup {
+        +__init__()
+        +_load_plugin_commands()
+        +get_command()
+        +list_commands()
+        +make_context()
+        +parse_args()
+    }
+    class CertParamType {
+        +__init__()
+        +convert()
+    }
+    class SeparatedPathType {
+        +convert()
+    }
+    class Request {
+        +max_content_length()
+        +max_content_length()
+        +max_form_memory_size()
+        +max_form_memory_size()
+        +max_form_parts()
+        +max_form_parts()
+        +endpoint()
+        +blueprint()
+        +blueprints()
+        +_load_form_data()
+        +on_json_loading_failed()
+    }
+    class Response {
+        +max_cookie_size()
+    }
+    class Flask {
+        +__init_subclass__()
+        +__init__()
+        +get_send_file_max_age()
+        +send_static_file()
+        +open_resource()
+        +open_instance_resource()
+        +create_jinja_environment()
+        +create_url_adapter()
+        +raise_routing_exception()
+        +update_template_context()
+        +make_shell_context()
+        +run()
+        +test_client()
+        +test_cli_runner()
+        +handle_http_exception()
+        +handle_user_exception()
+        +handle_exception()
+        +log_exception()
+        +dispatch_request()
+        +full_dispatch_request()
+        +finalize_request()
+        +make_default_options_response()
+        +ensure_sync()
+        +async_to_sync()
+        +url_for()
+        +make_response()
+        +preprocess_request()
+        +process_response()
+        +do_teardown_request()
+        +do_teardown_appcontext()
+        +app_context()
+        +request_context()
+        +test_request_context()
+        +wsgi_app()
+        +__call__()
+    }
+    class UnexpectedUnicodeError
+    class DebugFilesKeyError {
+        +__init__()
+        +__str__()
+    }
+    class FormDataRoutingRedirect {
+        +__init__()
+    }
+    class AppCtxGlobals {
+        +__getattr__()
+        +__setattr__()
+        +__delattr__()
+        +get()
+        +pop()
+        +setdefault()
+        +__contains__()
+        +__iter__()
+        +__repr__()
+    }
+    class AppContext {
+        +__init__()
+        +from_environ()
+        +has_request()
+        +copy()
+        +request()
+        +_get_session()
+        +session()
+        +match_request()
+        +push()
+        +pop()
+        +__enter__()
+        +__exit__()
+        +__repr__()
+    }
+    class EnvironBuilder {
+        +__init__()
+        +json_dumps()
+    }
+    class FlaskClient {
+        +__init__()
+        +session_transaction()
+        +_copy_environ()
+        +_request_from_builder_args()
+        +open()
+        +__enter__()
+        +__exit__()
+    }
+    class FlaskCliRunner {
+        +__init__()
+        +invoke()
+    }
+    class CollectErrors {
+        +__init__()
+        +__enter__()
+        +__exit__()
+        +raise_any()
+    }
+    class View {
+        +dispatch_request()
+        +as_view()
+    }
+    class MethodView {
+        +__init_subclass__()
+        +dispatch_request()
+    }
+    class BlueprintSetupState {
+        +__init__()
+        +add_url_rule()
+    }
+    class App {
+        +__init__()
+        +_check_setup_finished()
+        +name()
+        +logger()
+        +jinja_env()
+        +create_jinja_environment()
+        +make_config()
+        +make_aborter()
+        +auto_find_instance_path()
+        +create_global_jinja_loader()
+        +select_jinja_autoescape()
+        +debug()
+        +debug()
+        +register_blueprint()
+        +iter_blueprints()
+        +add_url_rule()
+        +template_filter()
+        +template_filter()
+        +template_filter()
+        +add_template_filter()
+        +template_test()
+        +template_test()
+        +template_test()
+        +add_template_test()
+        +template_global()
+        +template_global()
+        +template_global()
+        +add_template_global()
+        +teardown_appcontext()
+        +shell_context_processor()
+        +_find_error_handler()
+        +trap_http_exception()
+        +redirect()
+        +inject_url_defaults()
+        +handle_url_build_error()
+    }
+    class Scaffold {
+        +__init__()
+        +__repr__()
+        +_check_setup_finished()
+        +static_folder()
+        +static_folder()
+        +has_static_folder()
+        +static_url_path()
+        +static_url_path()
+        +jinja_loader()
+        +_method_route()
+        +get()
+        +query()
+        +post()
+        +put()
+        +delete()
+        +patch()
+        +route()
+        +add_url_rule()
+        +endpoint()
+        +before_request()
+        +after_request()
+        +teardown_request()
+        +context_processor()
+        +url_value_preprocessor()
+        +url_defaults()
+        +errorhandler()
+        +register_error_handler()
+        +_get_exc_class_and_code()
+    }
+    class JSONProvider {
+        +__init__()
+        +dumps()
+        +dump()
+        +loads()
+        +load()
+        +_prepare_response_obj()
+        +response()
+    }
+    class DefaultJSONProvider {
+        +dumps()
+        +loads()
+        +response()
+    }
+    class JSONTag {
+        +__init__()
+        +check()
+        +to_json()
+        +to_python()
+        +tag()
+    }
+    class TagDict {
+        +check()
+        +to_json()
+        +to_python()
+    }
+    class PassDict {
+        +check()
+        +to_json()
+    }
+    class TagTuple {
+        +check()
+        +to_json()
+        +to_python()
+    }
+    class PassList {
+        +check()
+        +to_json()
+    }
+    class TagBytes {
+        +check()
+        +to_json()
+        +to_python()
+    }
+    class TagMarkup {
+        +check()
+        +to_json()
+        +to_python()
+    }
+    class TagUUID {
+        +check()
+        +to_json()
+        +to_python()
+    }
+    class TagDateTime {
+        +check()
+        +to_json()
+        +to_python()
+    }
+    class TaggedJSONSerializer {
+        +__init__()
+        +register()
+        +tag()
+        +untag()
+        +_untag_scan()
+        +dumps()
+        +loads()
+    }
+
+    SessionMixin --|&gt; MutableMapping
+    SecureCookieSession --|&gt; CallbackDict
+    NullSession --|&gt; SecureCookieSession
+    SecureCookieSessionInterface --|&gt; SessionInterface
+    ConfigAttribute --|&gt; t_Generic
+    Config --|&gt; dict
+    Environment --|&gt; BaseEnvironment
+    DispatchingJinjaLoader --|&gt; BaseLoader
+    Blueprint --|&gt; SansioBlueprint
+    NoAppException --|&gt; click_UsageError
+    AppGroup --|&gt; click_Group
+    FlaskGroup --|&gt; AppGroup
+    CertParamType --|&gt; click_ParamType
+    SeparatedPathType --|&gt; click_Path
+    Request --|&gt; RequestBase
+    Response --|&gt; ResponseBase
+    Flask --|&gt; App
+    UnexpectedUnicodeError --|&gt; AssertionError
+    DebugFilesKeyError --|&gt; KeyError
+    FormDataRoutingRedirect --|&gt; AssertionError
+    EnvironBuilder --|&gt; werkzeug_test_EnvironBuilder
+    FlaskClient --|&gt; Client
+    FlaskCliRunner --|&gt; CliRunner
+    MethodView --|&gt; View
+    App --|&gt; Scaffold
+    DefaultJSONProvider --|&gt; JSONProvider
+    TagDict --|&gt; JSONTag
+    PassDict --|&gt; JSONTag
+    TagTuple --|&gt; JSONTag
+    PassList --|&gt; JSONTag
+    TagBytes --|&gt; JSONTag
+    TagMarkup --|&gt; JSONTag
+    TagUUID --|&gt; JSONTag
+    TagDateTime --|&gt; JSONTag</pre>
+        </div>
+    </div>
+
+    
+</div>
+
+<div style="margin-top: 16px; font-size: 13px; color: #6b7280;">
+    <strong>Tip:</strong> Use mouse wheel to scroll, toolbar buttons to zoom. Press <kbd class="kbd">F</kbd> for fullscreen.
+</div>
+
+<script>
+// Keyboard shortcuts for diagrams
+document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    switch(e.key) {
+        case '+':
+        case '=':
+            e.preventDefault();
+            zoomDiagram(1.25);
+            break;
+        case '-':
+            e.preventDefault();
+            zoomDiagram(0.8);
+            break;
+        case '0':
+            e.preventDefault();
+            zoomDiagram('reset');
+            break;
+        case 'f':
+        case 'F':
+            e.preventDefault();
+            toggleFullscreen();
+            break;
+    }
+});
+
+// Handle fullscreen change
+document.addEventListener('fullscreenchange', function() {
+    const container = document.getElementById('diagram-container');
+    if (document.fullscreenElement) {
+        container.style.maxHeight = '100vh';
+        container.style.height = '100vh';
+    } else {
+        container.style.maxHeight = '80vh';
+        container.style.height = '';
+    }
+});
+</script>
+
+    </main>
+</body>
+</html>

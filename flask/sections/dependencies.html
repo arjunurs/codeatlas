@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Dependencies · flask</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-width: 280px;
+            --header-height: 56px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+        }
+
+        /* Skip to content link for accessibility */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: #1a1a1a;
+            color: white;
+            padding: 8px 16px;
+            z-index: 1000;
+            text-decoration: none;
+        }
+        .skip-link:focus {
+            top: 0;
+        }
+
+        /* Mobile header */
+        .mobile-header {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--header-height);
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 16px;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 50;
+        }
+
+        .mobile-menu-btn {
+            background: none;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        .mobile-menu-btn:hover {
+            background: #f3f4f6;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow-y: auto;
+            background: #fafafa;
+            border-right: 1px solid #e5e7eb;
+            padding: 16px;
+            z-index: 40;
+        }
+
+        .sidebar-header {
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .sidebar-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0;
+        }
+
+        .page-subtitle {
+            color: #6b7280;
+            font-size: 14px;
+            margin: 4px 0 24px 0;
+        }
+
+        /* Navigation */
+        .nav-section {
+            margin-bottom: 20px;
+        }
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            padding: 8px 0;
+            margin: 0;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            margin: 2px 0;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #374151;
+            font-size: 14px;
+            transition: background-color 0.15s;
+        }
+        .nav-item:hover {
+            background: #e5e7eb;
+        }
+        .nav-item.active {
+            background: #dbeafe;
+            color: #1d4ed8;
+            font-weight: 500;
+        }
+        .nav-item i {
+            width: 16px;
+            text-align: center;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        /* Main content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 24px 32px;
+            min-height: 100vh;
+            max-width: 1200px;
+        }
+
+        /* Breadcrumbs */
+        .breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .breadcrumbs a {
+            color: #6b7280;
+            text-decoration: none;
+        }
+        .breadcrumbs a:hover {
+            color: #374151;
+            text-decoration: underline;
+        }
+        .breadcrumbs .separator {
+            color: #d1d5db;
+        }
+        .breadcrumbs .current {
+            color: #374151;
+            font-weight: 500;
+        }
+
+        /* Content cards */
+        .content-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .content-card h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #111827;
+            margin: 0 0 16px 0;
+            line-height: 1.3;
+        }
+
+        .content-card h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #111827;
+            margin: 24px 0 12px 0;
+        }
+
+        /* Diagram container */
+        .diagram-container {
+            width: 100%;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: white;
+            position: relative;
+        }
+
+        .diagram-toolbar {
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            gap: 8px;
+            padding: 8px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            z-index: 10;
+        }
+
+        .diagram-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #374151;
+        }
+        .diagram-btn:hover {
+            background: #f3f4f6;
+        }
+        .diagram-btn:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .diagram-content {
+            padding: 16px;
+            display: inline-block;
+            min-width: 100%;
+        }
+
+        .mermaid {
+            display: inline-block;
+        }
+
+        .mermaid svg {
+            display: block;
+        }
+
+        /* Footer navigation */
+        .footer-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 40px;
+            padding-top: 24px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer-nav-link {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 12px 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #374151;
+            max-width: 45%;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .footer-nav-link:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+        }
+        .footer-nav-link.next {
+            text-align: right;
+            margin-left: auto;
+        }
+        .footer-nav-label {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .footer-nav-title {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Sidebar overlay for mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 35;
+        }
+
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            .mobile-header {
+                display: flex;
+            }
+
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                top: var(--header-height);
+                height: calc(100vh - var(--header-height));
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay.open {
+                display: block;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 16px;
+                padding-top: calc(var(--header-height) + 16px);
+            }
+
+            .footer-nav {
+                flex-direction: column;
+            }
+            .footer-nav-link {
+                max-width: 100%;
+            }
+            .footer-nav-link.next {
+                text-align: left;
+            }
+        }
+
+        /* Keyboard shortcut hints */
+        .kbd {
+            display: inline-block;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-family: monospace;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            color: #6b7280;
+        }
+
+        /* Focus visible for keyboard navigation */
+        :focus-visible {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+
+        /* Print styles */
+        @media print {
+            .sidebar, .mobile-header, .diagram-toolbar, .footer-nav {
+                display: none !important;
+            }
+            .main-content {
+                margin-left: 0 !important;
+                padding: 0 !important;
+            }
+        }
+    </style>
+    <script>
+        // Mermaid configuration
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'strict',
+            maxTextSize: 100000,
+            fontSize: 14,
+            flowchart: {
+                useMaxWidth: false,
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            sequence: {
+                useMaxWidth: false,
+                showSequenceNumbers: true
+            }
+        });
+
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            document.querySelector('.sidebar').classList.toggle('open');
+            document.querySelector('.sidebar-overlay').classList.toggle('open');
+        }
+
+        // Close mobile menu when clicking overlay
+        document.addEventListener('DOMContentLoaded', function() {
+            const overlay = document.querySelector('.sidebar-overlay');
+            if (overlay) {
+                overlay.addEventListener('click', toggleMobileMenu);
+            }
+
+            // Close mobile menu on escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const sidebar = document.querySelector('.sidebar');
+                    if (sidebar && sidebar.classList.contains('open')) {
+                        toggleMobileMenu();
+                    }
+                }
+            });
+        });
+
+        // Diagram zoom functionality
+        let diagramScale = 1;
+        let originalSvgWidth = 0;
+        let originalSvgHeight = 0;
+
+        function zoomDiagram(factor) {
+            const content = document.querySelector('.diagram-content');
+            const svg = content ? content.querySelector('svg') : null;
+            if (!svg) return;
+
+            // Store original dimensions on first call
+            if (!originalSvgWidth || !originalSvgHeight) {
+                const rect = svg.getBoundingClientRect();
+                originalSvgWidth = rect.width;
+                originalSvgHeight = rect.height;
+            }
+
+            if (factor === 'reset') {
+                diagramScale = 1;
+                svg.style.transform = '';
+                content.style.width = '';
+                content.style.height = '';
+            } else if (factor === 'fit') {
+                // Calculate scale to fit the diagram container
+                const container = document.querySelector('.diagram-container');
+                const containerRect = container.getBoundingClientRect();
+                const padding = 48; // Account for content padding
+                const availableWidth = containerRect.width - padding;
+                const availableHeight = containerRect.height - padding;
+
+                const scaleX = availableWidth / originalSvgWidth;
+                const scaleY = availableHeight / originalSvgHeight;
+                diagramScale = Math.min(scaleX, scaleY, 1);
+
+                svg.style.transform = `scale(${diagramScale})`;
+                svg.style.transformOrigin = 'top left';
+                content.style.width = (originalSvgWidth * diagramScale) + 'px';
+                content.style.height = (originalSvgHeight * diagramScale) + 'px';
+            } else {
+                diagramScale = Math.max(0.1, Math.min(3, diagramScale * factor));
+                svg.style.transform = `scale(${diagramScale})`;
+                svg.style.transformOrigin = 'top left';
+                // Adjust container size to match scaled SVG
+                content.style.width = (originalSvgWidth * diagramScale) + 'px';
+                content.style.height = (originalSvgHeight * diagramScale) + 'px';
+            }
+
+            // Update zoom level display
+            const zoomLevel = document.getElementById('zoom-level');
+            if (zoomLevel) {
+                zoomLevel.textContent = Math.round(diagramScale * 100) + '%';
+            }
+        }
+
+        // Note: Diagrams render at natural size for best readability
+        // Users can click "Fit" button to fit to panel if needed
+
+        function downloadDiagram() {
+            const svg = document.querySelector('.diagram-content svg');
+            if (!svg) return;
+
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const blob = new Blob([svgData], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'diagram.svg';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function toggleFullscreen() {
+            const container = document.querySelector('.diagram-container');
+            if (!container) return;
+
+            if (!document.fullscreenElement) {
+                container.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+    </script>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Mobile header -->
+    <header class="mobile-header">
+        <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Toggle navigation menu">
+            <i class="fas fa-bars"></i>
+            <span>Menu</span>
+        </button>
+        <span style="font-weight: 500; font-size: 14px;">Dependencies</span>
+    </header>
+
+    <!-- Sidebar overlay for mobile -->
+    <div class="sidebar-overlay" aria-hidden="true"></div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" aria-label="Main navigation">
+        <div class="sidebar-header">
+            <h1 class="sidebar-title">flask</h1>
+        </div>
+
+        <div id="navigation">
+            <nav aria-label="Documentation navigation">
+    <div class="nav-section">
+        <a href="../index.html"
+           class="nav-item "
+           >
+            <i class="fas fa-home" aria-hidden="true"></i>
+            <span>Home</span>
+        </a>
+    </div>
+
+    
+    <div class="nav-section">
+        <h2 class="nav-section-title">Documentation</h2>
+        
+        <a href="../sections/overview.html"
+           class="nav-item "
+           >
+            <span>Overview</span>
+        </a>
+        
+        <a href="../sections/dependencies.html"
+           class="nav-item active"
+           aria-current="page">
+            <span>Dependencies</span>
+        </a>
+        
+        <a href="../sections/key_classes_and_functions.html"
+           class="nav-item "
+           >
+            <span>Key Classes and Functions</span>
+        </a>
+        
+        <a href="../sections/data_flow.html"
+           class="nav-item "
+           >
+            <span>Data Flow</span>
+        </a>
+        
+        <a href="../sections/integration_points.html"
+           class="nav-item "
+           >
+            <span>Integration Points</span>
+        </a>
+        
+    </div>
+    
+
+    
+    <div class="nav-section">
+        <h2 class="nav-section-title">Diagrams</h2>
+        
+        <a href="../diagrams/architecture.html"
+           class="nav-item "
+           >
+            <i class="fas fa-project-diagram" aria-hidden="true"></i>
+            <span>Architecture</span>
+        </a>
+        
+        <a href="../diagrams/dependencies.html"
+           class="nav-item "
+           >
+            <i class="fas fa-cubes" aria-hidden="true"></i>
+            <span>Dependencies</span>
+        </a>
+        
+        <a href="../diagrams/classes.html"
+           class="nav-item "
+           >
+            <i class="fas fa-sitemap" aria-hidden="true"></i>
+            <span>Classes</span>
+        </a>
+        
+        <a href="../diagrams/sequence.html"
+           class="nav-item "
+           >
+            <i class="fas fa-exchange-alt" aria-hidden="true"></i>
+            <span>Sequence</span>
+        </a>
+        
+        <a href="../diagrams/call_graph.html"
+           class="nav-item "
+           >
+            <i class="fas fa-code-branch" aria-hidden="true"></i>
+            <span>Call Graph</span>
+        </a>
+        
+    </div>
+    
+</nav>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main id="main-content" class="main-content">
+        
+<!-- Breadcrumbs -->
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+    <a href="../index.html">Home</a>
+    <span class="separator" aria-hidden="true">›</span>
+    <span class="current">Dependencies</span>
+</nav>
+
+<article class="content-card">
+    <h1 style="font-size: 28px; font-weight: 600; color: #111827; margin: 0 0 24px 0; line-height: 1.3;">
+        Dependencies
+    </h1>
+
+    <div class="prose">
+        <h2>Core Dependencies</h2>
+<p>These are the runtime dependencies in the <code>[project]</code> table of <code>pyproject.toml</code>. Flask 3.2.0.dev is built on Werkzeug and Jinja2 and adds a small set of focused libraries.</p>
+<h3>Web and WSGI layer</h3>
+<ul>
+<li><code>werkzeug&gt;=3.1.0</code> is the foundation of the framework and the most widely imported dependency. Its uses by module:
+<ul>
+<li><strong>Routing</strong>:
+<ul>
+<li><code>flask.sansio.app</code> imports <code>Map</code>, <code>Rule</code> and <code>BuildError</code>.</li>
+<li><code>flask.app</code> imports <code>MapAdapter</code>, <code>RequestRedirect</code>, <code>RoutingException</code>, <code>Rule</code> and <code>BuildError</code>.</li>
+<li><code>flask.ctx</code> imports <code>MapAdapter</code>.</li>
+<li><code>flask.debughelpers</code> imports <code>RequestRedirect</code>.</li>
+</ul>
+</li>
+<li><strong>HTTP exceptions</strong>:
+<ul>
+<li><code>flask.sansio.scaffold</code> imports <code>default_exceptions</code> and <code>HTTPException</code>.</li>
+<li><code>flask.sansio.app</code> imports <code>Aborter</code>, <code>BadRequest</code> and <code>BadRequestKeyError</code>.</li>
+<li><code>flask.app</code> imports <code>InternalServerError</code>.</li>
+<li><code>flask.helpers</code> imports <code>abort</code>.</li>
+</ul>
+</li>
+<li><strong>Request/response objects</strong>: <code>flask.wrappers</code> imports <code>Request</code>, <code>Response</code>, <code>BadRequest</code>, <code>HTTPException</code> and <code>Rule</code>. <code>flask.app</code> and <code>flask.sansio.app</code> import <code>Response</code> classes, and <code>flask.typing</code> and <code>flask.json.provider</code> import <code>werkzeug.sansio.response.Response</code>.</li>
+<li><strong>Data structures</strong>: <code>flask.app</code> imports <code>Headers</code> and <code>ImmutableDict</code>. <code>flask.sessions</code> imports <code>CallbackDict</code>.</li>
+<li><strong>Utilities</strong>:
+<ul>
+<li><code>import_string</code> is imported by <code>flask.cli</code> and <code>flask.config</code>.</li>
+<li><code>cached_property</code> is imported by <code>flask.sansio.app</code> and <code>flask.sansio.scaffold</code>.</li>
+<li><code>redirect</code> is imported by <code>flask.helpers</code> and <code>flask.sansio.app</code>.</li>
+<li><code>http_date</code> is imported by <code>flask.json.provider</code> and <code>flask.json.tag</code>.</li>
+<li><code>parse_date</code> is imported by <code>flask.json.tag</code>.</li>
+<li><code>get_host</code> is imported by <code>flask.app</code>.</li>
+</ul>
+</li>
+<li><strong>Context proxies</strong>: <code>werkzeug.local.LocalProxy</code> is imported by <code>flask.globals</code> and <code>flask.logging</code>.</li>
+<li><strong>Dev server and testing</strong>:
+<ul>
+<li><code>run_simple</code> and <code>is_running_from_reloader</code> are imported by <code>flask.app</code> and <code>flask.cli</code>.</li>
+<li><code>werkzeug.test.Client</code> and <code>TestResponse</code> are imported by <code>flask.testing</code>.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3>Templating and serialization</h3>
+<ul>
+<li><code>jinja2&gt;=3.1.2</code> provides templating.
+<ul>
+<li><code>flask.templating</code> imports <code>Environment</code>, <code>Template</code>, <code>BaseLoader</code> and <code>TemplateNotFound</code>.</li>
+<li><code>flask.sansio.scaffold</code> imports <code>BaseLoader</code> and <code>FileSystemLoader</code> for template folders.</li>
+<li><code>flask.debughelpers</code> uses <code>BaseLoader</code> in <code>_dump_loader_info()</code> and <code>explain_template_loading_attempts()</code>, which report which loader tried to locate a template and whether it matched.</li>
+</ul>
+</li>
+<li><code>markupsafe&gt;=2.1.1</code> supplies <code>Markup</code>, which <code>flask.json.tag</code> imports.</li>
+<li><code>itsdangerous&gt;=2.2.0</code> supports sessions. <code>flask.sessions</code> imports <code>URLSafeTimedSerializer</code> and <code>BadSignature</code>.</li>
+</ul>
+<h3>CLI</h3>
+<ul>
+<li><code>click&gt;=8.1.3</code> powers the <code>flask</code> command.
+<ul>
+<li><code>flask.cli</code> builds <code>cli = FlaskGroup(name="flask", ...)</code>, whose <code>main()</code> calls <code>cli.main()</code>.</li>
+<li><code>flask.cli</code> uses <code>click.echo()</code> and <code>click.secho()</code> for output, and imports <code>click.core.ParameterSource</code>.</li>
+<li><code>flask.testing</code> imports <code>click.testing.CliRunner</code> and <code>Result</code>.</li>
+<li><code>flask.sansio.scaffold</code> imports <code>click.Group</code> only for type checking, under <code>t.TYPE_CHECKING</code>.</li>
+</ul>
+</li>
+</ul>
+<h3>Signals</h3>
+<ul>
+<li><code>blinker&gt;=1.9.0</code> supplies <code>Namespace</code>, which <code>flask.signals</code> imports. The top-level <code>flask</code> package re-exports signals such as <code>request_started</code>, <code>request_finished</code>, <code>got_request_exception</code>, <code>template_rendered</code> and <code>message_flashed</code>.</li>
+</ul>
+<h2>Optional Dependencies</h2>
+<p>Two extras are declared under <code>[project.optional-dependencies]</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Extra</th>
+<th>Requirement</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>async</code></td>
+<td><code>asgiref&gt;=3.2</code></td>
+<td><code>flask.app</code> imports <code>asgiref.sync.async_to_sync</code></td>
+</tr>
+<tr>
+<td><code>dotenv</code></td>
+<td><code>python-dotenv</code></td>
+<td><code>flask.cli</code> imports <code>dotenv</code></td>
+</tr>
+</tbody>
+</table>
+<p>Install them with <code>pip install "Flask[async]"</code> or <code>pip install "Flask[dotenv]"</code>.</p>
+<p><code>flask.helpers</code> has <code>get_load_dotenv()</code>, which reads the <code>FLASK_SKIP_DOTENV</code> environment variable. <code>FlaskGroup</code> takes a <code>load_dotenv</code> option and passes it to <code>ScriptInfo</code> as <code>load_dotenv_defaults</code>.</p>
+<p><code>flask.cli</code> also imports <code>cryptography</code>. It is declared only in the <code>typing</code> dependency group, not among the runtime dependencies or extras.</p>
+<h3>Development dependency groups</h3>
+<p>These are declared under <code>[dependency-groups]</code> and are not installed with the package.</p>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Packages</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dev</code></td>
+<td><code>ruff</code>, <code>tox</code>, <code>tox-uv</code></td>
+<td>Linting and running test environments</td>
+</tr>
+<tr>
+<td><code>tests</code></td>
+<td><code>asgiref</code>, <code>pytest</code>, <code>python-dotenv</code></td>
+<td>Test suite, including the async and dotenv paths</td>
+</tr>
+<tr>
+<td><code>typing</code></td>
+<td><code>asgiref</code>, <code>cryptography</code>, <code>mypy</code>, <code>pyright</code>, <code>pytest</code>, <code>python-dotenv</code>, <code>types-contextvars</code>, <code>types-dataclasses</code></td>
+<td>Type checking with <code>mypy</code> and <code>pyright</code>. The optional dependencies are included so their imports resolve.</td>
+</tr>
+<tr>
+<td><code>docs</code></td>
+<td><code>pallets-sphinx-themes</code>, <code>sphinx&lt;9</code>, <code>sphinx-tabs</code>, <code>sphinxcontrib-log-cabinet</code></td>
+<td>Documentation build</td>
+</tr>
+<tr>
+<td><code>docs-auto</code></td>
+<td><code>sphinx-autobuild</code></td>
+<td>Live-rebuilding docs</td>
+</tr>
+<tr>
+<td><code>pre-commit</code></td>
+<td><code>pre-commit</code>, <code>pre-commit-uv</code></td>
+<td>Git hook management</td>
+</tr>
+<tr>
+<td><code>gha-update</code></td>
+<td><code>gha-update ; python_full_version &gt;= '3.12'</code></td>
+<td>Updating GitHub Actions versions, only on Python 3.12+</td>
+</tr>
+</tbody>
+</table>
+<h2>Version Requirements</h2>
+<ul>
+<li>Python <code>&gt;=3.10</code> (<code>requires-python</code>).</li>
+<li>Runtime minimums:
+<ul>
+<li><code>blinker&gt;=1.9.0</code></li>
+<li><code>click&gt;=8.1.3</code></li>
+<li><code>itsdangerous&gt;=2.2.0</code></li>
+<li><code>jinja2&gt;=3.1.2</code></li>
+<li><code>markupsafe&gt;=2.1.1</code></li>
+<li><code>werkzeug&gt;=3.1.0</code></li>
+</ul>
+</li>
+<li>Extras: <code>asgiref&gt;=3.2</code>. <code>python-dotenv</code> has no version constraint.</li>
+<li>Docs: <code>sphinx&lt;9</code> is the only upper bound among the dependency groups.</li>
+<li>Build: <code>flit_core&gt;=3.11,&lt;4</code> with backend <code>flit_core.buildapi</code>.</li>
+<li>Project version: <code>3.2.0.dev</code>.</li>
+</ul>
+<p>Every runtime dependency uses a lower bound only, with no upper cap. The <code>sphinx&lt;9</code> cap and the <code>flit_core</code> cap are the only upper-bound constraints in the manifest.</p>
+<h2>Integration Points</h2>
+<h3>Shared base class</h3>
+<p><code>Scaffold</code> in <code>flask.sansio.scaffold</code> is the common base for <code>Flask</code> and <code>Blueprint</code>. It is where Jinja2's <code>FileSystemLoader</code>, Werkzeug's <code>default_exceptions</code> and <code>cached_property</code>, and the typed decorators (<code>T_route</code>, <code>T_error_handler</code>, and so on) come together. The <code>@setupmethod</code> decorator wraps registration methods and calls <code>_check_setup_finished()</code> first.</p>
+<p><code>Blueprint</code> in <code>flask.sansio.blueprints</code> implements <code>_check_setup_finished()</code> to raise an <code>AssertionError</code> once the blueprint has been registered, so setup changes cannot be applied inconsistently.</p>
+<h3>Sans-IO split</h3>
+<p><code>flask.sansio.app</code> holds the application state that depends on Werkzeug's <code>Map</code>, <code>Rule</code>, <code>Aborter</code> and sansio <code>Response</code>. <code>flask.app</code> adds the WSGI-specific pieces: <code>run_simple</code>, <code>MapAdapter</code>, <code>get_host</code>, and the optional <code>async_to_sync</code>.</p>
+<h3>Thin wrappers over Werkzeug</h3>
+<ul>
+<li><code>flask.helpers</code> imports Werkzeug's <code>abort</code> and <code>redirect</code> under the private aliases <code>_wz_abort</code> and <code>_wz_redirect</code>, and re-exposes <code>abort</code> and <code>redirect</code> from the top-level <code>flask</code> package.</li>
+<li><code>flask.globals</code> builds <code>current_app</code>, <code>g</code>, <code>request</code> and <code>session</code> on <code>LocalProxy</code>, and <code>flask.logging</code> also uses <code>LocalProxy</code>.</li>
+<li><code>flask.wrappers</code> provides the framework's <code>Request</code> and <code>Response</code> on top of Werkzeug's.</li>
+</ul>
+<h3>CLI</h3>
+<p><code>FlaskGroup</code> in <code>flask.cli</code> extends Click's group behavior.</p>
+<ul>
+<li><code>make_context()</code> sets <code>FLASK_RUN_FROM_CLI=true</code> so <code>app.run()</code> becomes a no-op while a CLI command runs.</li>
+<li><code>make_context()</code> also creates a <code>ScriptInfo</code> as the context object when none is supplied.</li>
+<li><code>list_commands()</code> merges in commands from the loaded app's <code>cli</code>. A <code>NoAppException</code> prints only the error message in red, and any other exception prints the full traceback.</li>
+<li><code>parse_args()</code> handles <code>--env-file</code> and <code>--app</code> early, so help output can include <code>app.cli</code> commands.</li>
+<li>The <code>routes</code> command formats <code>url_map</code> rules into a table with <code>click.echo()</code>.</li>
+</ul>
+<pre><code>cli = FlaskGroup(name="flask", help="A general utility script for Flask applications. ...")
+
+def main() -&gt; None:
+    cli.main()
+</code></pre>
+<h3>Sessions, signals and JSON</h3>
+<ul>
+<li><code>flask.sessions</code> combines <code>URLSafeTimedSerializer</code> and <code>BadSignature</code> from <code>itsdangerous</code> with Werkzeug's <code>CallbackDict</code>.</li>
+<li><code>flask.signals</code> creates its signals from <code>blinker.Namespace</code>.</li>
+<li><code>flask.json.tag</code> combines <code>markupsafe.Markup</code> with Werkzeug's <code>http_date</code> and <code>parse_date</code>.</li>
+</ul>
+<h3>Testing</h3>
+<p><code>flask.testing</code> builds on <code>werkzeug.test.Client</code>, <code>werkzeug.wrappers.Request</code> and <code>click.testing.CliRunner</code>, so tests can exercise both the WSGI app and CLI commands.</p>
+
+    </div>
+</article>
+
+<!-- Footer navigation -->
+
+<nav class="footer-nav" aria-label="Section navigation">
+    
+    <a href="../sections/overview.html" class="footer-nav-link prev">
+        <span class="footer-nav-label">← Previous</span>
+        <span class="footer-nav-title">Overview</span>
+    </a>
+    
+
+    
+    <a href="../sections/key_classes_and_functions.html" class="footer-nav-link next">
+        <span class="footer-nav-label">Next →</span>
+        <span class="footer-nav-title">Key Classes and Functions</span>
+    </a>
+    
+</nav>
+
+
+<style>
+.prose {
+    font-size: 15px;
+    line-height: 1.75;
+    color: #374151;
+}
+.prose p {
+    margin: 0 0 16px 0;
+}
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+    font-weight: 600;
+    color: #111827;
+    margin: 32px 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.prose h2 { font-size: 22px; }
+.prose h3 { font-size: 18px; border-bottom: none; }
+.prose h4 { font-size: 16px; border-bottom: none; }
+.prose h5 { font-size: 14px; border-bottom: none; }
+.prose h6 { font-size: 13px; border-bottom: none; }
+
+.prose ul, .prose ol {
+    padding-left: 24px;
+    margin: 16px 0;
+}
+.prose ul {
+    list-style-type: disc;
+}
+.prose ol {
+    list-style-type: decimal;
+}
+.prose li {
+    margin: 8px 0;
+    padding-left: 4px;
+}
+
+.prose code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.9em;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #1f2937;
+}
+
+.prose pre {
+    margin: 16px 0;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+}
+.prose pre code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #1f2937;
+    background: transparent;
+    padding: 0;
+}
+
+.prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+}
+.prose th, .prose td {
+    border: 1px solid #e5e7eb;
+    padding: 8px 12px;
+    text-align: left;
+}
+.prose th {
+    background: #f9fafb;
+    font-weight: 600;
+}
+
+.prose blockquote {
+    border-left: 4px solid #e5e7eb;
+    padding-left: 16px;
+    margin: 16px 0;
+    color: #6b7280;
+    font-style: italic;
+}
+
+.prose strong {
+    font-weight: 600;
+    color: #111827;
+}
+
+.prose em {
+    font-style: italic;
+}
+
+.prose a {
+    color: #2563eb;
+    text-decoration: none;
+}
+.prose a:hover {
+    text-decoration: underline;
+}
+
+.prose hr {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 24px 0;
+}
+</style>
+
+    </main>
+</body>
+</html>
