@@ -104,16 +104,16 @@ def choose_entry(graph: CallGraph) -> str | None:
     Returns:
         The entry point, or None when no function reaches another
     """
-    callees = {function: list(_reached(graph, function)) for function in graph.calls}
+    callees = {function: list(reached(graph, function)) for function in graph.calls}
     called = {
         callee
         for caller, reached in callees.items()
-        if not _is_test(caller)
+        if not is_test(caller)
         for callee in reached
     }
     entry, most = None, 0
     for function in sorted(graph.calls):
-        if function in called or _is_test(function):
+        if function in called or is_test(function):
             continue
         reach = _reach(function, callees)
         if reach > most:
@@ -121,7 +121,7 @@ def choose_entry(graph: CallGraph) -> str | None:
     return entry
 
 
-def _reached(graph: CallGraph, function: str) -> Iterator[str]:
+def reached(graph: CallGraph, function: str) -> Iterator[str]:
     """The analyzed functions a function's traced calls run."""
     for callee in graph.calls[function]:
         if callee in graph.classes:
@@ -153,7 +153,7 @@ def _method(graph: CallGraph, class_name: str, name: str) -> str | None:
     return None
 
 
-def _is_test(function: str) -> bool:
+def is_test(function: str) -> bool:
     """Whether a function is test code: in a test module, or a test itself."""
     return any(
         part in _TEST_MODULES or part.startswith("test_")
