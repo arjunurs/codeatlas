@@ -170,10 +170,10 @@ class TestGetDefaultRegistry:
 @pytest.mark.parametrize(
     ("anthropic_model", "quality_mode", "expected"),
     [
-        (None, None, "claude-sonnet-5"),
+        (None, None, "claude-sonnet-5-5"),
         (None, QualityMode.FAST, "claude-haiku-4-5"),
-        (None, QualityMode.BALANCED, "claude-sonnet-5"),
-        (None, QualityMode.BEST, "claude-opus-5"),
+        (None, QualityMode.BALANCED, "claude-sonnet-5-5"),
+        (None, QualityMode.BEST, "claude-opus-5-5"),
         ("claude-custom", QualityMode.FAST, "claude-custom"),
         ("claude-custom", None, "claude-custom"),
     ],

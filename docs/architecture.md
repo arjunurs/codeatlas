@@ -132,8 +132,8 @@ Known gap: the section key does not include `--temperature`.
 
 ## Cost and latency
 
-Measured on FastAPI's package (52 files, about 800 KB of source) with the default Sonnet model
-and the five core sections:
+Measured on FastAPI's package (52 files, about 800 KB of source) with Claude Sonnet 5 (the
+default until October 2026; Sonnet 5.5 has the same price) and the five core sections:
 
 | Run | Time | Cost | What was called |
 |---|---|---|---|
@@ -143,7 +143,7 @@ and the five core sections:
 
 Section generation dominates both cost and time: embeddings were about 2% of the cost, and the
 wall-clock time is set by the slowest of the parallel sections. At the same token counts, Haiku
-would cost about $0.13 and Opus about $0.64; real counts differ by model, since models write
+would cost about $0.13 and Opus 5.5 about $0.51; real counts differ by model, since models write
 different lengths.
 
 The cost summary printed at the end of a run uses the token counts the Anthropic API reports. The

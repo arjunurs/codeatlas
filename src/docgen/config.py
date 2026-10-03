@@ -26,8 +26,8 @@ class QualityMode(Enum):
 # Model selected by each quality mode preset
 QUALITY_MODE_MODELS: dict[QualityMode, str] = {
     QualityMode.FAST: "claude-haiku-4-5",
-    QualityMode.BALANCED: "claude-sonnet-5",
-    QualityMode.BEST: "claude-opus-5",
+    QualityMode.BALANCED: "claude-sonnet-5-5",
+    QualityMode.BEST: "claude-opus-5-5",
 }
 
 

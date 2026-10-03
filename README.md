@@ -82,7 +82,7 @@ read unless you pass it.
 At the end of a run, codeatlas prints the token usage and estimated cost per model. LLM tokens
 are the counts the API reports; embedding tokens are estimated from text length, because
 LangChain does not expose the embedding API's usage. A first run on FastAPI's package (52 files)
-takes about 45 seconds and costs about $0.25 with the default model.
+took about 45 seconds and cost about $0.25 with Claude Sonnet 5.
 
 Runs are cached in `.docgen_cache` in the current directory (change it with `--cache-dir`): the
 vector store is updated incrementally, and a section is reused while its code, the model, its

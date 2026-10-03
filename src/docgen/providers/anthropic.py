@@ -22,7 +22,7 @@ class AnthropicProvider(BaseLLMProvider):
     providing a consistent interface for the documentation generator.
     """
 
-    DEFAULT_MODEL = "claude-sonnet-5"
+    DEFAULT_MODEL = "claude-sonnet-5-5"
 
     def __init__(
         self,
@@ -35,7 +35,7 @@ class AnthropicProvider(BaseLLMProvider):
 
         Args:
             api_key: Anthropic API key
-            model: Model name to use (defaults to claude-sonnet-5)
+            model: Model name to use (defaults to claude-sonnet-5-5)
             temperature: Temperature for generation (0.0 to 1.0), or None to
                 use the model's default. Claude Sonnet 5 and newer reject
                 non-default temperature values.

@@ -14,8 +14,8 @@ from docgen.config import (
     ("mode", "model"),
     [
         (QualityMode.FAST, "claude-haiku-4-5"),
-        (QualityMode.BALANCED, "claude-sonnet-5"),
-        (QualityMode.BEST, "claude-opus-5"),
+        (QualityMode.BALANCED, "claude-sonnet-5-5"),
+        (QualityMode.BEST, "claude-opus-5-5"),
     ],
 )
 def test_quality_mode_selects_model(mode, model):
