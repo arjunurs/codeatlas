@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from docgen.config import QualityMode
+from docgen.config import DEFAULT_CONFIG, QualityMode
 from docgen.core.generator import CodeDocumentationGenerator
 from docgen.exceptions.errors import DocumentationError
 from docgen.models.code_entity import CodeEntity
@@ -506,3 +506,13 @@ def test_provider_mode_reports_provider_model():
     )
 
     assert generator.model_name == "provider-model"
+
+
+def test_generator_sets_output_token_limit():
+    """Sections get an explicit output limit instead of the library default."""
+    generator = CodeDocumentationGenerator(
+        anthropic_api_key="test-anthropic", openai_api_key="test-openai"
+    )
+
+    assert generator.llm.max_tokens == DEFAULT_CONFIG.DEFAULT_MAX_OUTPUT_TOKENS
+    assert DEFAULT_CONFIG.DEFAULT_MAX_OUTPUT_TOKENS > 4096

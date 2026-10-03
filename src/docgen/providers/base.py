@@ -82,6 +82,7 @@ class BaseLLMProvider(ABC):
         api_key: str,
         model: str,
         temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> None:
         """Initialize the LLM provider.
 
@@ -90,15 +91,20 @@ class BaseLLMProvider(ABC):
             model: Model name/identifier to use
             temperature: Temperature for generation (0.0 to 1.0), or None to
                 use the model's default sampling
+            max_tokens: Maximum output tokens per call, or None for the
+                library default
         """
         if not api_key:
             raise ValueError("API key cannot be empty")
         if temperature is not None and not 0 <= temperature <= 1:
             raise ValueError("Temperature must be between 0 and 1")
+        if max_tokens is not None and max_tokens <= 0:
+            raise ValueError("max_tokens must be positive")
 
         self._api_key = api_key
         self._model = model
         self._temperature = temperature
+        self._max_tokens = max_tokens
         self._llm: BaseChatModel | None = None
 
     @property

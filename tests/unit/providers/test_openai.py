@@ -190,3 +190,10 @@ class TestOpenAIEmbeddingProvider:
 
             with pytest.raises(EmbeddingError, match="Failed to embed query"):
                 provider.embed_query("test query")
+
+
+def test_openaiprovider_passes_max_tokens():
+    """The output token limit reaches the LangChain chat model."""
+    provider = OpenAIProvider(api_key="test-key", max_tokens=8192)
+
+    assert provider.get_langchain_llm().max_tokens == 8192

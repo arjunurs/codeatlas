@@ -71,6 +71,9 @@ class GeneratorConfig:
     DEFAULT_TEMPERATURE: float | None = None
     DEFAULT_ANTHROPIC_MODEL: str = QUALITY_MODE_MODELS[QualityMode.BALANCED]
     DEFAULT_OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    # Output limit per section. langchain-anthropic defaults to 4096, which cut
+    # long sections off mid-sentence.
+    DEFAULT_MAX_OUTPUT_TOKENS: int = 8192
 
     # Diagram settings
     MAX_DIAGRAM_NODES: int = 50

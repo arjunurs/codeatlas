@@ -98,3 +98,10 @@ class TestAnthropicProvider:
 
             with pytest.raises(LLMError, match="Failed to invoke Anthropic LLM"):
                 provider.invoke("Test prompt")
+
+
+def test_anthropicprovider_passes_max_tokens():
+    """The output token limit reaches the LangChain chat model."""
+    provider = AnthropicProvider(api_key="test-key", max_tokens=8192)
+
+    assert provider.get_langchain_llm().max_tokens == 8192

@@ -1,5 +1,6 @@
 """Unit tests for the LangChain usage tracking adapters."""
 
+import pytest
 from langchain_core.output_parsers import StrOutputParser
 
 from docgen.utils.cost_tracker import CostTracker
@@ -34,3 +35,26 @@ def test_embeddings_wrapper_records_estimated_tokens(fake_embeddings):
     assert stats.input_tokens == 10 + 20 + 2
     assert stats.requests == 2
     assert stats.estimated
+
+
+@pytest.mark.parametrize(
+    ("model_kwargs", "truncated"),
+    [
+        ({}, False),
+        ({"stop_reason": "end_turn"}, False),
+        ({"stop_reason": "max_tokens"}, True),
+        ({"finish_reason": "stop"}, False),
+        ({"finish_reason": "length"}, True),
+    ],
+)
+def test_callback_detects_output_limit(
+    fake_chat_model_with_usage, model_kwargs, truncated
+):
+    """A response that stopped at the output token limit is flagged."""
+    model = fake_chat_model_with_usage.model_copy(update=model_kwargs)
+    chain = model | StrOutputParser()
+    usage = TokenUsageCallback()
+
+    chain.invoke("prompt", config={"callbacks": [usage]})
+
+    assert usage.truncated is truncated

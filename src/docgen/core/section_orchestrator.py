@@ -24,6 +24,8 @@ from ..utils.usage_tracking import TokenUsageCallback
 
 logger = logging.getLogger(__name__)
 
+TRUNCATION_NOTE = "\n\n*This section was cut off at the model's output limit.*"
+
 
 class SectionOrchestrator:
     """Orchestrates documentation section generation.
@@ -207,14 +209,16 @@ class SectionOrchestrator:
                     )
                 return cached_content
 
-        content = self._generate_section(rag_chain, section_name, prompt)
-        self.section_cache.cache_section(
-            section_name,
-            content,
-            self.current_analyses,
-            model=self.model_name,
-            prompt=prompt,
-        )
+        content, truncated = self._run_section(rag_chain, section_name, prompt)
+        # A cut-off section is not cached, so the next run tries again
+        if not truncated:
+            self.section_cache.cache_section(
+                section_name,
+                content,
+                self.current_analyses,
+                model=self.model_name,
+                prompt=prompt,
+            )
         return content
 
     def _build_prompt(self, section_name: str) -> str:
@@ -241,6 +245,22 @@ class SectionOrchestrator:
         Raises:
             LLMError: If section generation fails
         """
+        return self._run_section(rag_chain, section_name, prompt)[0]
+
+    def _run_section(
+        self, rag_chain: Runnable, section_name: str, prompt: str | None = None
+    ) -> tuple[str, bool]:
+        """Generate a section and report whether it hit the output limit.
+
+        A section that stopped at the output token limit gets a visible note
+        and a warning, since its text ends mid-sentence.
+
+        Returns:
+            Tuple of (content, whether the content was cut off)
+
+        Raises:
+            LLMError: If section generation fails
+        """
         try:
             if prompt is None:
                 prompt = self._build_prompt(section_name)
@@ -253,7 +273,13 @@ class SectionOrchestrator:
                     input_tokens=usage.input_tokens,
                     output_tokens=usage.output_tokens,
                 )
-            return content
+            if usage.truncated:
+                logger.warning(
+                    f"Section '{section_name}' was cut off at the model's output "
+                    "limit; it will be regenerated on the next run"
+                )
+                content += TRUNCATION_NOTE
+            return content, usage.truncated
         except Exception as e:
             raise LLMError(
                 f"Failed to generate section '{section_name}': {str(e)}"

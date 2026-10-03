@@ -29,6 +29,7 @@ class AnthropicProvider(BaseLLMProvider):
         api_key: str,
         model: str | None = None,
         temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> None:
         """Initialize the Anthropic provider.
 
@@ -38,11 +39,14 @@ class AnthropicProvider(BaseLLMProvider):
             temperature: Temperature for generation (0.0 to 1.0), or None to
                 use the model's default. Claude Sonnet 5 and newer reject
                 non-default temperature values.
+            max_tokens: Maximum output tokens per call, or None for the
+                langchain-anthropic default (4096)
         """
         super().__init__(
             api_key=api_key,
             model=model or self.DEFAULT_MODEL,
             temperature=temperature,
+            max_tokens=max_tokens,
         )
 
     def _create_llm(self) -> ChatAnthropic:
@@ -62,6 +66,8 @@ class AnthropicProvider(BaseLLMProvider):
             }
             if self._temperature is not None:
                 kwargs["temperature"] = self._temperature
+            if self._max_tokens is not None:
+                kwargs["max_tokens"] = self._max_tokens
             return ChatAnthropic(**kwargs)
         except ValueError as e:
             # Configuration errors (invalid parameters)

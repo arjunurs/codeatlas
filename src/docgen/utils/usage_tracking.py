@@ -16,6 +16,10 @@ from .cost_tracker import CostTracker
 # Rough average for English text and source code
 CHARS_PER_TOKEN = 4
 
+# Stop reasons meaning the model hit its output token limit: Anthropic reports
+# stop_reason, OpenAI reports finish_reason
+OUTPUT_LIMIT_STOP_REASONS = {("stop_reason", "max_tokens"), ("finish_reason", "length")}
+
 
 def estimate_tokens(text: str) -> int:
     """Estimate the token count of a text from its length.
@@ -34,12 +38,14 @@ class TokenUsageCallback(BaseCallbackHandler):
 
     Pass one instance per chain invocation, via ``config={"callbacks": [...]}``.
     It also sees model calls inside a chain that ends in a string parser.
+    ``truncated`` is set when a response stopped at the output token limit.
     """
 
     def __init__(self) -> None:
         """Initialize with zero usage."""
         self.input_tokens = 0
         self.output_tokens = 0
+        self.truncated = False
 
     def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
         """Add the usage reported by a finished model call."""
@@ -51,6 +57,15 @@ class TokenUsageCallback(BaseCallbackHandler):
                 if usage:
                     self.input_tokens += usage.get("input_tokens", 0)
                     self.output_tokens += usage.get("output_tokens", 0)
+                metadata = {
+                    **(generation.generation_info or {}),
+                    **generation.message.response_metadata,
+                }
+                if any(
+                    metadata.get(key) == value
+                    for key, value in OUTPUT_LIMIT_STOP_REASONS
+                ):
+                    self.truncated = True
 
 
 class UsageTrackingEmbeddings(Embeddings):

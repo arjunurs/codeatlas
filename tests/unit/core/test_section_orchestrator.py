@@ -138,3 +138,26 @@ def test_force_refresh_regenerates_and_still_caches(tmp_path):
 
     assert (refreshed, after) == ("content 2", "content 2")
     assert len(calls) == 2
+
+
+def test_truncated_section_is_flagged_and_not_cached(
+    tmp_path, caplog, fake_chat_model_with_usage
+):
+    """A section cut off at the output limit is marked, warned about, and regenerated."""
+    cache = SectionContentCache(tmp_path)
+    cost_tracker = CostTracker()
+    model = fake_chat_model_with_usage.model_copy(update={"stop_reason": "max_tokens"})
+    chain = model | StrOutputParser()
+
+    with caplog.at_level("WARNING", logger="docgen"):
+        for _ in range(2):
+            content = cached_orchestrator(
+                cache, "claude-sonnet-5", cost_tracker=cost_tracker
+            )._generate_section_with_cache(chain, "Overview")
+
+    assert content.startswith("generated text")
+    assert "cut off at the model's output limit" in content
+    assert any("Overview" in r.getMessage() for r in caplog.records)
+    # Not served from the cache: both calls reached the model
+    assert cost_tracker.usage_by_model["claude-sonnet-5"].cached_requests == 0
+    assert cost_tracker.usage_by_model["claude-sonnet-5"].requests == 2

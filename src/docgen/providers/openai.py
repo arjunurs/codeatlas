@@ -65,6 +65,7 @@ class OpenAIProvider(BaseLLMProvider):
         api_key: str,
         model: str | None = None,
         temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> None:
         """Initialize the OpenAI provider.
 
@@ -73,11 +74,14 @@ class OpenAIProvider(BaseLLMProvider):
             model: Model name to use (defaults to gpt-4o)
             temperature: Temperature for generation (0.0 to 1.0), or None to
                 use the model's default
+            max_tokens: Maximum output tokens per call, or None for the
+                model's default
         """
         super().__init__(
             api_key=api_key,
             model=model or self.DEFAULT_MODEL,
             temperature=temperature,
+            max_tokens=max_tokens,
         )
 
     def _create_llm(self) -> ChatOpenAI:
@@ -97,6 +101,8 @@ class OpenAIProvider(BaseLLMProvider):
             }
             if self._temperature is not None:
                 kwargs["temperature"] = self._temperature
+            if self._max_tokens is not None:
+                kwargs["max_tokens"] = self._max_tokens
             return ChatOpenAI(**kwargs)
         except ValueError as e:
             raise LLMError(f"Invalid OpenAI configuration: {e}") from e

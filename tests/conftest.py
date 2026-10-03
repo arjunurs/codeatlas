@@ -358,10 +358,16 @@ def mock_generator(
 
 
 class FakeChatModelWithUsage(BaseChatModel):
-    """Chat model that returns fixed text and reports fixed token usage."""
+    """Chat model that returns fixed text and reports fixed token usage.
+
+    stop_reason mimics Anthropic's response metadata and finish_reason mimics
+    OpenAI's generation info, so tests can simulate a truncated response.
+    """
 
     input_tokens: int = 120
     output_tokens: int = 30
+    stop_reason: str | None = None
+    finish_reason: str | None = None
 
     @property
     def _llm_type(self) -> str:
@@ -381,8 +387,18 @@ class FakeChatModelWithUsage(BaseChatModel):
                 "output_tokens": self.output_tokens,
                 "total_tokens": self.input_tokens + self.output_tokens,
             },
+            response_metadata=(
+                {"stop_reason": self.stop_reason} if self.stop_reason else {}
+            ),
         )
-        return ChatResult(generations=[ChatGeneration(message=message)])
+        generation_info = (
+            {"finish_reason": self.finish_reason} if self.finish_reason else None
+        )
+        return ChatResult(
+            generations=[
+                ChatGeneration(message=message, generation_info=generation_info)
+            ]
+        )
 
 
 class FakeEmbeddings(Embeddings):

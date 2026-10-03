@@ -247,6 +247,7 @@ class CodeDocumentationGenerator:
                     api_key=anthropic_api_key,
                     model=final_anthropic_model,
                     temperature=final_temperature,
+                    max_tokens=self.config.DEFAULT_MAX_OUTPUT_TOKENS,
                 )
                 self._embedding_provider = registry.create_embedding_provider(
                     "openai",
