@@ -254,8 +254,8 @@ def test_async_function_calls_are_recorded(analyzer):
 
     call_graph = analyzer.analyze_function_calls([analysis])
 
-    assert call_graph["net.fetch"] == {"load"}
-    assert call_graph["net.Client.get"] == {"net.fetch"}
+    assert call_graph["net.fetch"] == ["load"]
+    assert call_graph["net.Client.get"] == ["net.fetch"]
 
 
 def test_analyze_function_calls(analyzer, tmp_path):
@@ -326,7 +326,7 @@ def test_analyze_function_calls_skips_a_file_that_does_not_parse(analyzer, caplo
 
     call_graph = analyzer.analyze_function_calls([broken, working])
 
-    assert call_graph == {"working.caller": {"callee"}}
+    assert call_graph == {"working.caller": ["callee"]}
     assert "broken.py" in caplog.text
 
 
@@ -347,7 +347,7 @@ def test_analyze_function_calls_does_not_hide_bugs(analyzer):
         analyzer.analyze_function_calls([analysis])
 
 
-def call_graph_of(analyzer, root, files: dict[str, str]) -> dict[str, set[str]]:
+def call_graph_of(analyzer, root, files: dict[str, str]) -> dict[str, list[str]]:
     """Write a small project, analyze it, and return its call graph."""
     for name, code in files.items():
         path = root / name
@@ -369,10 +369,10 @@ def test_same_name_in_two_modules_is_kept_apart(analyzer, tmp_path):
     )
 
     assert call_graph == {
-        "a.run": {"a.helper"},
-        "a.helper": set(),
-        "b.run": {"b.other"},
-        "b.other": set(),
+        "a.run": ["a.helper"],
+        "a.helper": [],
+        "b.run": ["b.other"],
+        "b.other": [],
     }
 
 
@@ -392,9 +392,9 @@ class Square:
     call_graph = call_graph_of(analyzer, tmp_path, {"shapes.py": code})
 
     assert call_graph == {
-        "shapes.area": {"size"},
-        "shapes.Square.size": {"shapes.Square.side"},
-        "shapes.Square.side": {"shapes.area"},
+        "shapes.area": ["size"],
+        "shapes.Square.size": ["shapes.Square.side"],
+        "shapes.Square.side": ["shapes.area"],
     }
 
 
@@ -420,8 +420,8 @@ def run():
         },
     )
 
-    assert call_graph["pkg.main.run"] == {"pkg.util.tool", "pkg.util.Store"}
-    assert call_graph["pkg.util.tool"] == set()
+    assert call_graph["pkg.main.run"] == ["pkg.util.tool", "pkg.util.Store"]
+    assert call_graph["pkg.util.tool"] == []
 
 
 def test_absolute_import_resolves_below_the_source_root(analyzer, tmp_path):
@@ -436,7 +436,7 @@ def test_absolute_import_resolves_below_the_source_root(analyzer, tmp_path):
         },
     )
 
-    assert call_graph["src.pkg.cli.main"] == {"src.pkg.core.work"}
+    assert call_graph["src.pkg.cli.main"] == ["src.pkg.core.work"]
 
 
 def test_calls_through_the_class_resolve(analyzer, tmp_path):
@@ -458,9 +458,9 @@ def main():
     call_graph = call_graph_of(analyzer, tmp_path, {"config.py": code})
 
     assert call_graph == {
-        "config.Config.load": {"config.Config.parse"},
-        "config.Config.parse": set(),
-        "config.main": {"config.Config.load", "config.Config"},
+        "config.Config.load": ["config.Config.parse"],
+        "config.Config.parse": [],
+        "config.main": ["config.Config.load", "config.Config"],
     }
 
 
@@ -478,7 +478,7 @@ def main(items):
 """
     call_graph = call_graph_of(analyzer, tmp_path, {"app.py": code})
 
-    assert call_graph == {"app.main": {"print", "len", "info", "append"}}
+    assert call_graph == {"app.main": ["len", "print", "info", "append"]}
 
 
 def test_unusual_imports_and_calls_are_handled(analyzer, tmp_path):
@@ -495,7 +495,19 @@ def main(factories):
 """
     call_graph = call_graph_of(analyzer, tmp_path, {"app.py": code})
 
-    assert call_graph == {"app.main": {"join", "outside"}}
+    assert call_graph == {"app.main": ["join", "outside"]}
+
+
+def test_calls_are_listed_in_the_order_they_are_made(analyzer, tmp_path):
+    """Calls follow evaluation order (arguments before the call), each once."""
+    code = """def main():
+    save(load(read()))
+    report().send()
+    load()
+"""
+    call_graph = call_graph_of(analyzer, tmp_path, {"app.py": code})
+
+    assert call_graph == {"app.main": ["read", "load", "save", "report", "send"]}
 
 
 def test_package_init_is_named_after_its_package(analyzer, tmp_path):
@@ -504,7 +516,7 @@ def test_package_init_is_named_after_its_package(analyzer, tmp_path):
         analyzer, tmp_path, {"pkg/__init__.py": "def setup():\n    pass\n"}
     )
 
-    assert call_graph == {"pkg.setup": set()}
+    assert call_graph == {"pkg.setup": []}
 
 
 def test_analyze_directory_with_exclude_patterns(

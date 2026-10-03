@@ -301,14 +301,16 @@ class CodeAnalyzer:
 
     def analyze_function_calls(
         self, analyses: Sequence[FileAnalysis], root: str | None = None
-    ) -> dict[str, set[str]]:
-        """Map each function and method to the calls it makes.
+    ) -> dict[str, list[str]]:
+        """Map each function and method to the calls it makes, in order.
 
         Functions are named by module path from the source root, as in
         pkg.module.func and pkg.module.Class.method. A call is named the same
         way when it can be traced to a function or class in the analyzed code:
         one in the same module, a method called through self or cls, or a name
         imported from an analyzed module. Any other call keeps its bare name.
+        Calls are listed in the order Python makes them (arguments before the
+        call), each once.
 
         Args:
             analyses: File analysis results
@@ -339,7 +341,7 @@ class CodeAnalyzer:
             parsed.append((module, tree))
 
         resolver = _CallResolver([module for module, _ in parsed])
-        call_graph: dict[str, set[str]] = {}
+        call_graph: dict[str, list[str]] = {}
         for module, tree in parsed:
             visitor = _CallVisitor(module, resolver)
             visitor.visit(tree)
@@ -553,10 +555,10 @@ class _CallResolver:
 
 
 class _CallVisitor(ast.NodeVisitor):
-    """Records the calls each function in one module makes."""
+    """Records the calls each function in one module makes, in order."""
 
     def __init__(self, module: _ModuleDefinitions, resolver: _CallResolver) -> None:
-        self.calls: dict[str, set[str]] = {}
+        self.calls: dict[str, list[str]] = {}
         self._module = module
         self._resolver = resolver
         self._scope = [module.name]
@@ -577,7 +579,7 @@ class _CallVisitor(ast.NodeVisitor):
         """Visit a function, recording the calls in its body under its name."""
         previous_function = self._function
         self._function = ".".join([*self._scope, node.name])
-        self.calls[self._function] = set()
+        self.calls[self._function] = []
         self._scope.append(node.name)
         for child in node.body:
             self.visit(child)
@@ -589,9 +591,11 @@ class _CallVisitor(ast.NodeVisitor):
         self.visit_FunctionDef(node)
 
     def visit_Call(self, node: ast.Call) -> None:
-        """Record a call made inside a function."""
+        """Record a call made inside a function, after the calls in its parts."""
+        # The callee expression and the arguments are evaluated first
+        self.generic_visit(node)
         if self._function is not None:
             callee = self._resolver.resolve(self._module, self._class, node.func)
-            if callee:
-                self.calls[self._function].add(callee)
-        self.generic_visit(node)
+            calls = self.calls[self._function]
+            if callee and callee not in calls:
+                calls.append(callee)

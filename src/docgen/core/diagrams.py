@@ -7,7 +7,7 @@ for code documentation.
 import logging
 import re
 from collections import defaultdict
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 
 from ..exceptions.errors import DiagramGenerationError, DiagramValidationError
 from ..models.code_entity import EntityType
@@ -286,7 +286,9 @@ class DiagramGenerator:
 
         return diagram
 
-    def generate_sequence_diagram(self, call_graph: dict[str, set[str]]) -> str:
+    def generate_sequence_diagram(
+        self, call_graph: Mapping[str, Collection[str]]
+    ) -> str:
         """Generate a sequence diagram from function call graph.
 
         Args:
@@ -414,7 +416,7 @@ class DiagramGenerator:
         return f'    {self._clean_name(name)}["{text}"]'
 
     def generate_call_graph_diagram(
-        self, call_graph: dict[str, set[str]], modules: Collection[str] = ()
+        self, call_graph: Mapping[str, Collection[str]], modules: Collection[str] = ()
     ) -> str:
         """Generate a call graph of the calls between the project's functions.
 

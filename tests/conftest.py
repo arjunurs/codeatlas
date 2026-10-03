@@ -123,8 +123,8 @@ def mock_analyzer(sample_file_analysis_no_validation: FileAnalysis):
     mock.analyze_directory.return_value = [sample_file_analysis_no_validation]
     mock.analyze_file.return_value = sample_file_analysis_no_validation
     mock.analyze_function_calls.return_value = {
-        "test_function": {"called_function"},
-        "called_function": set(),
+        "test_function": ["called_function"],
+        "called_function": [],
     }
     mock.analyze_package_dependencies.return_value = {
         "docgen": {"langchain", "jinja2"},
