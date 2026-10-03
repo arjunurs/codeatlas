@@ -10,6 +10,7 @@ from langchain_core.documents import Document
 from docgen.cache import vector_cache
 from docgen.cache.metadata import CacheMetadata
 from docgen.cache.vector_cache import persistent_chroma_client
+from docgen.config import CacheConfig, GenerationOptions
 from docgen.core.generator import CodeDocumentationGenerator
 
 
@@ -101,9 +102,8 @@ def test_cache_created_on_first_run(
     generator = CodeDocumentationGenerator(
         llm_provider=mock_llm_provider,
         embedding_provider=mock_embedding_provider,
-        cache_enabled=True,
-        cache_dir=project_cache_dir,  # Pass project-specific cache dir
-        skip_diagrams=True,  # Skip diagrams for faster test
+        generation_options=GenerationOptions(skip_diagrams=True),
+        cache_config=CacheConfig(enabled=True, cache_dir=project_cache_dir),
     )
 
     generator.generate_documentation(str(sample_python_project), str(output_dir))
@@ -132,9 +132,8 @@ def test_cache_reused_on_second_run(
     generator1 = CodeDocumentationGenerator(
         llm_provider=mock_llm_provider,
         embedding_provider=mock_embedding_provider,
-        cache_enabled=True,
-        cache_dir=project_cache_dir,
-        skip_diagrams=True,
+        generation_options=GenerationOptions(skip_diagrams=True),
+        cache_config=CacheConfig(enabled=True, cache_dir=project_cache_dir),
     )
     generator1.generate_documentation(str(sample_python_project), str(output_dir))
 
@@ -145,9 +144,8 @@ def test_cache_reused_on_second_run(
     generator2 = CodeDocumentationGenerator(
         llm_provider=mock_llm_provider,
         embedding_provider=mock_embedding_provider,
-        cache_enabled=True,
-        cache_dir=project_cache_dir,
-        skip_diagrams=True,
+        generation_options=GenerationOptions(skip_diagrams=True),
+        cache_config=CacheConfig(enabled=True, cache_dir=project_cache_dir),
     )
     generator2.generate_documentation(str(sample_python_project), str(output_dir))
 
@@ -175,9 +173,8 @@ def test_cache_updated_when_file_changes(
     generator1 = CodeDocumentationGenerator(
         llm_provider=mock_llm_provider,
         embedding_provider=mock_embedding_provider,
-        cache_enabled=True,
-        cache_dir=project_cache_dir,
-        skip_diagrams=True,
+        generation_options=GenerationOptions(skip_diagrams=True),
+        cache_config=CacheConfig(enabled=True, cache_dir=project_cache_dir),
     )
     generator1.generate_documentation(str(sample_python_project), str(output_dir))
 
@@ -199,9 +196,8 @@ def goodbye():
     generator2 = CodeDocumentationGenerator(
         llm_provider=mock_llm_provider,
         embedding_provider=mock_embedding_provider,
-        cache_enabled=True,
-        cache_dir=project_cache_dir,
-        skip_diagrams=True,
+        generation_options=GenerationOptions(skip_diagrams=True),
+        cache_config=CacheConfig(enabled=True, cache_dir=project_cache_dir),
     )
     generator2.generate_documentation(str(sample_python_project), str(output_dir))
 
@@ -217,16 +213,16 @@ def _run_cached_generator(
     output_dir,
     llm_provider,
     embedding_provider,
-    **kwargs,
+    force_refresh: bool = False,
 ):
     """Run the generator with caching enabled and diagrams skipped."""
     generator = CodeDocumentationGenerator(
         llm_provider=llm_provider,
         embedding_provider=embedding_provider,
-        cache_enabled=True,
-        cache_dir=project_cache_dir,
-        skip_diagrams=True,
-        **kwargs,
+        generation_options=GenerationOptions(skip_diagrams=True),
+        cache_config=CacheConfig(
+            enabled=True, cache_dir=project_cache_dir, force_refresh=force_refresh
+        ),
     )
     generator.generate_documentation(str(project_dir), str(output_dir))
 
@@ -398,9 +394,8 @@ def test_cache_disabled(
     generator = CodeDocumentationGenerator(
         llm_provider=mock_llm_provider,
         embedding_provider=mock_embedding_provider,
-        cache_enabled=False,
-        cache_dir=cache_dir,
-        dry_run=True,
+        generation_options=GenerationOptions(dry_run=True),
+        cache_config=CacheConfig(enabled=False, cache_dir=cache_dir),
     )
     generator.generate_documentation(str(sample_python_project), str(output_dir))
 
@@ -428,9 +423,8 @@ def test_force_refresh_clears_cache(
     generator1 = CodeDocumentationGenerator(
         llm_provider=mock_llm_provider,
         embedding_provider=mock_embedding_provider,
-        cache_enabled=True,
-        cache_dir=project_cache_dir,
-        skip_diagrams=True,
+        generation_options=GenerationOptions(skip_diagrams=True),
+        cache_config=CacheConfig(enabled=True, cache_dir=project_cache_dir),
     )
     generator1.generate_documentation(str(sample_python_project), str(output_dir))
 
@@ -441,10 +435,10 @@ def test_force_refresh_clears_cache(
     generator2 = CodeDocumentationGenerator(
         llm_provider=mock_llm_provider,
         embedding_provider=mock_embedding_provider,
-        cache_enabled=True,
-        cache_dir=project_cache_dir,
-        force_refresh=True,
-        skip_diagrams=True,
+        generation_options=GenerationOptions(skip_diagrams=True),
+        cache_config=CacheConfig(
+            enabled=True, cache_dir=project_cache_dir, force_refresh=True
+        ),
     )
     generator2.generate_documentation(str(sample_python_project), str(output_dir))
 
@@ -476,11 +470,12 @@ def test_force_refresh_regenerates_cached_sections(
         CodeDocumentationGenerator(
             llm_provider=llm_provider,
             embedding_provider=mock_embedding_provider,
-            cache_enabled=True,
-            cache_dir=cache_dir,
-            force_refresh=force_refresh,
-            sections=["overview"],
-            skip_diagrams=True,
+            generation_options=GenerationOptions(
+                skip_diagrams=True, selected_sections=["overview"]
+            ),
+            cache_config=CacheConfig(
+                enabled=True, cache_dir=cache_dir, force_refresh=force_refresh
+            ),
         ).generate_documentation(str(sample_python_project), str(tmp_path / "out"))
 
     run(force_refresh=False)

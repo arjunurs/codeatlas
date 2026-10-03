@@ -11,6 +11,12 @@ provider is actually instantiated.
 import importlib
 from collections.abc import Callable
 
+from ..config import (
+    DEFAULT_CONFIG,
+    GeneratorConfig,
+    QualityMode,
+    get_model_for_quality_mode,
+)
 from .base import EmbeddingProvider, LLMProvider
 
 # Type aliases for provider factories
@@ -197,3 +203,56 @@ def get_default_registry() -> ProviderRegistry:
     if _default_registry is None:
         _default_registry = ProviderRegistry()
     return _default_registry
+
+
+def create_default_providers(
+    anthropic_api_key: str,
+    openai_api_key: str,
+    *,
+    anthropic_model: str | None = None,
+    quality_mode: QualityMode | None = None,
+    embedding_model: str | None = None,
+    temperature: float | None = None,
+    config: GeneratorConfig = DEFAULT_CONFIG,
+) -> tuple[LLMProvider, EmbeddingProvider]:
+    """Create the providers the command line uses: Claude writes, OpenAI embeds.
+
+    The Claude model is ``anthropic_model`` if given, then the quality mode's
+    model, then the configured default.
+
+    Args:
+        anthropic_api_key: Anthropic API key
+        openai_api_key: OpenAI API key
+        anthropic_model: Claude model; overrides the quality mode
+        quality_mode: Preset that picks the Claude model
+        embedding_model: OpenAI embedding model, or the configured default
+        temperature: Sampling temperature, or None for the model's default
+        config: Supplies the default models and the output token limit
+
+    Returns:
+        The LLM provider and the embedding provider
+
+    Raises:
+        ValueError: If a key is empty or the temperature is out of range
+    """
+    if anthropic_model:
+        model = anthropic_model
+    elif quality_mode is not None:
+        model = get_model_for_quality_mode(quality_mode)
+    else:
+        model = config.DEFAULT_ANTHROPIC_MODEL
+
+    registry = get_default_registry()
+    llm_provider = registry.create_llm_provider(
+        "anthropic",
+        api_key=anthropic_api_key,
+        model=model,
+        temperature=temperature,
+        max_tokens=config.DEFAULT_MAX_OUTPUT_TOKENS,
+    )
+    embedding_provider = registry.create_embedding_provider(
+        "openai",
+        api_key=openai_api_key,
+        model=embedding_model or config.DEFAULT_OPENAI_EMBEDDING_MODEL,
+    )
+    return llm_provider, embedding_provider

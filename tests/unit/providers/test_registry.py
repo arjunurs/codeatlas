@@ -4,10 +4,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from docgen.config import DEFAULT_CONFIG, QualityMode
 from docgen.providers.anthropic import AnthropicProvider
 from docgen.providers.base import BaseEmbeddingProvider, BaseLLMProvider
 from docgen.providers.openai import OpenAIEmbeddingProvider, OpenAIProvider
-from docgen.providers.registry import ProviderRegistry, get_default_registry
+from docgen.providers.registry import (
+    ProviderRegistry,
+    create_default_providers,
+    get_default_registry,
+)
 
 
 class TestProviderRegistry:
@@ -159,3 +164,53 @@ class TestGetDefaultRegistry:
         registry2 = get_default_registry()
 
         assert registry1 is registry2
+
+
+@pytest.mark.parametrize(
+    ("anthropic_model", "quality_mode", "expected"),
+    [
+        (None, None, "claude-sonnet-5"),
+        (None, QualityMode.FAST, "claude-haiku-4-5"),
+        (None, QualityMode.BALANCED, "claude-sonnet-5"),
+        (None, QualityMode.BEST, "claude-opus-5"),
+        ("claude-custom", QualityMode.FAST, "claude-custom"),
+        ("claude-custom", None, "claude-custom"),
+    ],
+)
+def test_default_providers_model_precedence(anthropic_model, quality_mode, expected):
+    """An explicit model wins, then the quality mode, then the default."""
+    llm_provider, _ = create_default_providers(
+        "test-anthropic",
+        "test-openai",
+        anthropic_model=anthropic_model,
+        quality_mode=quality_mode,
+    )
+
+    assert llm_provider.model_name == expected
+    assert llm_provider.get_langchain_llm().model == expected
+
+
+def test_default_providers_set_output_token_limit():
+    """Sections get an explicit output limit instead of the library default."""
+    llm_provider, _ = create_default_providers("test-anthropic", "test-openai")
+
+    llm = llm_provider.get_langchain_llm()
+    assert llm.max_tokens == DEFAULT_CONFIG.DEFAULT_MAX_OUTPUT_TOKENS
+    assert DEFAULT_CONFIG.DEFAULT_MAX_OUTPUT_TOKENS > 4096
+
+
+def test_default_providers_embedding_model():
+    """The embedding model is the one given, or the configured default."""
+    _, default = create_default_providers("test-anthropic", "test-openai")
+    _, chosen = create_default_providers(
+        "test-anthropic", "test-openai", embedding_model="text-embedding-3-large"
+    )
+
+    assert default.model_name == DEFAULT_CONFIG.DEFAULT_OPENAI_EMBEDDING_MODEL
+    assert chosen.model_name == "text-embedding-3-large"
+
+
+def test_default_providers_reject_out_of_range_temperature():
+    """A temperature outside 0 to 1 is rejected when the providers are made."""
+    with pytest.raises(ValueError, match="Temperature must be between 0 and 1"):
+        create_default_providers("test-anthropic", "test-openai", temperature=2.0)

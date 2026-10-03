@@ -54,7 +54,6 @@ class GenerationOptions:
     diagrams_only: bool = False
     parallel_sections: bool = True
     enable_cost_tracking: bool = True
-    quality_mode: QualityMode = QualityMode.BALANCED
 
 
 @dataclass

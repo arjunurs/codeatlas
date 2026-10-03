@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock
 
+from docgen.config import CacheConfig, GenerationOptions
 from docgen.core.generator import CodeDocumentationGenerator
 
 
@@ -19,9 +20,10 @@ def test_run_records_llm_and_embedding_usage(
     generator = CodeDocumentationGenerator(
         llm_provider=llm_provider,
         embedding_provider=embedding_provider,
-        sections=["overview"],
-        skip_diagrams=True,
-        cache_enabled=False,
+        generation_options=GenerationOptions(
+            skip_diagrams=True, selected_sections=["overview"]
+        ),
+        cache_config=CacheConfig(enabled=False),
     )
     generator.generate_documentation(str(temp_source_dir), str(tmp_path / "docs"))
 

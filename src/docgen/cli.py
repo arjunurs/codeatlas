@@ -8,6 +8,7 @@ import argparse
 import importlib.metadata
 import logging
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 from docgen.config import (
@@ -15,9 +16,11 @@ from docgen.config import (
     QUALITY_MODE_MODELS,
     CacheConfig,
     GenerationOptions,
+    GeneratorConfig,
     QualityMode,
 )
 from docgen.core.generator import CodeDocumentationGenerator
+from docgen.providers.registry import create_default_providers
 from docgen.utils.api_keys import get_api_keys
 from docgen.utils.logging import setup_logging
 
@@ -279,6 +282,30 @@ def _get_cache_dir(args: argparse.Namespace, source_path: Path) -> Path:
     return base_cache_dir / metadata.project_hash
 
 
+def _generator_config(args: argparse.Namespace) -> GeneratorConfig:
+    """Apply the --retriever-* options to the default config.
+
+    Args:
+        args: Parsed command line arguments
+
+    Returns:
+        The default config with the retrieval settings replaced
+
+    Raises:
+        ValueError: If a retrieval setting is out of range
+    """
+    overrides = {
+        "RETRIEVER_K": args.retriever_k,
+        "RETRIEVER_SEARCH_TYPE": args.retriever_search_type,
+        "RETRIEVER_SCORE_THRESHOLD": args.retriever_score_threshold,
+        "RETRIEVER_FETCH_K": args.retriever_fetch_k,
+        "RETRIEVER_LAMBDA_MULT": args.retriever_lambda_mult,
+    }
+    return replace(
+        DEFAULT_CONFIG, **{k: v for k, v in overrides.items() if v is not None}
+    )
+
+
 def _handle_clear_cache(cache_dir: Path) -> int:
     """Clear cache directory.
 
@@ -393,45 +420,28 @@ def main(argv: list[str] | None = None) -> None:
             diagrams_only=args.diagrams_only,
             parallel_sections=not args.no_parallel,
             enable_cost_tracking=not args.no_cost_tracking,
-            quality_mode=QualityMode(args.quality_mode),
         )
 
-        # In dry-run or diagrams-only mode, API keys are not required
-        skip_api_mode = args.dry_run or args.diagrams_only
-        if skip_api_mode:
-            mode_name = "diagrams-only" if args.diagrams_only else "dry-run"
-            logger.debug(f"{mode_name.capitalize()} mode: API keys not required")
-            anthropic_key = f"{mode_name}-placeholder"
-            openai_key = f"{mode_name}-placeholder"
+        # Diagrams-only and dry-run modes call no models, so need no keys
+        if args.dry_run or args.diagrams_only:
+            llm_provider = embedding_provider = None
         else:
             anthropic_key, openai_key = get_api_keys(args.api_key_env)
+            llm_provider, embedding_provider = create_default_providers(
+                anthropic_key,
+                openai_key,
+                anthropic_model=args.anthropic_model,
+                quality_mode=QualityMode(args.quality_mode),
+                embedding_model=args.openai_embedding_model,
+                temperature=args.temperature,
+            )
 
-        # Initialize generator (legacy API-key mode)
         generator = CodeDocumentationGenerator(
-            anthropic_api_key=anthropic_key,
-            openai_api_key=openai_key,
-            temperature=args.temperature,
-            anthropic_model=args.anthropic_model,
-            openai_embedding_model=args.openai_embedding_model,
-            exclude_patterns=gen_opts.exclude_patterns,
-            skip_diagrams=gen_opts.skip_diagrams,
-            sections=gen_opts.selected_sections,
-            diagrams=gen_opts.selected_diagrams,
-            template_dir=gen_opts.template_dir,
-            dry_run=gen_opts.dry_run,
-            max_files=gen_opts.max_files,
-            cache_enabled=cache_cfg.enabled,
-            cache_dir=cache_cfg.cache_dir,
-            force_refresh=cache_cfg.force_refresh,
-            quality_mode=gen_opts.quality_mode,
-            parallel_sections=gen_opts.parallel_sections,
-            enable_cost_tracking=gen_opts.enable_cost_tracking,
-            diagrams_only=gen_opts.diagrams_only,
-            retriever_k=args.retriever_k,
-            retriever_search_type=args.retriever_search_type,
-            retriever_score_threshold=args.retriever_score_threshold,
-            retriever_fetch_k=args.retriever_fetch_k,
-            retriever_lambda_mult=args.retriever_lambda_mult,
+            llm_provider,
+            embedding_provider,
+            generation_options=gen_opts,
+            cache_config=cache_cfg,
+            config=_generator_config(args),
         )
 
         # Generate documentation

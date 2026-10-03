@@ -50,10 +50,12 @@ uv run codeatlas --source <path> --api-key-env .env -o <dir>
 
 Other places to know:
 
-- `core/generator.py`: `CodeDocumentationGenerator` runs the pipeline; `create()` also accepts
-  provider instances, which is how a non-default provider is used.
+- `core/generator.py`: `CodeDocumentationGenerator` runs the pipeline. It takes an LLM and an
+  embedding provider (optional in diagrams-only and dry-run modes) plus `GenerationOptions`,
+  `CacheConfig`, and `GeneratorConfig`.
 - `config.py`: defaults, and `QUALITY_MODE_MODELS` (`fast`, `balanced`, `best` to Claude
-  model IDs). `--anthropic-model` overrides the mode.
+  model IDs). `create_default_providers()` in `providers/registry.py` picks the model:
+  `--anthropic-model`, then the quality mode, then the default.
 - `providers/`: `LLMProvider` and `EmbeddingProvider` protocols in `base.py`, the Anthropic and
   OpenAI implementations, and `registry.py`.
 - `prompts/sections.py`: five core sections, plus Migration Guidance, Code Quality Insights,

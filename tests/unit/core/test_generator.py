@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from docgen.config import DEFAULT_CONFIG, QualityMode
+from docgen.config import GenerationOptions
 from docgen.core.generator import CodeDocumentationGenerator
 from docgen.exceptions.errors import DocumentationError
 from docgen.models.code_entity import CodeEntity
@@ -100,8 +100,6 @@ def mock_template_manager():
 @pytest.fixture
 def generator(mock_template_manager):
     """Create a CodeDocumentationGenerator instance with mocked dependencies."""
-    mock_llm = MagicMock()
-    mock_embeddings = MagicMock()
     mock_analyzer = MagicMock()
     mock_diagram_generator = MagicMock()
 
@@ -124,8 +122,6 @@ def generator(mock_template_manager):
     )
 
     with (
-        patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm),
-        patch("docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings),
         patch("docgen.core.generator.CodeAnalyzer", return_value=mock_analyzer),
         patch(
             "docgen.core.generator.DiagramGenerator",
@@ -138,14 +134,12 @@ def generator(mock_template_manager):
     ):
         # Set up mock return values
         mock_analyzer.analyze_directory.return_value = [sample_analysis]
-        mock_embeddings.embed_documents.return_value = [[0.1, 0.2, 0.3]]
 
         generator = CodeDocumentationGenerator(
-            anthropic_api_key="test-anthropic", openai_api_key="test-openai"
+            llm_provider=MagicMock(model_name="claude-sonnet-5"),
+            embedding_provider=MagicMock(model_name="text-embedding-3-small"),
         )
         generator.analyzer = mock_analyzer
-        generator.embeddings = mock_embeddings
-        generator.llm = mock_llm
         generator.diagram_generator = mock_diagram_generator
         generator.template_manager = mock_template_manager
         yield generator
@@ -154,16 +148,10 @@ def generator(mock_template_manager):
 @pytest.fixture
 def mock_generator():
     """Create a mock generator with test data."""
-    mock_llm = MagicMock()
-    mock_embeddings = MagicMock()
-
-    with (
-        patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm),
-        patch("docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings),
-    ):
-        generator = CodeDocumentationGenerator(
-            anthropic_api_key="test-anthropic-key", openai_api_key="test-openai-key"
-        )
+    generator = CodeDocumentationGenerator(
+        llm_provider=MagicMock(model_name="claude-sonnet-5"),
+        embedding_provider=MagicMock(model_name="text-embedding-3-small"),
+    )
 
     # Create sample test data
     sample_entity = CodeEntity(
@@ -187,21 +175,10 @@ def mock_generator():
 
     # Setup mocks
     generator.analyzer = MagicMock()
-    generator.embeddings = MagicMock()
     generator.diagram_generator = MagicMock()
     generator.analyzer.analyze_directory.return_value = [sample_analysis]
 
     return generator
-
-
-def test_initialization():
-    """A temperature outside 0 to 1 is rejected at construction."""
-    with pytest.raises(ValueError, match="Temperature must be between 0 and 1"):
-        CodeDocumentationGenerator(
-            anthropic_api_key="test",
-            openai_api_key="test",
-            temperature=2.0,  # Invalid temperature
-        )
 
 
 def test_generate_documentation_invalid_directory(mock_generator):
@@ -378,11 +355,9 @@ def test_dry_run_writes_only_selected_sections(
     """A dry run matches --sections the same way as a real run."""
     output_dir = tmp_path / "docs"
     generator = CodeDocumentationGenerator(
-        llm_provider=MagicMock(),
-        embedding_provider=MagicMock(),
-        sections=selection,
-        skip_diagrams=True,
-        dry_run=True,
+        generation_options=GenerationOptions(
+            skip_diagrams=True, selected_sections=selection, dry_run=True
+        ),
     )
 
     generator.generate_documentation(str(temp_source_dir), str(output_dir))
@@ -397,7 +372,7 @@ def test_unknown_section_rejected_at_construction():
         CodeDocumentationGenerator(
             llm_provider=MagicMock(),
             embedding_provider=MagicMock(),
-            sections=["overveiw"],
+            generation_options=GenerationOptions(selected_sections=["overveiw"]),
         )
 
 
@@ -407,17 +382,16 @@ def test_unknown_diagram_rejected_at_construction():
         CodeDocumentationGenerator(
             llm_provider=MagicMock(),
             embedding_provider=MagicMock(),
-            diagrams=["clas"],
+            generation_options=GenerationOptions(selected_diagrams=["clas"]),
         )
 
 
 def test_diagram_selection_ignores_case():
     """--diagrams Class generates the class diagram and nothing else."""
     generator = CodeDocumentationGenerator(
-        llm_provider=MagicMock(),
-        embedding_provider=MagicMock(),
-        diagrams=["Class"],
-        diagrams_only=True,
+        generation_options=GenerationOptions(
+            selected_diagrams=["Class"], diagrams_only=True
+        ),
     )
     generator.diagram_generator = MagicMock()
     generator.diagram_generator.generate_class_diagram.return_value = "classDiagram"
@@ -431,10 +405,9 @@ def test_diagram_selection_ignores_case():
 def test_failed_diagram_is_reported_as_warning(temp_source_dir, tmp_path, caplog):
     """A diagram that fails to generate is reported on the console, not only in HTML."""
     generator = CodeDocumentationGenerator(
-        llm_provider=MagicMock(),
-        embedding_provider=MagicMock(),
-        diagrams=["class"],
-        diagrams_only=True,
+        generation_options=GenerationOptions(
+            selected_diagrams=["class"], diagrams_only=True
+        ),
     )
     generator.diagram_generator = MagicMock()
     generator.diagram_generator.generate_class_diagram.side_effect = DocumentationError(
@@ -446,51 +419,3 @@ def test_failed_diagram_is_reported_as_warning(temp_source_dir, tmp_path, caplog
 
     warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
     assert any("class_diagram" in w and "no classes found" in w for w in warnings)
-
-
-@pytest.mark.parametrize(
-    ("anthropic_model", "quality_mode", "expected"),
-    [
-        (None, None, "claude-sonnet-5"),
-        (None, QualityMode.FAST, "claude-haiku-4-5"),
-        (None, QualityMode.BALANCED, "claude-sonnet-5"),
-        (None, QualityMode.BEST, "claude-opus-5"),
-        ("claude-custom", QualityMode.FAST, "claude-custom"),
-        ("claude-custom", None, "claude-custom"),
-    ],
-)
-def test_model_selection_precedence(anthropic_model, quality_mode, expected):
-    """An explicit model wins, then the quality mode, then the default."""
-    generator = CodeDocumentationGenerator(
-        anthropic_api_key="test-anthropic",
-        openai_api_key="test-openai",
-        anthropic_model=anthropic_model,
-        quality_mode=quality_mode,
-    )
-
-    assert generator.model_name == expected
-    assert generator.llm.model == expected
-
-
-def test_provider_mode_reports_provider_model():
-    """With a provider instance, the model name comes from the provider."""
-    llm_provider = MagicMock()
-    llm_provider.model_name = "provider-model"
-
-    generator = CodeDocumentationGenerator(
-        llm_provider=llm_provider,
-        embedding_provider=MagicMock(),
-        quality_mode=QualityMode.FAST,
-    )
-
-    assert generator.model_name == "provider-model"
-
-
-def test_generator_sets_output_token_limit():
-    """Sections get an explicit output limit instead of the library default."""
-    generator = CodeDocumentationGenerator(
-        anthropic_api_key="test-anthropic", openai_api_key="test-openai"
-    )
-
-    assert generator.llm.max_tokens == DEFAULT_CONFIG.DEFAULT_MAX_OUTPUT_TOKENS
-    assert DEFAULT_CONFIG.DEFAULT_MAX_OUTPUT_TOKENS > 4096

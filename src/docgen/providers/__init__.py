@@ -8,7 +8,11 @@ and easier testing.
 from .anthropic import AnthropicProvider
 from .base import EmbeddingProvider, LLMProvider
 from .openai import OpenAIEmbeddingProvider, OpenAIProvider
-from .registry import ProviderRegistry, get_default_registry
+from .registry import (
+    ProviderRegistry,
+    create_default_providers,
+    get_default_registry,
+)
 
 __all__ = [
     "LLMProvider",
@@ -18,4 +22,5 @@ __all__ = [
     "OpenAIEmbeddingProvider",
     "ProviderRegistry",
     "get_default_registry",
+    "create_default_providers",
 ]

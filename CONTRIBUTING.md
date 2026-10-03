@@ -123,9 +123,10 @@ Guidelines:
 2. Register it in `src/docgen/providers/registry.py`.
 3. Add tests in `tests/unit/providers/`.
 
-The CLI always uses Anthropic and OpenAI. Another provider is used through the Python API, by
-passing provider instances to `CodeDocumentationGenerator.create(llm_provider=...,
-embedding_provider=...)`.
+The CLI always uses Anthropic and OpenAI, built by `create_default_providers()` in
+`registry.py`. Another provider is used through the Python API, by passing provider instances
+to `CodeDocumentationGenerator(llm_provider, embedding_provider, generation_options=...,
+cache_config=...)`.
 
 ### A new diagram type
 

@@ -1,13 +1,14 @@
 """Unit tests for the CLI module."""
 
 import importlib.metadata
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 import docgen
 from docgen import cli
 from docgen.cli import __version__, main, parse_args
+from docgen.config import DEFAULT_CONFIG, QualityMode
 
 
 class TestParseArgs:
@@ -169,57 +170,113 @@ class TestMain:
             in capsys.readouterr().err
         )
 
-    def test_keys_are_loaded_and_passed_to_generator(self, generator_cls, get_api_keys):
-        """A normal run loads keys from --api-key-env and generates once."""
+    @pytest.fixture
+    def create_providers(self):
+        """Provider creation, returning stand-in providers."""
+        providers = (MagicMock(name="llm_provider"), MagicMock(name="embedding"))
+        with patch(
+            "docgen.cli.create_default_providers", return_value=providers
+        ) as create:
+            yield create
+
+    def test_keys_are_loaded_and_passed_to_generator(
+        self, generator_cls, get_api_keys, create_providers
+    ):
+        """A normal run builds providers from the keys and generates once."""
         main(["--source", "./src", "-o", "./docs", "--api-key-env", "test.env"])
 
         get_api_keys.assert_called_once_with("test.env")
-        kwargs = generator_cls.call_args.kwargs
-        assert kwargs["anthropic_api_key"] == "anthropic-key"
-        assert kwargs["openai_api_key"] == "openai-key"
+        create_providers.assert_called_once_with(
+            "anthropic-key",
+            "openai-key",
+            anthropic_model=None,
+            quality_mode=QualityMode.BALANCED,
+            embedding_model=DEFAULT_CONFIG.DEFAULT_OPENAI_EMBEDDING_MODEL,
+            temperature=None,
+        )
+        assert generator_cls.call_args.args == create_providers.return_value
         generator_cls.return_value.generate_documentation.assert_called_once_with(
             "./src", "./docs"
         )
 
-    def test_diagrams_only_skips_api_keys(self, generator_cls, get_api_keys):
-        """Diagrams-only mode needs no API keys."""
+    def test_model_options_reach_provider_creation(
+        self, generator_cls, get_api_keys, create_providers
+    ):
+        """--quality-mode, --anthropic-model, and --temperature reach the providers."""
+        main(
+            [
+                "--source",
+                "./src",
+                "--quality-mode",
+                "fast",
+                "--anthropic-model",
+                "claude-custom",
+                "--temperature",
+                "0.3",
+            ]
+        )
+
+        kwargs = create_providers.call_args.kwargs
+        assert kwargs["quality_mode"] == QualityMode.FAST
+        assert kwargs["anthropic_model"] == "claude-custom"
+        assert kwargs["temperature"] == 0.3
+
+    def test_diagrams_only_skips_api_keys(
+        self, generator_cls, get_api_keys, create_providers
+    ):
+        """Diagrams-only mode needs no API keys and passes no providers."""
         main(["--source", "./src", "--diagrams-only"])
 
         get_api_keys.assert_not_called()
-        kwargs = generator_cls.call_args.kwargs
-        assert kwargs["anthropic_api_key"] == "diagrams-only-placeholder"
-        assert kwargs["openai_api_key"] == "diagrams-only-placeholder"
-        assert kwargs["diagrams_only"] is True
+        create_providers.assert_not_called()
+        assert generator_cls.call_args.args == (None, None)
+        options = generator_cls.call_args.kwargs["generation_options"]
+        assert options.diagrams_only is True
 
-    def test_dry_run_skips_api_keys(self, generator_cls, get_api_keys):
-        """Dry-run mode needs no API keys and turns the cache off."""
+    def test_dry_run_skips_api_keys(
+        self, generator_cls, get_api_keys, create_providers
+    ):
+        """Dry-run mode needs no API keys, passes no providers, and has no cache."""
         main(["--source", "./src", "--dry-run"])
 
         get_api_keys.assert_not_called()
+        create_providers.assert_not_called()
+        assert generator_cls.call_args.args == (None, None)
         kwargs = generator_cls.call_args.kwargs
-        assert kwargs["anthropic_api_key"] == "dry-run-placeholder"
-        assert kwargs["openai_api_key"] == "dry-run-placeholder"
-        assert kwargs["dry_run"] is True
-        assert kwargs["cache_enabled"] is False
+        assert kwargs["generation_options"].dry_run is True
+        assert kwargs["cache_config"].enabled is False
 
-    def test_sections_parsing(self, generator_cls, get_api_keys):
+    def test_sections_parsing(self, generator_cls, get_api_keys, create_providers):
         """--sections is split on commas."""
         main(["--source", "./src", "--sections", "overview,dependencies"])
 
-        assert generator_cls.call_args.kwargs["sections"] == [
-            "overview",
-            "dependencies",
-        ]
+        options = generator_cls.call_args.kwargs["generation_options"]
+        assert options.selected_sections == ["overview", "dependencies"]
 
-    def test_diagrams_parsing(self, generator_cls, get_api_keys):
+    def test_diagrams_parsing(self, generator_cls, get_api_keys, create_providers):
         """--diagrams is split on commas, with surrounding spaces removed."""
         main(["--source", "./src", "--diagrams", "architecture, class, sequence"])
 
-        assert generator_cls.call_args.kwargs["diagrams"] == [
-            "architecture",
-            "class",
-            "sequence",
-        ]
+        options = generator_cls.call_args.kwargs["generation_options"]
+        assert options.selected_diagrams == ["architecture", "class", "sequence"]
+
+    def test_retriever_options_reach_the_config(
+        self, generator_cls, get_api_keys, create_providers
+    ):
+        """--retriever-* options replace the matching config settings."""
+        main(
+            [
+                "--source",
+                "./src",
+                "--retriever-k",
+                "5",
+                "--retriever-search-type",
+                "mmr",
+            ]
+        )
+
+        config = generator_cls.call_args.kwargs["config"]
+        assert (config.RETRIEVER_K, config.RETRIEVER_SEARCH_TYPE) == (5, "mmr")
 
 
 class TestVersion:

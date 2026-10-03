@@ -15,7 +15,7 @@ from docgen.cli import main
 from docgen.config import CacheConfig, GenerationOptions
 from docgen.core.analyzer import CodeAnalyzer
 from docgen.core.generator import CodeDocumentationGenerator
-from docgen.exceptions.errors import ApiKeyError, DocumentationError
+from docgen.exceptions.errors import DocumentationError
 from docgen.models.code_entity import EntityType
 from docgen.providers.base import BaseEmbeddingProvider, BaseLLMProvider
 from docgen.templates.html import get_template_manager
@@ -133,7 +133,7 @@ class TestPythonApiRun:
         (project / "calculator.py").write_text(CALCULATOR_SOURCE)
         output = tmp_path / "output"
 
-        with CodeDocumentationGenerator.create(
+        with CodeDocumentationGenerator(
             llm_provider=LocalLLMProvider(api_key="unused", model="local-model"),
             embedding_provider=LocalEmbeddingProvider(
                 api_key="unused", model="local-embeddings"
@@ -166,7 +166,7 @@ class TestGeneratorLifecycle:
         embedding_provider = MagicMock(model_name="text-embedding-3-small")
         embedding_provider.get_langchain_embeddings.return_value = fake_embeddings
 
-        with CodeDocumentationGenerator.create(
+        with CodeDocumentationGenerator(
             llm_provider=llm_provider,
             embedding_provider=embedding_provider,
             generation_options=GenerationOptions(
@@ -185,77 +185,50 @@ class TestErrorHandling:
     """Test error handling in the documentation generator."""
 
     def test_empty_source_directory(
-        self,
-        empty_source_dir: Path,
-        temp_output_dir: Path,
-        mock_llm,
-        mock_embeddings,
+        self, empty_source_dir: Path, temp_output_dir: Path
     ):
         """Test that empty source directory raises appropriate error."""
-        with (
-            patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm),
-            patch(
-                "docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings
-            ),
-        ):
-            generator = CodeDocumentationGenerator(
-                anthropic_api_key="test-key",
-                openai_api_key="test-key",
+        generator = CodeDocumentationGenerator(
+            llm_provider=MagicMock(), embedding_provider=MagicMock()
+        )
+
+        with pytest.raises(DocumentationError, match="No Python files found"):
+            generator.generate_documentation(
+                str(empty_source_dir), str(temp_output_dir)
             )
 
-            with pytest.raises(DocumentationError, match="No Python files found"):
-                generator.generate_documentation(
-                    str(empty_source_dir), str(temp_output_dir)
-                )
-
-    def test_invalid_source_directory(
-        self,
-        temp_output_dir: Path,
-        mock_llm,
-        mock_embeddings,
-    ):
+    def test_invalid_source_directory(self, temp_output_dir: Path):
         """Test that invalid source directory raises ValueError."""
-        with (
-            patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm),
-            patch(
-                "docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings
-            ),
-        ):
-            generator = CodeDocumentationGenerator(
-                anthropic_api_key="test-key",
-                openai_api_key="test-key",
-            )
+        generator = CodeDocumentationGenerator(
+            llm_provider=MagicMock(), embedding_provider=MagicMock()
+        )
 
-            with pytest.raises(ValueError, match="Invalid source directory"):
-                generator.generate_documentation(
-                    "/nonexistent/path", str(temp_output_dir)
-                )
+        with pytest.raises(ValueError, match="Invalid source directory"):
+            generator.generate_documentation("/nonexistent/path", str(temp_output_dir))
 
-    def test_missing_api_keys(self):
-        """Test that missing API keys raise appropriate error."""
-        with pytest.raises(ApiKeyError):
-            CodeDocumentationGenerator(
-                anthropic_api_key=None,
-                openai_api_key=None,
-            )
-
-    def test_partial_api_keys(self):
-        """Test that partial API keys raise appropriate error."""
+    @pytest.mark.parametrize(
+        ("has_llm", "has_embeddings"), [(False, False), (True, False), (False, True)]
+    )
+    def test_missing_provider_rejected(self, has_llm, has_embeddings):
+        """A run that calls the models needs both providers."""
         with pytest.raises(
-            ApiKeyError, match="Both Anthropic and OpenAI API keys are required"
+            ValueError, match="required unless diagrams_only or dry_run"
         ):
             CodeDocumentationGenerator(
-                anthropic_api_key="test-key",
-                openai_api_key=None,
+                llm_provider=MagicMock() if has_llm else None,
+                embedding_provider=MagicMock() if has_embeddings else None,
             )
 
-        with pytest.raises(
-            ApiKeyError, match="Both Anthropic and OpenAI API keys are required"
-        ):
-            CodeDocumentationGenerator(
-                anthropic_api_key=None,
-                openai_api_key="test-key",
-            )
+    @pytest.mark.parametrize(
+        "options",
+        [GenerationOptions(diagrams_only=True), GenerationOptions(dry_run=True)],
+    )
+    def test_modes_without_model_calls_need_no_providers(self, options):
+        """Diagrams-only and dry-run runs can be set up without providers."""
+        generator = CodeDocumentationGenerator(generation_options=options)
+
+        assert generator.llm_provider is None
+        assert generator.embedding_provider is None
 
 
 class TestCodeAnalysis:
@@ -357,22 +330,8 @@ class TestProviderIntegration:
             embedding_provider = OpenAIEmbeddingProvider(api_key="test-key")
 
             generator = CodeDocumentationGenerator(
-                llm_provider=llm_provider,
-                embedding_provider=embedding_provider,
+                llm_provider=llm_provider, embedding_provider=embedding_provider
             )
 
             assert generator.llm_provider is llm_provider
             assert generator.embedding_provider is embedding_provider
-
-    def test_mixed_mode_raises_error(self, mock_llm, mock_embeddings):
-        """Test that mixing providers and API keys raises appropriate error."""
-        from docgen.providers.anthropic import AnthropicProvider
-
-        with patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm):
-            llm_provider = AnthropicProvider(api_key="test-key")
-
-            with pytest.raises(ApiKeyError, match="must be provided together"):
-                CodeDocumentationGenerator(
-                    llm_provider=llm_provider,
-                    embedding_provider=None,  # Missing embedding provider
-                )

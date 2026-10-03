@@ -6,7 +6,7 @@ including mock LLM components, sample data objects, and temporary directories.
 
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from langchain_core.embeddings import Embeddings
@@ -262,53 +262,6 @@ def empty_source_dir(tmp_path: Path) -> Path:
 # =============================================================================
 # Generator Fixtures
 # =============================================================================
-
-
-@pytest.fixture
-def mock_generator(
-    mock_llm,
-    mock_embeddings,
-    mock_analyzer,
-    mock_diagram_generator,
-    mock_template_manager,
-):
-    """Create a CodeDocumentationGenerator with all dependencies mocked.
-
-    This fixture patches all external dependencies and returns a generator
-    ready for testing.
-
-    Returns:
-        A CodeDocumentationGenerator instance with mocked dependencies.
-    """
-    from docgen.core.generator import CodeDocumentationGenerator
-
-    # Configure mock_llm to return content (for LCEL StrOutputParser)
-    mock_llm.invoke.return_value = MagicMock(content="Generated content")
-
-    with (
-        patch("docgen.core.generator.CodeAnalyzer", return_value=mock_analyzer),
-        patch(
-            "docgen.core.generator.DiagramGenerator",
-            return_value=mock_diagram_generator,
-        ),
-        patch(
-            "docgen.core.generator.get_template_manager",
-            return_value=mock_template_manager,
-        ),
-        patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm),
-        patch("docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings),
-    ):
-        generator = CodeDocumentationGenerator(
-            anthropic_api_key="test-anthropic-key",
-            openai_api_key="test-openai-key",
-        )
-        generator.llm = mock_llm
-        generator.embeddings = mock_embeddings
-        generator.analyzer = mock_analyzer
-        generator.diagram_generator = mock_diagram_generator
-        generator.template_manager = mock_template_manager
-
-        yield generator
 
 
 # =============================================================================

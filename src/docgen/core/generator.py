@@ -11,7 +11,6 @@ import os
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -21,18 +20,13 @@ from ..config import (
     CacheConfig,
     GenerationOptions,
     GeneratorConfig,
-    QualityMode,
-    get_model_for_quality_mode,
 )
 from ..exceptions.errors import (
-    ApiKeyError,
     DocumentationError,
-    LLMError,
 )
 from ..models.file_analysis import FileAnalysis
 from ..prompts.sections import select_sections
 from ..providers.base import EmbeddingProvider, LLMProvider
-from ..providers.registry import get_default_registry
 from ..templates.html import get_template_manager
 from ..utils.cost_tracker import CostTracker
 from ..utils.usage_tracking import UsageTrackingEmbeddings
@@ -68,295 +62,82 @@ def _cross_reference_preprocessor(
 
 
 class CodeDocumentationGenerator:
-    """Generates comprehensive documentation for Python codebases using LLMs.
+    """Turns a Python source tree into a documentation site.
 
-    This class orchestrates the documentation generation process by:
-    1. Analyzing Python source code structure and relationships
-    2. Generating various architectural diagrams
-    3. Using LLMs to explain code patterns and architecture
-    4. Creating an interactive HTML documentation
-
-    The generated documentation includes:
-    - System architecture overview
-    - Package dependencies
-    - Class diagrams
-    - Sequence diagrams
-    - Function call graphs
-    - Detailed explanations of key components
-
-    Attributes:
-        llm: LangChain chat model for text generation
-        embeddings: Vector embeddings for semantic search
-        text_splitter: Text splitter for chunking documents
-        temperature: Temperature for LLM generation
-        analyzer: Code analyzer for parsing source files
-        diagram_generator: Generator for Mermaid diagrams
-        _rag_pipeline: RAG pipeline factory (for cleanup)
+    A run analyzes the code, builds Mermaid diagrams from the analysis, writes
+    each section with a RAG chain over the code, and renders the HTML. The
+    providers supply the LangChain models the chain uses; diagrams-only and
+    dry-run modes make no model calls and need none.
     """
 
     def __init__(
         self,
-        anthropic_api_key: str | None = None,
-        openai_api_key: str | None = None,
-        temperature: float | None = None,
-        anthropic_model: str | None = None,
-        openai_embedding_model: str | None = None,
-        config: GeneratorConfig | None = None,
-        *,
         llm_provider: LLMProvider | None = None,
         embedding_provider: EmbeddingProvider | None = None,
-        exclude_patterns: list[str] | None = None,
-        skip_diagrams: bool = False,
-        sections: list[str] | None = None,
-        diagrams: list[str] | None = None,
-        template_dir: str | None = None,
-        dry_run: bool = False,
-        max_files: int | None = None,
-        cache_enabled: bool = True,
-        cache_dir: Any | None = None,
-        force_refresh: bool = False,
-        quality_mode: QualityMode | None = None,
-        parallel_sections: bool | None = None,
-        enable_cost_tracking: bool = True,
-        diagrams_only: bool = False,
-        retriever_k: int | None = None,
-        retriever_search_type: str | None = None,
-        retriever_score_threshold: float | None = None,
-        retriever_fetch_k: int | None = None,
-        retriever_lambda_mult: float | None = None,
-    ) -> None:
-        """Initialize the documentation generator.
-
-        The generator can be initialized in two ways:
-        1. Legacy mode: Pass API keys directly (anthropic_api_key, openai_api_key)
-        2. Provider mode: Pass provider instances (llm_provider, embedding_provider)
-
-        Args:
-            anthropic_api_key: API key for Anthropic's Claude (legacy mode)
-            openai_api_key: API key for OpenAI embeddings (legacy mode)
-            temperature: Temperature for LLM generation (0.0 to 1.0)
-            anthropic_model: Anthropic model name to use (overrides quality_mode)
-            openai_embedding_model: OpenAI embedding model to use
-            config: Custom configuration settings
-            llm_provider: LLM provider instance (provider mode)
-            embedding_provider: Embedding provider instance (provider mode)
-            exclude_patterns: Glob patterns to exclude files/directories
-            skip_diagrams: Skip diagram generation entirely
-            sections: List of sections to generate (None = core sections)
-            diagrams: List of diagrams to generate (None = all)
-            template_dir: Custom HTML template directory
-            dry_run: Analyze code without LLM calls
-            max_files: Maximum number of files to analyze
-            cache_enabled: Enable vector store and content caching
-            cache_dir: Cache directory path (Path object or None)
-            force_refresh: Force cache refresh (ignore existing cache)
-            quality_mode: Quality mode preset (fast/balanced/best) that selects
-                the Anthropic model when anthropic_model is not given
-            parallel_sections: Enable parallel section generation
-            enable_cost_tracking: Enable API cost tracking
-            diagrams_only: Generate only diagrams without LLM section generation (no API costs)
-
-        Raises:
-            ValueError: If configuration is invalid
-            ApiKeyError: If API keys are invalid or missing (unless diagrams_only=True)
-        """
-        # Use provided config or default, then apply retriever overrides
-        base_config = config or DEFAULT_CONFIG
-
-        # Apply RAG retriever overrides if any are provided
-        retriever_overrides = {
-            "RETRIEVER_K": retriever_k,
-            "RETRIEVER_SEARCH_TYPE": retriever_search_type,
-            "RETRIEVER_SCORE_THRESHOLD": retriever_score_threshold,
-            "RETRIEVER_FETCH_K": retriever_fetch_k,
-            "RETRIEVER_LAMBDA_MULT": retriever_lambda_mult,
-        }
-        has_overrides = any(v is not None for v in retriever_overrides.values())
-
-        if has_overrides:
-            # Copy base config and apply only the provided overrides
-            from dataclasses import asdict
-
-            config_dict = asdict(base_config)
-            for key, value in retriever_overrides.items():
-                if value is not None:
-                    config_dict[key] = value
-            self.config = GeneratorConfig(**config_dict)
-        else:
-            self.config = base_config
-
-        # Override config values if provided
-        final_temperature = (
-            temperature if temperature is not None else self.config.DEFAULT_TEMPERATURE
-        )
-        # Model precedence: explicit model, then quality mode, then config default
-        if anthropic_model:
-            final_anthropic_model = anthropic_model
-        elif quality_mode is not None:
-            final_anthropic_model = get_model_for_quality_mode(quality_mode)
-        else:
-            final_anthropic_model = self.config.DEFAULT_ANTHROPIC_MODEL
-        final_openai_model = (
-            openai_embedding_model or self.config.DEFAULT_OPENAI_EMBEDDING_MODEL
-        )
-
-        if final_temperature is not None and not 0 <= final_temperature <= 1:
-            raise ValueError("Temperature must be between 0 and 1")
-
-        # Reject unknown section names before any work is done
-        select_sections(sections)
-
-        self.temperature = final_temperature
-
-        # Names of the models in use (from the providers in provider mode)
-        self.model_name = final_anthropic_model
-        self.embedding_model_name = final_openai_model
-
-        # Initialize providers
-        self._llm_provider: LLMProvider | None = None
-        self._embedding_provider: EmbeddingProvider | None = None
-
-        # In diagrams-only mode, API keys are not required
-        if diagrams_only:
-            logger.debug("Diagrams-only mode: API keys not required")
-            self.llm = None
-            self.embeddings = None
-        # Provider mode: use provided providers
-        elif llm_provider is not None or embedding_provider is not None:
-            if llm_provider is None or embedding_provider is None:
-                raise ApiKeyError(
-                    "Both llm_provider and embedding_provider must be provided together"
-                )
-            self._llm_provider = llm_provider
-            self._embedding_provider = embedding_provider
-            self.model_name = llm_provider.model_name
-            self.embedding_model_name = embedding_provider.model_name
-            self.llm = llm_provider.get_langchain_llm()
-            self.embeddings = embedding_provider.get_langchain_embeddings()
-
-        # Legacy mode: use API keys to create providers
-        elif anthropic_api_key is not None or openai_api_key is not None:
-            if not anthropic_api_key or not openai_api_key:
-                raise ApiKeyError("Both Anthropic and OpenAI API keys are required")
-
-            try:
-                registry = get_default_registry()
-                self._llm_provider = registry.create_llm_provider(
-                    "anthropic",
-                    api_key=anthropic_api_key,
-                    model=final_anthropic_model,
-                    temperature=final_temperature,
-                    max_tokens=self.config.DEFAULT_MAX_OUTPUT_TOKENS,
-                )
-                self._embedding_provider = registry.create_embedding_provider(
-                    "openai",
-                    api_key=openai_api_key,
-                    model=final_openai_model,
-                )
-                self.llm = self._llm_provider.get_langchain_llm()
-                self.embeddings = self._embedding_provider.get_langchain_embeddings()
-            except Exception as e:
-                raise LLMError(f"Failed to initialize LLM components: {str(e)}")
-        else:
-            raise ApiKeyError(
-                "Either provide API keys (anthropic_api_key, openai_api_key) "
-                "or provider instances (llm_provider, embedding_provider)"
-            )
-
-        self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.config.CHUNK_SIZE, chunk_overlap=self.config.CHUNK_OVERLAP
-        )
-
-        # Store generation options
-        self.exclude_patterns = exclude_patterns or []
-        self.skip_diagrams = skip_diagrams
-        self.selected_sections = sections
-        self.selected_diagrams = select_diagrams(diagrams)
-        self.template_dir = template_dir
-        self.dry_run = dry_run
-        self.max_files = max_files
-        self.diagrams_only = diagrams_only
-
-        # Cache options (disabled in dry-run and diagrams-only modes)
-        self.cache_enabled = cache_enabled and not dry_run and not diagrams_only
-        self.cache_dir = cache_dir
-        self.force_refresh = force_refresh
-
-        # Quality and performance options
-        self.quality_mode = quality_mode or self.config.DEFAULT_QUALITY_MODE
-        self.parallel_sections = (
-            parallel_sections
-            if parallel_sections is not None
-            else self.config.PARALLEL_SECTIONS
-        )
-
-        # Cost tracking (disabled in dry-run and diagrams-only modes)
-        self.enable_cost_tracking = (
-            enable_cost_tracking and not dry_run and not diagrams_only
-        )
-        self.cost_tracker = CostTracker() if self.enable_cost_tracking else None
-
-        # Initialize analysis components
-        self.analyzer = CodeAnalyzer()
-        self.diagram_generator = DiagramGenerator()
-        self.template_manager = get_template_manager(template_dir)
-
-        # Extracted collaborators
-        self._renderer = DocumentationRenderer(self.template_manager)
-        self._rag_pipeline: RAGPipelineFactory | None = None
-
-        # Section content cache (initialized on first use)
-        self._section_cache: SectionContentCache | None = None
-        # Store analyses for section caching
-        self._current_analyses: list[FileAnalysis] | None = None
-
-    @classmethod
-    def create(
-        cls,
-        llm_provider: LLMProvider,
-        embedding_provider: EmbeddingProvider,
         *,
         generation_options: GenerationOptions | None = None,
         cache_config: CacheConfig | None = None,
         config: GeneratorConfig | None = None,
-    ) -> CodeDocumentationGenerator:
-        """Create a generator from provider instances and config objects.
-
-        This is the preferred way to construct a generator. The legacy
-        ``__init__`` with raw API keys is retained for backward compatibility.
+    ) -> None:
+        """Set up a generator.
 
         Args:
-            llm_provider: LLM provider instance
-            embedding_provider: Embedding provider instance
-            generation_options: Options controlling output
-            cache_config: Cache settings
-            config: Low-level generator config
+            llm_provider: Supplies the chat model that writes the sections.
+                Optional in diagrams-only and dry-run modes.
+            embedding_provider: Supplies the embeddings model for retrieval.
+                Optional in the same modes.
+            generation_options: What to generate; by default every core
+                section and diagram
+            cache_config: Cache settings; caching is on by default
+            config: Lower-level settings such as chunk size and retrieval
 
-        Returns:
-            Configured CodeDocumentationGenerator instance
+        Raises:
+            ValueError: If a section or diagram name is unknown, or a provider
+                is missing for a run that calls the models
         """
-        opts = generation_options or GenerationOptions()
+        options = generation_options or GenerationOptions()
         cache = cache_config or CacheConfig()
+        self.config = config or DEFAULT_CONFIG
 
-        return cls(
-            llm_provider=llm_provider,
-            embedding_provider=embedding_provider,
-            config=config,
-            exclude_patterns=opts.exclude_patterns,
-            skip_diagrams=opts.skip_diagrams,
-            sections=opts.selected_sections,
-            diagrams=opts.selected_diagrams,
-            template_dir=opts.template_dir,
-            dry_run=opts.dry_run,
-            max_files=opts.max_files,
-            diagrams_only=opts.diagrams_only,
-            parallel_sections=opts.parallel_sections,
-            enable_cost_tracking=opts.enable_cost_tracking,
-            quality_mode=opts.quality_mode,
-            cache_enabled=cache.enabled,
-            cache_dir=cache.cache_dir,
-            force_refresh=cache.force_refresh,
+        # Reject unknown names before any work is done
+        select_sections(options.selected_sections)
+        self.selected_diagrams = select_diagrams(options.selected_diagrams)
+
+        calls_models = not (options.diagrams_only or options.dry_run)
+        if calls_models and (llm_provider is None or embedding_provider is None):
+            raise ValueError(
+                "An LLM provider and an embedding provider are required "
+                "unless diagrams_only or dry_run is set"
+            )
+        self._llm_provider = llm_provider
+        self._embedding_provider = embedding_provider
+
+        self.exclude_patterns = options.exclude_patterns
+        self.skip_diagrams = options.skip_diagrams
+        self.selected_sections = options.selected_sections
+        self.dry_run = options.dry_run
+        self.max_files = options.max_files
+        self.diagrams_only = options.diagrams_only
+        self.parallel_sections = options.parallel_sections
+
+        # Caching and cost tracking only apply to runs that call the models
+        self.cache_enabled = cache.enabled and calls_models
+        self.cache_dir = cache.cache_dir
+        self.force_refresh = cache.force_refresh
+        self.cost_tracker = (
+            CostTracker() if options.enable_cost_tracking and calls_models else None
         )
+
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=self.config.CHUNK_SIZE, chunk_overlap=self.config.CHUNK_OVERLAP
+        )
+        self.analyzer = CodeAnalyzer()
+        self.diagram_generator = DiagramGenerator()
+        self.template_manager = get_template_manager(options.template_dir)
+        self._renderer = DocumentationRenderer(self.template_manager)
+        self._rag_pipeline: RAGPipelineFactory | None = None
+        self._section_cache: SectionContentCache | None = None
+        self._current_analyses: list[FileAnalysis] | None = None
 
     def __enter__(self) -> CodeDocumentationGenerator:
         """Enter context manager."""
@@ -593,15 +374,16 @@ class CodeDocumentationGenerator:
         analyses: Sequence[FileAnalysis],
         source_dir: Path | None = None,
     ):
-        """Create vector store and RAG chain (delegates to RAGPipelineFactory)."""
+        """Create the vector store and the RAG chain over it."""
+        llm_provider, embedding_provider = self._providers()
         # Route embedding calls through a wrapper that records their usage
-        embeddings = self.embeddings
-        if self.cost_tracker and embeddings is not None:
+        embeddings = embedding_provider.get_langchain_embeddings()
+        if self.cost_tracker:
             embeddings = UsageTrackingEmbeddings(
-                embeddings, self.cost_tracker, self.embedding_model_name
+                embeddings, self.cost_tracker, embedding_provider.model_name
             )
         self._rag_pipeline = RAGPipelineFactory(
-            llm=self.llm,
+            llm=llm_provider.get_langchain_llm(),
             embeddings=embeddings,
             config=self.config,
             text_splitter=self.text_splitter,
@@ -613,9 +395,10 @@ class CodeDocumentationGenerator:
 
     def _create_section_orchestrator(self) -> SectionOrchestrator:
         """Create the orchestrator that generates the documentation sections."""
+        llm_provider, _ = self._providers()
         return SectionOrchestrator(
             config=self.config,
-            model_name=self.model_name,
+            model_name=llm_provider.model_name,
             parallel=self.parallel_sections,
             cost_tracker=self.cost_tracker,
             section_cache=self._section_cache,
@@ -625,3 +408,9 @@ class CodeDocumentationGenerator:
             section_preprocessors={"cross": _cross_reference_preprocessor},
             convert_markdown_to_html=self._renderer.convert_markdown_to_html,
         )
+
+    def _providers(self) -> tuple[LLMProvider, EmbeddingProvider]:
+        """Return both providers; the constructor ensures them for model runs."""
+        if self._llm_provider is None or self._embedding_provider is None:
+            raise DocumentationError("This run needs an LLM and an embedding provider")
+        return self._llm_provider, self._embedding_provider
