@@ -250,7 +250,7 @@ def retrieved_prompt(tmp_path, fake_chat_model_with_usage):
 
 def test_similarity_search_returns_the_nearest_chunks(retrieved_prompt):
     """With k=2, similarity search returns alpha's two near-duplicate chunks."""
-    prompt = retrieved_prompt(RETRIEVER_K=2)
+    prompt = retrieved_prompt(RETRIEVER_K=2, RETRIEVER_SEARCH_TYPE="similarity")
 
     assert "alpha_function" in prompt
     assert "beta_function" not in prompt
@@ -266,9 +266,19 @@ def test_mmr_trades_a_near_duplicate_for_a_different_chunk(retrieved_prompt):
     assert "beta_function" in prompt
 
 
+def test_default_retrieval_skips_a_near_duplicate(retrieved_prompt):
+    """By default (MMR), k=2 gives one alpha chunk and the different beta chunk."""
+    prompt = retrieved_prompt(RETRIEVER_K=2)
+
+    assert "alpha_function" in prompt
+    assert "beta_function" in prompt
+
+
 def test_score_threshold_drops_chunks_below_it(retrieved_prompt):
     """With room for all four chunks, a 0.8 threshold still drops beta's."""
-    prompt = retrieved_prompt(RETRIEVER_SCORE_THRESHOLD=0.8)
+    prompt = retrieved_prompt(
+        RETRIEVER_SEARCH_TYPE="similarity", RETRIEVER_SCORE_THRESHOLD=0.8
+    )
 
     assert "alpha_function" in prompt
     assert "beta_function" not in prompt

@@ -4,6 +4,7 @@ import pytest
 
 from docgen.config import (
     DEFAULT_CONFIG,
+    GeneratorConfig,
     QualityMode,
     get_model_for_quality_mode,
 )
@@ -28,3 +29,22 @@ def test_default_model_is_the_balanced_model():
         get_model_for_quality_mode(QualityMode.BALANCED)
         == DEFAULT_CONFIG.DEFAULT_ANTHROPIC_MODEL
     )
+
+
+def test_retrieval_uses_mmr_by_default():
+    """MMR skips near-duplicate chunks, which repetitive code is full of."""
+    assert DEFAULT_CONFIG.RETRIEVER_SEARCH_TYPE == "mmr"
+
+
+def test_score_threshold_with_mmr_rejected():
+    """A score threshold applies only to similarity search, so it is not ignored."""
+    with pytest.raises(ValueError, match="similarity search"):
+        GeneratorConfig(RETRIEVER_SEARCH_TYPE="mmr", RETRIEVER_SCORE_THRESHOLD=0.5)
+
+
+def test_score_threshold_with_similarity_search_accepted():
+    config = GeneratorConfig(
+        RETRIEVER_SEARCH_TYPE="similarity", RETRIEVER_SCORE_THRESHOLD=0.5
+    )
+
+    assert config.RETRIEVER_SCORE_THRESHOLD == 0.5

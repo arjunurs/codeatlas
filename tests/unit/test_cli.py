@@ -131,6 +131,31 @@ class TestParseArgs:
         assert args.api_key_env is None
 
 
+def test_score_threshold_alone_selects_similarity_search():
+    """A threshold needs similarity search, so giving one selects it."""
+    args = parse_args(["--source", "./src", "--retriever-score-threshold", "0.5"])
+
+    assert args.retriever_search_type == "similarity"
+
+
+def test_score_threshold_with_mmr_is_rejected(capsys):
+    """Naming MMR and a threshold together is an error, not a silent choice."""
+    with pytest.raises(SystemExit) as exc_info:
+        parse_args(
+            [
+                "--source",
+                "./src",
+                "--retriever-search-type",
+                "mmr",
+                "--retriever-score-threshold",
+                "0.5",
+            ]
+        )
+
+    assert exc_info.value.code == 2
+    assert "--retriever-score-threshold" in capsys.readouterr().err
+
+
 def test_option_defaults_come_from_the_config(monkeypatch):
     """Option defaults follow DEFAULT_CONFIG, so the two cannot drift apart."""
     config = replace(
@@ -299,12 +324,12 @@ class TestMain:
                 "--retriever-k",
                 "5",
                 "--retriever-search-type",
-                "mmr",
+                "similarity",
             ]
         )
 
         config = generator_cls.call_args.kwargs["config"]
-        assert (config.RETRIEVER_K, config.RETRIEVER_SEARCH_TYPE) == (5, "mmr")
+        assert (config.RETRIEVER_K, config.RETRIEVER_SEARCH_TYPE) == (5, "similarity")
 
     @pytest.mark.parametrize(
         "error",

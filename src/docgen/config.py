@@ -94,7 +94,7 @@ class GeneratorConfig:
 
     # RAG retriever settings
     RETRIEVER_K: int = 10
-    RETRIEVER_SEARCH_TYPE: str = "similarity"  # or "mmr"
+    RETRIEVER_SEARCH_TYPE: str = "mmr"  # or "similarity"; MMR skips near-duplicates
     RETRIEVER_SCORE_THRESHOLD: float | None = None
     RETRIEVER_FETCH_K: int = 20  # For MMR
     RETRIEVER_LAMBDA_MULT: float = 0.5  # For MMR diversity
@@ -124,6 +124,8 @@ class GeneratorConfig:
         threshold = self.RETRIEVER_SCORE_THRESHOLD
         if threshold is not None and not 0 <= threshold <= 1:
             raise ValueError("Retriever score threshold must be between 0 and 1")
+        if threshold is not None and self.RETRIEVER_SEARCH_TYPE == "mmr":
+            raise ValueError("A retriever score threshold needs similarity search")
         if self.RETRIEVER_FETCH_K <= 0:
             raise ValueError("Retriever fetch K must be positive")
         if not 0 <= self.RETRIEVER_LAMBDA_MULT <= 1:

@@ -74,9 +74,14 @@ function (name, type, docstring, methods, base class). Documents are split into 
 chunks with 200 characters of overlap. Splitting on AST boundaries would give cleaner chunks and
 is a natural next step, since the AST is already available.
 
-**Retrieval.** Each section retrieves 10 chunks by similarity (`--retriever-k`), or by MMR
-(`--retriever-search-type mmr`) when a codebase is repetitive and similarity returns
-near-duplicates.
+**Retrieval.** Each section retrieves 10 chunks (`--retriever-k`) by MMR, which passes over a
+chunk too similar to one already chosen. Code repeats itself: FastAPI's `applications.py`
+documents the same parameters for every HTTP method, and similarity search filled the
+Overview's 10 chunks with those copies (45 near-duplicate pairs among them, against 3 with
+MMR). `--retriever-search-type similarity` selects plain similarity search, as a score threshold
+(`--retriever-score-threshold`) does. The retriever searches with the section's whole prompt.
+Short per-section queries were tried and dropped: they matched the one-line summaries of
+classes without docstrings, and retrieved a third as much code.
 
 **Dependency manifests.** Only Python files are indexed, so the Dependencies section is also
 given the project's manifests: `pyproject.toml`, `setup.cfg`, and `requirements*.txt`, from the

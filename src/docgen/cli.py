@@ -194,15 +194,16 @@ def _add_rag_args(parser: argparse.ArgumentParser) -> None:
     rag_group.add_argument(
         "--retriever-search-type",
         choices=["similarity", "mmr"],
-        default=DEFAULT_CONFIG.RETRIEVER_SEARCH_TYPE,
-        help="Retrieval method: similarity or mmr (diversity-focused); "
-        "default: %(default)s",
+        help="Retrieval method: similarity or mmr (diversity-focused); default: "
+        f"{DEFAULT_CONFIG.RETRIEVER_SEARCH_TYPE}, or similarity with "
+        "--retriever-score-threshold",
     )
     rag_group.add_argument(
         "--retriever-score-threshold",
         type=float,
         metavar="FLOAT",
-        help="Minimum similarity score threshold (0.0-1.0, optional)",
+        help="Minimum similarity score threshold (0.0-1.0, optional); "
+        "uses similarity search",
     )
     rag_group.add_argument(
         "--retriever-fetch-k",
@@ -262,7 +263,21 @@ API Keys:
     _add_cache_args(parser)
     _add_rag_args(parser)
 
-    return parser.parse_args(args)
+    parsed = parser.parse_args(args)
+    # A score threshold applies only to similarity search, so giving one
+    # selects it, and naming MMR as well is an error rather than a silent pick
+    threshold = parsed.retriever_score_threshold
+    if parsed.retriever_search_type is None:
+        parsed.retriever_search_type = (
+            "similarity"
+            if threshold is not None
+            else DEFAULT_CONFIG.RETRIEVER_SEARCH_TYPE
+        )
+    elif parsed.retriever_search_type == "mmr" and threshold is not None:
+        parser.error(
+            "--retriever-score-threshold needs --retriever-search-type similarity"
+        )
+    return parsed
 
 
 def _get_cache_dir(args: argparse.Namespace, source_path: Path) -> Path:

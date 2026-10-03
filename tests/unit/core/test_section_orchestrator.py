@@ -154,12 +154,17 @@ def test_changing_retrieval_or_output_settings_regenerates_cached_section(
     cache = SectionContentCache(tmp_path)
     calls: list[str] = []
     chain = counting_chain(calls)
+    # Similarity search, so that both MMR and a score threshold are changes
+    base = replace(DEFAULT_CONFIG, RETRIEVER_SEARCH_TYPE="similarity")
 
-    cached_orchestrator(cache, "claude-sonnet-5")._generate_section_with_cache(
-        chain, "Overview"
-    )
+    SectionOrchestrator(
+        base,
+        model_name="claude-sonnet-5",
+        section_cache=cache,
+        current_analyses=ANALYSES,
+    )._generate_section_with_cache(chain, "Overview")
     changed = SectionOrchestrator(
-        replace(DEFAULT_CONFIG, **change),
+        replace(base, **change),
         model_name="claude-sonnet-5",
         section_cache=cache,
         current_analyses=ANALYSES,
