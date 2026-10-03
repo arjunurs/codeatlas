@@ -54,7 +54,7 @@ class PromptTemplate:
             parts.append("\n## Examples of Good Output\n")
             parts.append(
                 "These examples describe a different, made-up project. They show "
-                "the format and depth wanted; describe the code in the context, "
+                "the format and depth wanted; describe the code in the excerpts, "
                 "not the examples.\n"
             )
             for i, example in enumerate(self.few_shot_examples, 1):
