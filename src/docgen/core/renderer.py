@@ -81,8 +81,10 @@ class DocumentationRenderer:
             has_errors = bool(errors.get("diagrams") or errors.get("sections"))
 
             # Generate index page
+            project = documentation["title"]
             index_context = {
-                "title": documentation["title"],
+                "title": project,
+                "project": project,
                 "documentation": documentation,
                 "base_url": "./",
                 "navigation": self.generate_navigation(
@@ -108,6 +110,7 @@ class DocumentationRenderer:
 
                 section_context = {
                     "title": section["title"],
+                    "project": project,
                     "section": section,
                     "base_url": "../",
                     "navigation": self.generate_navigation(
@@ -134,6 +137,7 @@ class DocumentationRenderer:
                     filename = f"diagrams/{name}.html"
                     diagram_context = {
                         "title": f"{name.replace('_', ' ').title()} Diagram",
+                        "project": project,
                         "diagram_code": diagram,
                         "base_url": "../",
                         "navigation": self.generate_navigation(
@@ -147,6 +151,7 @@ class DocumentationRenderer:
             # Generate search page
             search_context = {
                 "title": "Search Documentation",
+                "project": project,
                 "base_url": "./",
                 "navigation": self.generate_navigation(
                     "search", documentation["sections"], "./"

@@ -12,7 +12,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import PurePath
+from pathlib import Path, PurePath
 
 # _typeshed exists only in type checkers' stubs, so it is missing from
 # sys.stdlib_module_names; code imports it under TYPE_CHECKING
@@ -34,6 +34,23 @@ def module_root(source_dir: str) -> str:
             break
         root = parent
     return root
+
+
+# Folders that hold a project's code rather than name it, as in src layouts
+_LAYOUT_FOLDERS = frozenset({"src", "lib"})
+
+
+def project_name(source_dir: str) -> str:
+    """The project's name, for page titles.
+
+    That is the source directory's name, or its parent's when the source
+    directory is a layout folder: --source src/flask is "flask", and
+    --source src in a checkout named shop is "shop".
+    """
+    path = Path(source_dir).resolve()
+    if path.name in _LAYOUT_FOLDERS and path.parent.name:
+        path = path.parent
+    return path.name or str(path)
 
 
 def module_name(file_path: str, root: str | None = None) -> str:

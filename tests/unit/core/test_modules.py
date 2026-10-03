@@ -2,7 +2,13 @@
 
 import pytest
 
-from docgen.core.modules import ImportKind, ModuleIndex, PlacedImport, module_root
+from docgen.core.modules import (
+    ImportKind,
+    ModuleIndex,
+    PlacedImport,
+    module_root,
+    project_name,
+)
 
 SHOP = ModuleIndex(
     ["shop", "shop.cli", "shop.orders", "shop.payments", "shop.payments.gateway"]
@@ -84,3 +90,28 @@ def test_module_root_of_a_package_is_the_directory_above_it(tmp_path):
         (directory / "__init__.py").write_text("")
 
     assert module_root(str(package)) == str(tmp_path / "src")
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("shop", "shop"),
+        ("shop/src", "shop"),
+        ("shop/lib", "shop"),
+        ("shop/src/flask", "flask"),
+        ("shop/source", "source"),
+    ],
+)
+def test_project_name_skips_a_layout_folder(tmp_path, source, expected):
+    """A project is named by its source directory, or above src or lib."""
+    (tmp_path / source).mkdir(parents=True)
+
+    assert project_name(str(tmp_path / source)) == expected
+
+
+def test_project_name_of_the_current_directory(tmp_path, monkeypatch):
+    """--source . names the project after the current directory."""
+    (tmp_path / "shop").mkdir()
+    monkeypatch.chdir(tmp_path / "shop")
+
+    assert project_name(".") == "shop"

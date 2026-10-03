@@ -9,8 +9,6 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
-from typing import Any
 
 from langchain_core.runnables import Runnable
 
@@ -64,15 +62,15 @@ class SectionOrchestrator:
 
     def generate_documentation_sections(
         self, rag_chain: Runnable
-    ) -> tuple[dict[str, Any], list[tuple[str, str]]]:
+    ) -> tuple[list[dict], list[tuple[str, str]]]:
         """Generate all documentation sections using the RAG chain.
 
         Args:
             rag_chain: LCEL RAG chain for content generation
 
         Returns:
-            Tuple of (documentation dict, list of (section_name, error) pairs);
-            the caller reports the errors
+            Tuple of (sections, each a dict with title and content, and a list
+            of (section_name, error) pairs); the caller reports the errors
         """
         logger.debug("Generating documentation content...")
 
@@ -89,13 +87,7 @@ class SectionOrchestrator:
                 rag_chain, sections_to_generate
             )
 
-        documentation = {
-            "title": "Code Documentation",
-            "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "sections": sections,
-        }
-
-        return documentation, errors
+        return sections, errors
 
     def _generate_sections_sequential(
         self,

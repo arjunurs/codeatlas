@@ -6,6 +6,7 @@ including initialization, file analysis, and HTML generation.
 
 import logging
 import os
+import re
 from dataclasses import replace
 from unittest.mock import MagicMock, Mock, patch
 
@@ -389,6 +390,48 @@ def test_full_run_succeeds_when_only_diagrams_fail(temp_source_dir, tmp_path):
     generator.generate_documentation(str(temp_source_dir), str(tmp_path / "docs"))
 
     assert (tmp_path / "docs" / "index.html").exists()
+
+
+@pytest.mark.parametrize(
+    ("options", "mode"),
+    [
+        (GenerationOptions(diagrams_only=True), "Diagrams only"),
+        (GenerationOptions(skip_diagrams=True, dry_run=True), "Dry run"),
+    ],
+)
+def test_pages_are_titled_with_the_project_name(tmp_path, options, mode):
+    """The index is headed by the project's name and the run's mode."""
+    project = tmp_path / "shop" / "src"
+    project.mkdir(parents=True)
+    (project / "orders.py").write_text("class Order:\n    pass\n")
+    generator = CodeDocumentationGenerator(generation_options=options)
+
+    generator.generate_documentation(str(project), str(tmp_path / "docs"))
+
+    index = (tmp_path / "docs" / "index.html").read_text()
+    assert "<title>shop</title>" in index
+    assert '<h1 class="sidebar-title">shop</h1>' in index
+    assert re.search(r"<h1[^>]*>shop</h1>", index)
+    assert re.search(rf'<p class="page-subtitle">{mode} · Generated \d{{4}}-', index)
+    assert "Code Documentation" not in index
+
+
+def test_diagram_pages_carry_the_project_name(tmp_path):
+    """Each page's tab title and sidebar name the project too."""
+    project = tmp_path / "shop"
+    project.mkdir()
+    (project / "orders.py").write_text("class Order:\n    pass\n")
+    generator = CodeDocumentationGenerator(
+        generation_options=GenerationOptions(
+            selected_diagrams=["class"], diagrams_only=True
+        )
+    )
+
+    generator.generate_documentation(str(project), str(tmp_path / "docs"))
+
+    page = (tmp_path / "docs" / "diagrams" / "classes.html").read_text()
+    assert "<title>Classes Diagram · shop</title>" in page
+    assert '<h1 class="sidebar-title">shop</h1>' in page
 
 
 def test_no_files_error_is_left_to_the_caller_to_log(mock_generator, tmp_path, caplog):

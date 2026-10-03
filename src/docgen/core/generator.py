@@ -34,7 +34,7 @@ from ..utils.usage_tracking import UsageTrackingEmbeddings
 from .analyzer import CodeAnalyzer
 from .cross_reference import cross_reference_preprocessor
 from .diagrams import DiagramGenerator, select_diagrams
-from .modules import module_root
+from .modules import module_root, project_name
 from .rag_pipeline import RAGPipelineFactory
 from .renderer import DocumentationRenderer
 from .section_orchestrator import SectionOrchestrator
@@ -239,30 +239,25 @@ class CodeDocumentationGenerator:
             logger.debug("Skipping diagram generation (--no-diagrams)")
 
         # In diagrams-only mode, skip all section generation
+        mode = None
         if self.diagrams_only:
             logger.debug(
                 "Diagrams-only mode: skipping LLM calls and section generation"
             )
-            documentation = {
-                "title": "Code Documentation (Diagrams Only)",
-                "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "sections": [],
-            }
+            mode = "Diagrams only"
+            sections: list[dict[str, str]] = []
             section_errors = []
         # In dry-run mode, skip LLM calls
         elif self.dry_run:
             logger.info("Dry-run mode: skipping LLM calls")
-            documentation = {
-                "title": "Code Documentation (Dry Run)",
-                "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "sections": [
-                    {
-                        "title": name,
-                        "content": "*Dry-run mode: LLM content not generated*",
-                    }
-                    for name in select_sections(self.selected_sections)
-                ],
-            }
+            mode = "Dry run"
+            sections = [
+                {
+                    "title": name,
+                    "content": "*Dry-run mode: LLM content not generated*",
+                }
+                for name in select_sections(self.selected_sections)
+            ]
             section_errors = []
         else:
             # Create vector store and RAG chain
@@ -273,9 +268,16 @@ class CodeDocumentationGenerator:
 
             # Generate documentation sections (with error aggregation)
             orchestrator = self._create_section_orchestrator()
-            documentation, section_errors = (
-                orchestrator.generate_documentation_sections(rag_chain)
+            sections, section_errors = orchestrator.generate_documentation_sections(
+                rag_chain
             )
+
+        documentation = {
+            "title": project_name(abs_directory_path),
+            "mode": mode,
+            "generated_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "sections": sections,
+        }
 
         # The run fails if none of what it was asked for could be generated:
         # the sections, or the diagrams in diagrams-only mode. It fails after

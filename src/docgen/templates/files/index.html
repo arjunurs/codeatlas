@@ -5,7 +5,8 @@
     <span class="current">Home</span>
 </nav>
 
-<h1 class="text-3xl font-semibold mb-6" style="color: #111827;">{{ documentation.title }}</h1>
+<h1 class="text-3xl font-semibold" style="color: #111827;">{{ documentation.title }}</h1>
+<p class="page-subtitle">{% if documentation.mode %}{{ documentation.mode }} · {% endif %}Generated {{ documentation.generated_date }}</p>
 
 {% if generation_errors and (generation_errors.sections or generation_errors.diagrams) %}
 <div class="content-card" style="background: #fffbeb; border-color: #fbbf24;" role="alert">
@@ -97,7 +98,4 @@
 </div>
 {% endif %}
 
-<footer style="text-align: center; color: #9ca3af; font-size: 13px; margin-top: 48px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
-    Generated on {{ documentation.generated_date }}
-</footer>
 {% endblock %}

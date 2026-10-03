@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>{{ title }}</title>
+    <title>{{ title }}{% if project and title != project %} · {{ project }}{% endif %}</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
@@ -95,6 +95,12 @@
             font-weight: 600;
             color: #374151;
             margin: 0;
+        }
+
+        .page-subtitle {
+            color: #6b7280;
+            font-size: 14px;
+            margin: 4px 0 24px 0;
         }
 
         /* Search */
@@ -582,7 +588,7 @@
     <!-- Sidebar -->
     <nav class="sidebar" aria-label="Main navigation">
         <div class="sidebar-header">
-            <h1 class="sidebar-title">Documentation</h1>
+            <h1 class="sidebar-title">{{ project or "Documentation" }}</h1>
         </div>
 
         <div class="search-container">

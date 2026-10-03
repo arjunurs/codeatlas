@@ -197,13 +197,13 @@ def test_failed_section_is_reported_once(parallel):
         selected_sections=["overview", "dependencies"],
     )
 
-    documentation, errors = orchestrator.generate_documentation_sections(
+    sections, errors = orchestrator.generate_documentation_sections(
         failing_chain("boom")
     )
 
-    names = [section["title"] for section in documentation["sections"]]
+    names = [section["title"] for section in sections]
     assert sorted(errors) == sorted((name, "RuntimeError: boom") for name in names)
-    assert [section["content"] for section in documentation["sections"]] == [
+    assert [section["content"] for section in sections] == [
         "*Error generating this section: RuntimeError: boom*"
     ] * len(names)
 
