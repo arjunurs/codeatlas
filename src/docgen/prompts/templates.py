@@ -31,8 +31,6 @@ class PromptTemplate:
         reference_instructions: Code reference instructions (uses standard if None)
         additional_context: Any additional context to append
         few_shot_examples: Optional list of example outputs to guide the LLM
-        retrieval_query: A few words describing the code the section needs;
-            the retriever searches with these rather than the whole prompt
     """
 
     title: str
@@ -42,7 +40,6 @@ class PromptTemplate:
     reference_instructions: str | None = None
     additional_context: str | None = None
     few_shot_examples: list[str] | None = None
-    retrieval_query: str = ""
 
     def render(self) -> str:
         """Render the complete prompt string.

@@ -2,7 +2,6 @@
 
 import logging
 from dataclasses import replace
-from operator import itemgetter
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
@@ -15,7 +14,6 @@ from docgen.cache.content_cache import SectionContentCache
 from docgen.config import DEFAULT_CONFIG
 from docgen.core.section_orchestrator import SectionOrchestrator
 from docgen.models.file_analysis import FileAnalysis
-from docgen.prompts.sections import get_section_prompt, get_section_query
 from docgen.utils.cost_tracker import CostTracker
 
 # The Anthropic and OpenAI SDKs build their errors from httpx2 objects; the
@@ -40,11 +38,11 @@ ANALYSES = [
 ]
 
 
-def counting_chain(calls: list[dict[str, str]]) -> RunnableLambda:
-    """A chain that records each input and returns numbered content."""
+def counting_chain(calls: list[str]) -> RunnableLambda:
+    """A chain that records each prompt and returns numbered content."""
 
-    def generate(inputs: dict[str, str]) -> str:
-        calls.append(inputs)
+    def generate(prompt: str) -> str:
+        calls.append(prompt)
         return f"content {len(calls)}"
 
     return RunnableLambda(generate)
@@ -90,7 +88,7 @@ def test_generated_sections_record_reported_token_usage(fake_chat_model_with_usa
         cost_tracker=cost_tracker,
         selected_sections=["overview", "dependencies"],
     )
-    chain = itemgetter("question") | fake_chat_model_with_usage | StrOutputParser()
+    chain = fake_chat_model_with_usage | StrOutputParser()
 
     _, errors = orchestrator.generate_documentation_sections(chain)
 
@@ -103,7 +101,7 @@ def test_generated_sections_record_reported_token_usage(fake_chat_model_with_usa
 def test_changing_model_regenerates_cached_section(tmp_path):
     """A cached section is reused for the same model and regenerated for another."""
     cache = SectionContentCache(tmp_path)
-    calls: list[dict[str, str]] = []
+    calls: list[str] = []
     chain = counting_chain(calls)
 
     first = cached_orchestrator(cache, "claude-sonnet-5")._generate_section_with_cache(
@@ -122,7 +120,7 @@ def test_changing_model_regenerates_cached_section(tmp_path):
 def test_changing_prompt_regenerates_cached_section(tmp_path):
     """The cache key covers the exact prompt, including preprocessing."""
     cache = SectionContentCache(tmp_path)
-    calls: list[dict[str, str]] = []
+    calls: list[str] = []
     chain = counting_chain(calls)
 
     cached_orchestrator(cache, "claude-sonnet-5")._generate_section_with_cache(
@@ -135,7 +133,7 @@ def test_changing_prompt_regenerates_cached_section(tmp_path):
     )._generate_section_with_cache(chain, "Overview")
 
     assert changed == "content 2"
-    assert calls[1]["question"].endswith(" Be brief.")
+    assert calls[1].endswith(" Be brief.")
 
 
 @pytest.mark.parametrize(
@@ -154,7 +152,7 @@ def test_changing_retrieval_or_output_settings_regenerates_cached_section(
 ):
     """Settings that shape a section's text are part of its cache key."""
     cache = SectionContentCache(tmp_path)
-    calls: list[dict[str, str]] = []
+    calls: list[str] = []
     chain = counting_chain(calls)
 
     cached_orchestrator(cache, "claude-sonnet-5")._generate_section_with_cache(
@@ -173,7 +171,7 @@ def test_changing_retrieval_or_output_settings_regenerates_cached_section(
 def test_changing_the_rag_template_regenerates_cached_section(tmp_path, monkeypatch):
     """The template that wraps every section prompt is part of the cache key."""
     cache = SectionContentCache(tmp_path)
-    calls: list[dict[str, str]] = []
+    calls: list[str] = []
     chain = counting_chain(calls)
     cached_orchestrator(cache, "claude-sonnet-5")._generate_section_with_cache(
         chain, "Overview"
@@ -189,45 +187,10 @@ def test_changing_the_rag_template_regenerates_cached_section(tmp_path, monkeypa
     assert changed == "content 2"
 
 
-def test_section_is_retrieved_with_its_short_query():
-    """The chain gets the section's prompt to answer and its query to retrieve with."""
-    calls: list[dict[str, str]] = []
-
-    SectionOrchestrator(DEFAULT_CONFIG, model_name="claude-sonnet-5")._generate_section(
-        counting_chain(calls), "Overview"
-    )
-
-    assert calls == [
-        {
-            "question": get_section_prompt("Overview"),
-            "query": get_section_query("Overview"),
-        }
-    ]
-
-
-def test_changing_the_retrieval_query_regenerates_cached_section(tmp_path, monkeypatch):
-    """A section's query decides what code it sees, so it is in the cache key."""
-    cache = SectionContentCache(tmp_path)
-    calls: list[dict[str, str]] = []
-    chain = counting_chain(calls)
-    cached_orchestrator(cache, "claude-sonnet-5")._generate_section_with_cache(
-        chain, "Overview"
-    )
-
-    monkeypatch.setattr(
-        "docgen.core.section_orchestrator.get_section_query", lambda _: "other words"
-    )
-    changed = cached_orchestrator(
-        cache, "claude-sonnet-5"
-    )._generate_section_with_cache(chain, "Overview")
-
-    assert changed == "content 2"
-
-
 def test_force_refresh_regenerates_and_still_caches(tmp_path):
     """force_refresh ignores cached content but caches the fresh result."""
     cache = SectionContentCache(tmp_path)
-    calls: list[dict[str, str]] = []
+    calls: list[str] = []
     chain = counting_chain(calls)
 
     cached_orchestrator(cache, "claude-sonnet-5")._generate_section_with_cache(
@@ -251,7 +214,7 @@ def test_truncated_section_is_flagged_and_not_cached(
     cache = SectionContentCache(tmp_path)
     cost_tracker = CostTracker()
     model = fake_chat_model_with_usage.model_copy(update={"stop_reason": "max_tokens"})
-    chain = itemgetter("question") | model | StrOutputParser()
+    chain = model | StrOutputParser()
 
     with caplog.at_level("WARNING", logger="docgen"):
         for _ in range(2):

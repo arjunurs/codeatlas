@@ -239,55 +239,13 @@ def retrieved_prompt(tmp_path, fake_chat_model_with_usage):
         factories.append(factory)
         analyses = CodeAnalyzer().analyze_directory(str(project))
         factory.create_rag_chain(analyses, source_dir=project).invoke(
-            {"question": "Describe the project", "query": "Describe the project"}
+            "Describe the project"
         )
         return fake_chat_model_with_usage.prompts[-1]
 
     yield run
     for factory in factories:
         factory.cleanup()
-
-
-class RecordingEmbeddings(KeywordEmbeddings):
-    """Keyword embeddings that record each query they embed."""
-
-    def __init__(self) -> None:
-        self.queries: list[str] = []
-
-    def embed_query(self, text: str) -> list[float]:
-        self.queries.append(text)
-        return super().embed_query(text)
-
-
-def test_retriever_searches_with_the_query_not_the_prompt(
-    tmp_path, fake_chat_model_with_usage
-):
-    """The short query finds the code; the model gets the full prompt."""
-    project = tmp_path / "project"
-    project.mkdir()
-    (project / "alpha.py").write_text("def alpha_function():\n    return 1\n")
-    embeddings = RecordingEmbeddings()
-    factory = RAGPipelineFactory(
-        llm=fake_chat_model_with_usage,
-        embeddings=embeddings,
-        config=DEFAULT_CONFIG,
-        text_splitter=RecursiveCharacterTextSplitter(
-            chunk_size=DEFAULT_CONFIG.CHUNK_SIZE,
-            chunk_overlap=DEFAULT_CONFIG.CHUNK_OVERLAP,
-        ),
-    )
-    analyses = CodeAnalyzer().analyze_directory(str(project))
-    try:
-        factory.create_rag_chain(analyses, source_dir=project).invoke(
-            {"question": "Write an overview, with examples", "query": "entry points"}
-        )
-    finally:
-        factory.cleanup()
-
-    assert embeddings.queries == ["entry points"]
-    prompt = fake_chat_model_with_usage.prompts[-1]
-    assert "Question: Write an overview, with examples" in prompt
-    assert "entry points" not in prompt
 
 
 def test_similarity_search_returns_the_nearest_chunks(retrieved_prompt):

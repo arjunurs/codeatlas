@@ -21,7 +21,6 @@ SECTION_PROMPTS: dict[str, PromptTemplate] = {
     "Overview": PromptTemplate(
         title="Overview",
         task="Analyze the codebase and provide a comprehensive overview.",
-        retrieval_query="main entry points, top-level classes, and the public API",
         sections=[
             "Main Purpose and Functionality",
             "Key Components and Responsibilities",
@@ -49,7 +48,6 @@ A small layered CLI: parsing and storage sit behind the `Reconciler`. Parsers ar
     "Dependencies": PromptTemplate(
         title="Dependencies",
         task="Analyze the project dependencies and explain:",
-        retrieval_query="imports of third-party packages, optional imports, and version checks",
         sections=[
             "Core Dependencies",
             "Optional Dependencies",
@@ -79,7 +77,6 @@ A small layered CLI: parsing and storage sit behind the `Reconciler`. Parsers ar
     "Key Classes and Functions": PromptTemplate(
         title="Key Classes and Functions",
         task="Describe the key classes and functions.",
-        retrieval_query="public classes, functions, base classes, and decorators",
         sections=[
             "Core Classes",
             "Helper Functions",
@@ -91,7 +88,6 @@ A small layered CLI: parsing and storage sit behind the `Reconciler`. Parsers ar
     "Data Flow": PromptTemplate(
         title="Data Flow",
         task="Explain the data flow through the system.",
-        retrieval_query="how input is parsed, validated, transformed, and returned",
         sections=[
             "Data Processing Flow",
             "Key Data Structures",
@@ -103,7 +99,6 @@ A small layered CLI: parsing and storage sit behind the `Reconciler`. Parsers ar
     "Integration Points": PromptTemplate(
         title="Integration Points",
         task="Describe how the code integrates with other systems.",
-        retrieval_query="external services, network clients, files, environment variables, and configuration",
         sections=[
             "External Integrations",
             "Authentication",
@@ -120,7 +115,6 @@ OPTIONAL_SECTION_PROMPTS: dict[str, PromptTemplate] = {
     "Migration Guidance": PromptTemplate(
         title="Migration Guidance",
         task="Identify deprecated patterns and suggest modern alternatives.",
-        retrieval_query="deprecated functions, deprecation warnings, and legacy compatibility code",
         sections=[
             "Deprecated Python Patterns",
             "Library Deprecations",
@@ -142,7 +136,6 @@ For each issue: Show the current pattern, explain the risk/limitation, and provi
     "Code Quality Insights": PromptTemplate(
         title="Code Quality Insights",
         task="Analyze code quality, patterns, and architectural decisions.",
-        retrieval_query="complex functions, error handling, and design patterns",
         sections=[
             "Architectural Patterns Identified",
             "Design Decisions and Trade-offs",
@@ -159,7 +152,6 @@ Use concrete examples from the actual code. Focus on maintainability, testabilit
     ),
     "Cross-Reference Documentation": PromptTemplate(
         title="Cross-Reference Documentation",
-        retrieval_query="classes and functions imported and used across modules",
         task=(
             "Document where key components are defined and used throughout the codebase. "
             "You will receive pre-analyzed cross-reference data showing exact import relationships."
@@ -213,22 +205,6 @@ def get_section_prompt(section_name: str) -> str:
         )
 
     return all_prompts[section_name].render()
-
-
-def get_section_query(section_name: str) -> str:
-    """Get the query a section's code is retrieved with.
-
-    Args:
-        section_name: Name of the section
-
-    Returns:
-        A few words describing the code the section needs
-
-    Raises:
-        KeyError: If section_name is not a known section
-    """
-    all_prompts = {**SECTION_PROMPTS, **OPTIONAL_SECTION_PROMPTS}
-    return all_prompts[section_name].retrieval_query
 
 
 def get_all_section_prompts() -> dict[str, str]:
