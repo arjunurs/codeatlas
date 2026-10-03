@@ -526,3 +526,35 @@ def test_package_given_as_source_is_named_in_its_diagrams(tmp_path):
     assert 'yaml["yaml"]' in third_party
     assert '"shop"' not in third_party
     assert "shop_orders_order --> shop_catalog_Item" in diagrams["function_calls"]
+
+
+def test_failing_structure_leaves_sections_to_retrieval(tmp_path, caplog):
+    """Choosing code by structure only adds to retrieval; if it fails, the run
+    warns and the sections are written from retrieved chunks."""
+    generator = CodeDocumentationGenerator(
+        llm_provider=MagicMock(model_name="claude-sonnet-5"),
+        embedding_provider=MagicMock(model_name="text-embedding-3-small"),
+    )
+
+    with (
+        patch(
+            "docgen.core.generator.StructuralContext",
+            side_effect=RuntimeError("unexpected tree"),
+        ),
+        caplog.at_level(logging.WARNING, logger="docgen"),
+    ):
+        structure = generator._structural_context([], tmp_path)
+
+    assert structure is None
+    assert any("unexpected tree" in r.getMessage() for r in caplog.records)
+
+
+def test_no_structural_share_means_no_structure(tmp_path):
+    """With STRUCTURAL_CONTEXT_SHARE at 0, the context is retrieval only."""
+    generator = CodeDocumentationGenerator(
+        llm_provider=MagicMock(model_name="claude-sonnet-5"),
+        embedding_provider=MagicMock(model_name="text-embedding-3-small"),
+        config=replace(DEFAULT_CONFIG, STRUCTURAL_CONTEXT_SHARE=0),
+    )
+
+    assert generator._structural_context([], tmp_path) is None

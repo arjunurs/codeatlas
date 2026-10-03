@@ -48,3 +48,10 @@ def test_score_threshold_with_similarity_search_accepted():
     )
 
     assert config.RETRIEVER_SCORE_THRESHOLD == 0.5
+
+
+@pytest.mark.parametrize("share", [-0.1, 1.5])
+def test_structural_context_share_outside_zero_to_one_rejected(share):
+    """The share is a fraction of each section's context."""
+    with pytest.raises(ValueError, match="Structural context share"):
+        GeneratorConfig(STRUCTURAL_CONTEXT_SHARE=share)

@@ -10,7 +10,9 @@ import re
 from typing import ClassVar
 
 import pytest
+from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
+from langchain_core.runnables import RunnableConfig
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from docgen.config import DEFAULT_CONFIG, GeneratorConfig
@@ -294,3 +296,100 @@ def test_score_threshold_drops_chunks_below_it(retrieved_prompt):
 
     assert "alpha_function" in prompt
     assert "beta_function" not in prompt
+
+
+class FixedExcerpts:
+    """Gives every section the same excerpts, as StructuralContext would."""
+
+    def __init__(self, *docs: Document) -> None:
+        self.docs = list(docs)
+
+    def for_section(self, section: str) -> list[Document]:
+        return self.docs
+
+
+@pytest.fixture
+def structured_prompt(tmp_path, fake_chat_model_with_usage):
+    """Run the RAG chain with given excerpts and settings; return the prompt sent."""
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "alpha.py").write_text("def alpha_function():\n    return 1\n")
+    (project / "beta.py").write_text("def beta_function():\n    return 2\n")
+    factories = []
+
+    def run(excerpts, section="Overview", **settings) -> str:
+        factory = RAGPipelineFactory(
+            llm=fake_chat_model_with_usage,
+            embeddings=KeywordEmbeddings(),
+            config=GeneratorConfig(**settings),
+            text_splitter=RecursiveCharacterTextSplitter(),
+        )
+        factories.append(factory)
+        analyses = CodeAnalyzer().analyze_directory(str(project))
+        chain = factory.create_rag_chain(
+            analyses, source_dir=project, structure=FixedExcerpts(*excerpts)
+        )
+        config: RunnableConfig = (
+            {"configurable": {"section": section}} if section else {}
+        )
+        chain.invoke("Describe the project", config=config)
+        return fake_chat_model_with_usage.prompts[-1]
+
+    yield run, project
+    for factory in factories:
+        factory.cleanup()
+
+
+def test_structural_excerpts_come_first_and_retrieval_fills_the_rest(
+    structured_prompt,
+):
+    """A section's excerpts lead its context; retrieved chunks follow them."""
+    run, project = structured_prompt
+    excerpt = Document(
+        page_content="STRUCTURE", metadata={"source": str(project / "beta.py")}
+    )
+
+    prompt = run([excerpt], RETRIEVER_K=2)
+
+    assert "Module: beta\nSTRUCTURE" in prompt
+    assert prompt.index("STRUCTURE") < prompt.index("alpha_function")
+
+
+def test_retrieved_chunks_stop_at_the_context_budget(structured_prompt):
+    """With the budget (k chunks of CHUNK_SIZE) nearly used, no chunk is added."""
+    run, project = structured_prompt
+    excerpt = Document(
+        page_content="x" * 190, metadata={"source": str(project / "beta.py")}
+    )
+
+    prompt = run([excerpt], RETRIEVER_K=2, CHUNK_SIZE=100, CHUNK_OVERLAP=10)
+
+    assert "x" * 190 in prompt
+    assert "alpha_function" not in prompt
+    assert "beta_function" not in prompt
+
+
+def test_without_a_section_the_context_is_retrieved_chunks_only(structured_prompt):
+    """A chain invoked without a section name gets no excerpts."""
+    run, project = structured_prompt
+    excerpt = Document(
+        page_content="STRUCTURE", metadata={"source": str(project / "beta.py")}
+    )
+
+    prompt = run([excerpt], section=None, RETRIEVER_K=2)
+
+    assert "STRUCTURE" not in prompt
+    assert "alpha_function" in prompt
+
+
+def test_a_retrieved_chunk_repeating_an_excerpt_is_skipped(structured_prompt):
+    """The chunk holding a function already given as an excerpt is not added again."""
+    run, project = structured_prompt
+    excerpt = Document(
+        page_content="def alpha_function():\n    return 1\n",
+        metadata={"source": str(project / "alpha.py")},
+    )
+
+    prompt = run([excerpt], RETRIEVER_K=2, RETRIEVER_SEARCH_TYPE="similarity")
+
+    assert prompt.count("def alpha_function():") == 1

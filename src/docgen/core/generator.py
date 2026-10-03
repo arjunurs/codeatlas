@@ -6,7 +6,6 @@ the entire documentation generation process.
 
 from __future__ import annotations
 
-import functools
 import logging
 import os
 from collections.abc import Sequence
@@ -39,6 +38,7 @@ from .modules import module_root, project_name
 from .rag_pipeline import RAGPipelineFactory
 from .renderer import DocumentationRenderer
 from .section_orchestrator import SectionOrchestrator
+from .structural_context import StructuralContext
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +147,7 @@ class CodeDocumentationGenerator:
         self.template_manager = get_template_manager(options.template_dir)
         self._renderer = DocumentationRenderer(self.template_manager)
         self._rag_pipeline: RAGPipelineFactory | None = None
+        self._call_graph: CallGraph | None = None
         self._section_cache: SectionContentCache | None = None
         self._current_analyses: list[FileAnalysis] | None = None
 
@@ -225,6 +226,7 @@ class CodeDocumentationGenerator:
 
         # Store analyses for section caching
         self._current_analyses = analyses
+        self._call_graph = None
 
         # Initialize section cache if enabled
         if self.cache_enabled and self.cache_dir:
@@ -338,10 +340,8 @@ class CodeDocumentationGenerator:
         build = self.diagram_generator
         root = module_root(source_dir)
 
-        # The sequence and call graph diagrams share one call analysis
-        @functools.cache
         def function_calls() -> CallGraph:
-            return self.analyzer.analyze_function_calls(analyses, root=root)
+            return self._function_calls(analyses, root)
 
         # Diagram type -> (output name, builder), in generation order
         builders = {
@@ -403,7 +403,45 @@ class CodeDocumentationGenerator:
             cache_dir=Path(self.cache_dir) if self.cache_dir else None,
             force_refresh=self.force_refresh,
         )
-        return self._rag_pipeline.create_rag_chain(analyses, source_dir=source_dir)
+        return self._rag_pipeline.create_rag_chain(
+            analyses,
+            source_dir=source_dir,
+            structure=self._structural_context(analyses, source_dir),
+        )
+
+    def _function_calls(self, analyses: Sequence[FileAnalysis], root: str) -> CallGraph:
+        """The run's call analysis, traced once for the sequence and call graph
+        diagrams and the code chosen for each section."""
+        if self._call_graph is None:
+            self._call_graph = self.analyzer.analyze_function_calls(analyses, root=root)
+        return self._call_graph
+
+    def _structural_context(
+        self, analyses: Sequence[FileAnalysis], source_dir: Path | None
+    ) -> StructuralContext | None:
+        """Code chosen for each section from the project's structure.
+
+        Returns:
+            None when the config gives it no share of the context, or when it
+            could not be worked out
+        """
+        share = self.config.STRUCTURAL_CONTEXT_SHARE
+        if not share or source_dir is None:
+            return None
+        budget = int(share * self.config.RETRIEVER_K * self.config.CHUNK_SIZE)
+        root = module_root(str(source_dir))
+        try:
+            return StructuralContext(
+                analyses, self._function_calls(analyses, root), root, budget=budget
+            )
+        # Choosing code by structure only adds to retrieval: if it fails, the
+        # sections are written from retrieved chunks, as they were before it
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                "Choosing code for each section from the project's structure "
+                f"failed, so sections use retrieved code only: {describe_error(e)}"
+            )
+            return None
 
     def _create_section_orchestrator(self, source_dir: str) -> SectionOrchestrator:
         """Create the orchestrator that generates the documentation sections.

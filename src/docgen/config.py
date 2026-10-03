@@ -98,6 +98,10 @@ class GeneratorConfig:
     RETRIEVER_SCORE_THRESHOLD: float | None = None
     RETRIEVER_FETCH_K: int = 20  # For MMR
     RETRIEVER_LAMBDA_MULT: float = 0.5  # For MMR diversity
+    # Share of each section's context (RETRIEVER_K chunks of CHUNK_SIZE) given
+    # to code chosen from the project's structure; retrieval fills the rest.
+    # 0 leaves the whole context to retrieval.
+    STRUCTURAL_CONTEXT_SHARE: float = 0.6
 
     def __post_init__(self):
         """Validate configuration values."""
@@ -130,6 +134,8 @@ class GeneratorConfig:
             raise ValueError("Retriever fetch K must be positive")
         if not 0 <= self.RETRIEVER_LAMBDA_MULT <= 1:
             raise ValueError("Retriever lambda mult must be between 0 and 1")
+        if not 0 <= self.STRUCTURAL_CONTEXT_SHARE <= 1:
+            raise ValueError("Structural context share must be between 0 and 1")
 
 
 # Default configuration instance

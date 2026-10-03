@@ -26,7 +26,7 @@ flowchart LR
 | Analyze | `core/analyzer.py`, `core/calls.py` | Walks the tree (skipping virtualenvs, `.git`, build and tool directories), parses each file's AST into classes, functions, imports, and calls |
 | Diagram | `core/diagrams.py`, `core/sequence.py` | Builds Mermaid source for five diagram types from the analysis, then validates it |
 | Index | `core/rag_pipeline.py`, `cache/vector_cache.py` | Splits the code into chunks, embeds them with OpenAI, and stores them in Chroma |
-| Write | `core/section_orchestrator.py`, `prompts/` | For each section, retrieves relevant chunks and asks Claude to write it; sections run in parallel |
+| Write | `core/section_orchestrator.py`, `core/structural_context.py`, `prompts/` | For each section, takes code chosen from the analysis, adds retrieved chunks, and asks Claude to write it; sections run in parallel |
 | Render | `core/renderer.py`, `templates/` | Converts Markdown to HTML, sanitizes it with nh3, and renders the site with Jinja2 |
 
 `--diagrams-only` stops after the diagram stage and needs no API keys. `--dry-run` skips the
@@ -85,6 +85,20 @@ classes without docstrings, and retrieved a third as much code. Each chunk reach
 headed by its module (`Module: flask.app`), so a section can name the code it describes; without
 the label, sections on Flask wrote "the module imports" and "the code shown".
 
+**Code chosen from the structure.** Similarity search picks the chunks that read most like a
+section's prompt. On Flask that gave every section CLI helpers and debugging output, and no
+section saw how a request is handled: of 48 functions and classes the five sections needed, it
+retrieved 2. `core/structural_context.py` now chooses part of each section's code from the
+analysis: the entry point's call path, the functions reaching the most code first, for Data
+Flow; outlines (signature, docstring summary, public methods) of the classes the package
+exports, their bases, and the classes on that path, for Key Classes; the exported names and
+the classes an exported class plugs in through a class attribute (`session_interface`), plus
+code reading environment variables, for Integration Points; a map of each module's third-party
+imports for Dependencies. These take up to 60% (`STRUCTURAL_CONTEXT_SHARE`) of a section's
+budget of 10 chunks of 2,000 characters, and retrieved chunks fill the rest. On Flask the five
+sections then held 37 of the 48, in the same space. If choosing fails, a warning is logged and
+the sections use retrieved chunks only.
+
 **Dependency manifests.** Only Python files are indexed, so the Dependencies section is also
 given the project's manifests: `pyproject.toml`, `setup.cfg`, and `requirements*.txt`, from the
 source directory or the nearest directory above it that declares dependencies, without leaving
@@ -124,7 +138,8 @@ render time, diagram code is HTML-escaped, and Mermaid runs with `securityLevel:
   edits count whether or not they are committed.
 - **Level 2, sections.** A section is reused while its code dependencies, the model, its exact
   prompt (for Dependencies, with the manifests), the prompt template it is wrapped in, the
-  `--retriever-*` settings, and the output token limit are unchanged. Sections depend on
+  `--retriever-*` settings, the structural context share and rules, and the output token limit
+  are unchanged. Sections depend on
   different parts of the code (Overview on all content, Dependencies on imports, Key Classes on
   entities), so an edit only regenerates the sections it affects.
 - `--force-refresh` rebuilds the vector store and regenerates every section; `--no-cache` skips
@@ -175,14 +190,16 @@ exits 0.
 
 ## Known limits
 
-- **Section quality.** Five agents fact-checked the FastAPI sections against the source: 87% of
-  checkable claims were correct and no API was invented. Since then the Dependencies section
-  reads the manifests: it named 2 of FastAPI's 6 runtime dependencies and no versions, and now
-  names all 6, with every version as `pyproject.toml` gives it. Remarks about what the context
-  leaves out fell from 25 to 2 across the five sections. Sections still describe only what the
-  10 retrieved chunks show, so each names 7 to 9 of 20 central public APIs (`APIRouter`,
-  `Depends`, `HTTPException`, ...). The [agent-enhanced design](design/agentic-architecture.md)
-  proposes adaptive retrieval and planning to address this.
+- **Section quality.** Five agents fact-checked each section against the source. On FastAPI,
+  87% of checkable claims were correct and no API was invented, and the Dependencies section,
+  reading the manifests, names all 6 runtime dependencies with their versions. On Flask, with
+  retrieval alone, 89% of 340 claims were correct but every section was graded C: no section
+  described how a request is handled. With code chosen from the structure, 90% of 409 claims
+  were correct, 2 were wrong, remarks about the excerpts fell from 8 to 0, and all five
+  sections were graded B. What remains: claims copied from stale docstrings (Flask's
+  `Environment` docstring still says it prefixes blueprint names), and pages that list method
+  names more than they explain them. The [agent-enhanced design](design/agentic-architecture.md)
+  proposes adaptive retrieval and planning.
 - **Diagrams.** The architecture, dependency, and call graph diagrams show only the project's
   own code and its third-party packages, and keep their 50 most connected nodes, so on a large
   codebase they show its busiest parts rather than all of it. The call graph draws only calls

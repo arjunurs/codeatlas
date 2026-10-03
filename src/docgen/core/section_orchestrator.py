@@ -21,6 +21,7 @@ from ..utils.cost_tracker import CostTracker
 from ..utils.error_classification import describe_error
 from ..utils.excerpt_remarks import find_excerpt_remarks
 from ..utils.usage_tracking import TokenUsageCallback
+from .structural_context import RULES_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -222,8 +223,8 @@ class SectionOrchestrator:
         """The settings besides the model and prompt that shape a section's text.
 
         That is the template every section prompt is wrapped in, how code
-        excerpts are labeled in it, what the retriever puts in it, and how
-        long the answer may be.
+        excerpts are labeled in it, what the retriever and the code structure
+        put in it, and how long the answer may be.
         """
         config = self.config
         return "\n".join(
@@ -236,6 +237,8 @@ class SectionOrchestrator:
                 f"fetch_k={config.RETRIEVER_FETCH_K} "
                 f"lambda={config.RETRIEVER_LAMBDA_MULT}",
                 f"max_output_tokens={config.DEFAULT_MAX_OUTPUT_TOKENS}",
+                f"structural share={config.STRUCTURAL_CONTEXT_SHARE} "
+                f"rules={RULES_VERSION}",
             ]
         )
 
@@ -277,7 +280,11 @@ class SectionOrchestrator:
             prompt = self._build_prompt(section_name)
 
         usage = TokenUsageCallback()
-        content = rag_chain.invoke(prompt, config={"callbacks": [usage]})
+        # The chain chooses the section's code by its name (see create_rag_chain)
+        content = rag_chain.invoke(
+            prompt,
+            config={"callbacks": [usage], "configurable": {"section": section_name}},
+        )
         if self.cost_tracker:
             self.cost_tracker.record_llm_usage(
                 model=self.model_name,

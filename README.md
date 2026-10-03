@@ -51,7 +51,8 @@ calls. Every diagram is the same from run to run.
 
 *The class diagram for codeatlas's own `providers` package (`--source src/docgen/providers`).*
 
-**Sections** (written by Claude, using code retrieved from a vector store)
+**Sections** (written by Claude, from code chosen by the project's structure and code
+retrieved from a vector store)
 
 - Core: Overview, Dependencies, Key Classes and Functions, Data Flow, Integration Points
 - Optional, via `--sections`: Migration Guidance, Code Quality Insights, Cross-Reference
@@ -124,8 +125,10 @@ flowchart LR
 2. **Diagram**: build Mermaid source for each diagram type and validate it.
 3. **Index**: split the code into chunks, embed them with OpenAI, and store them in a local
    Chroma database, with Chroma's anonymized telemetry turned off.
-4. **Write**: for each section, retrieve 10 relevant chunks, skipping near-duplicates (MMR), and
-   ask Claude to write it. Sections run in parallel.
+4. **Write**: for each section, take the code its subject calls for from the analysis (the call
+   path from the entry point for Data Flow, outlines of the exported classes for Key Classes),
+   fill the rest of a fixed budget with relevant chunks, skipping near-duplicates (MMR), and ask
+   Claude to write it. Sections run in parallel.
 5. **Render**: convert the Markdown to HTML, sanitize it, and render the site with Jinja
    templates.
 
@@ -140,9 +143,12 @@ More detail, including caching, measured cost, and failure behavior:
   [More](docs/architecture.md#design-decisions)
 - **Chroma runs in-process**: a CLI tool gets a persistent vector store without any service to
   run.
-- **Retrieval uses MMR with the section's whole prompt as the query.** Plain similarity search
-  filled FastAPI's Overview with near-copies of one repeated block, and short per-section
-  queries retrieved a third as much code; both were measured and dropped.
+- **Each section gets code chosen from the structure, then retrieved code.** Retrieval alone
+  gave Flask's five sections 2 of 48 functions and classes they needed (Data Flow never saw
+  `wsgi_app`); choosing the entry point's call path, the exported classes, and the replaceable
+  parts from the analysis raised that to 37 of 48 in the same space. Retrieval uses MMR, since
+  similarity search filled FastAPI's Overview with near-copies of one block.
+  [More](docs/architecture.md#design-decisions)
 - **Two cache levels**: embeddings per file, and sections keyed on the code they depend on, the
   model, the exact prompt, and the retrieval settings. [More](docs/architecture.md#caching)
 - **Model output is untrusted**: it is sanitized with nh3 before it reaches HTML, and Mermaid
@@ -155,8 +161,8 @@ More detail, including caching, measured cost, and failure behavior:
 - Python only.
 - Full documentation needs keys from two providers: Anthropic for writing and OpenAI for
   embeddings.
-- Section text is LLM output, written from 10 retrieved chunks per section, so it can miss
-  central APIs. Review it before relying on it. See
+- Section text is LLM output, written from about 20,000 characters of code per section, so it
+  can still miss central APIs. Review it before relying on it. See
   [known limits](docs/architecture.md#known-limits).
 - On a codebase the size of Flask or FastAPI, the architecture and class diagrams are too dense
   to read at a glance.

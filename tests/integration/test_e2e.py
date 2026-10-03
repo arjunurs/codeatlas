@@ -109,6 +109,40 @@ class TestCommandLineRun:
         assert "Input tokens: 600" in summary
         assert "Output tokens: 150" in summary
 
+    def test_sections_are_given_code_chosen_from_the_structure(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+        fake_chat_model_with_usage,
+        fake_embeddings,
+    ):
+        """Data Flow sees the entry point's code and Key Classes an outline of the
+        class it uses, whatever retrieval ranks first."""
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "calculator.py").write_text(CALCULATOR_SOURCE)
+        (project / "main.py").write_text(MAIN_SOURCE)
+        chat_model = fake_chat_model_with_usage.model_copy()
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
+        monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+        monkeypatch.chdir(tmp_path)
+
+        with (
+            patch("docgen.providers.anthropic.ChatAnthropic", return_value=chat_model),
+            patch(
+                "docgen.providers.openai.OpenAIEmbeddings",
+                return_value=fake_embeddings,
+            ),
+            patch("docgen.cli.setup_logging"),
+        ):
+            main(["--source", str(project), "-o", str(tmp_path / "output")])
+
+        prompts = chat_model.prompts
+        data_flow = next(p for p in prompts if "data flow through the system" in p)
+        key_classes = next(p for p in prompts if "key classes and functions" in p)
+        assert "Module: main\ndef run() -> int:" in data_flow
+        assert "def add_numbers(self, a: int, b: int): ..." in key_classes
+
 
 class TestPythonApiRun:
     """Custom providers, written as CONTRIBUTING.md describes, run end to end."""

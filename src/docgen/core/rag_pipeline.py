@@ -9,14 +9,19 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Sequence
-from functools import partial
 from pathlib import Path
+from typing import Protocol
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import Runnable, RunnablePassthrough
+from langchain_core.runnables import (
+    Runnable,
+    RunnableConfig,
+    RunnableLambda,
+    RunnablePassthrough,
+)
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from ..cache.vector_cache import VectorStoreCache, in_memory_chroma_client
@@ -53,6 +58,25 @@ def format_excerpts(docs: Sequence[Document], root: str | None = None) -> str:
         else:
             excerpts.append(doc.page_content)
     return "\n\n---\n\n".join(excerpts)
+
+
+class SectionExcerpts(Protocol):
+    """Gives each section code chosen for it, as StructuralContext does."""
+
+    def for_section(self, section: str) -> list[Document]: ...
+
+
+def _repeats(chunk: Document, excerpts: Sequence[Document]) -> bool:
+    """Whether a chunk holds the start of an excerpt from the same file."""
+    for excerpt in excerpts:
+        lines = excerpt.page_content.strip().splitlines()
+        if (
+            lines
+            and excerpt.metadata.get("source") == chunk.metadata.get("source")
+            and lines[0].strip() in chunk.page_content
+        ):
+            return True
+    return False
 
 
 def format_entity_document(entity) -> str:
@@ -159,12 +183,20 @@ class RAGPipelineFactory:
         self,
         analyses: Sequence[FileAnalysis],
         source_dir: Path | None = None,
+        structure: SectionExcerpts | None = None,
     ) -> Runnable:
         """Create vector store and RAG chain from analyses using LCEL.
+
+        The chain is invoked with a section's prompt. When the call's config
+        names the section (configurable "section"), the code structure gives
+        its excerpts first, and retrieved chunks fill the rest of the budget:
+        RETRIEVER_K chunks of CHUNK_SIZE characters.
 
         Args:
             analyses: List of file analysis results
             source_dir: Source directory path (for caching)
+            structure: Chooses code for each section from the project's
+                structure; without it, the context is retrieved chunks only
 
         Returns:
             LCEL RAG chain for documentation generation
@@ -215,9 +247,28 @@ class RAGPipelineFactory:
             rag_prompt = ChatPromptTemplate.from_template(RAG_PROMPT_TEMPLATE)
             root = module_root(str(source_dir)) if source_dir else None
 
+            budget = self.config.RETRIEVER_K * self.config.CHUNK_SIZE
+
+            def section_context(question: str, config: RunnableConfig) -> str:
+                section = config.get("configurable", {}).get("section")
+                excerpts = (
+                    structure.for_section(section) if structure and section else []
+                )
+                chosen = list(excerpts)
+                used = sum(len(doc.page_content) for doc in chosen)
+                for chunk in retriever.invoke(question, config=config):
+                    if excerpts and (
+                        _repeats(chunk, excerpts)
+                        or used + len(chunk.page_content) > budget
+                    ):
+                        continue
+                    chosen.append(chunk)
+                    used += len(chunk.page_content)
+                return format_excerpts(chosen, root)
+
             rag_chain = (
                 {
-                    "context": retriever | partial(format_excerpts, root=root),
+                    "context": RunnableLambda(section_context),
                     "question": RunnablePassthrough(),
                 }
                 | rag_prompt

@@ -145,6 +145,7 @@ def test_changing_prompt_regenerates_cached_section(tmp_path):
         {"RETRIEVER_FETCH_K": 40},
         {"RETRIEVER_LAMBDA_MULT": 0.9},
         {"DEFAULT_MAX_OUTPUT_TOKENS": 4096},
+        {"STRUCTURAL_CONTEXT_SHARE": 0.3},
     ],
 )
 def test_changing_retrieval_or_output_settings_regenerates_cached_section(
@@ -209,6 +210,41 @@ def test_changing_the_excerpt_label_regenerates_cached_section(tmp_path, monkeyp
     )._generate_section_with_cache(chain, "Overview")
 
     assert changed == "content 2"
+
+
+def test_changing_the_structural_rules_regenerates_cached_section(
+    tmp_path, monkeypatch
+):
+    """The rules that choose code from the project's structure are in the key."""
+    cache = SectionContentCache(tmp_path)
+    calls: list[str] = []
+    chain = counting_chain(calls)
+    cached_orchestrator(cache, "claude-sonnet-5")._generate_section_with_cache(
+        chain, "Overview"
+    )
+
+    monkeypatch.setattr("docgen.core.section_orchestrator.RULES_VERSION", -1)
+    changed = cached_orchestrator(
+        cache, "claude-sonnet-5"
+    )._generate_section_with_cache(chain, "Overview")
+
+    assert changed == "content 2"
+
+
+def test_the_chain_is_told_which_section_it_writes():
+    """The section name reaches the chain, which chooses that section's code."""
+    seen: list[str] = []
+
+    def generate(prompt: str, config) -> str:
+        seen.append(config["configurable"]["section"])
+        return "text"
+
+    orchestrator = SectionOrchestrator(
+        DEFAULT_CONFIG, model_name="claude-sonnet-5", current_analyses=ANALYSES
+    )
+    orchestrator._generate_section(RunnableLambda(generate), "Data Flow")
+
+    assert seen == ["Data Flow"]
 
 
 def test_force_refresh_regenerates_and_still_caches(tmp_path):
