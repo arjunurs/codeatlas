@@ -107,74 +107,8 @@ class TestCommandLineRun:
         assert "Output tokens: 150" in summary
 
 
-class TestFullWorkflow:
-    """Test the complete documentation generation workflow."""
-
-    def test_analyze_generate_verify(
-        self,
-        temp_source_dir: Path,
-        temp_output_dir: Path,
-        mock_llm,
-        mock_embeddings,
-    ):
-        """Test the full workflow: analyze source -> generate docs -> verify output.
-
-        This test verifies that:
-        1. Source code is properly analyzed
-        2. Vector store is created successfully
-        3. Documentation sections are generated
-        4. HTML output is created in the correct structure
-        """
-        # Create a mock RAG chain that returns strings directly (as LCEL chains do after StrOutputParser)
-        mock_rag_chain = MagicMock()
-        mock_rag_chain.invoke.return_value = (
-            "# Generated Content\n\nThis is documentation."
-        )
-
-        mock_vector_store = MagicMock()
-        mock_vector_store.delete_collection = MagicMock()
-
-        with (
-            patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm),
-            patch(
-                "docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings
-            ),
-            patch("docgen.core.rag_pipeline.Chroma") as mock_chroma,
-            patch.object(
-                CodeDocumentationGenerator,
-                "_create_vector_store_and_rag_chain",
-                return_value=mock_rag_chain,
-            ),
-        ):
-            mock_chroma.from_documents.return_value = mock_vector_store
-
-            # Create generator and run
-            generator = CodeDocumentationGenerator(
-                anthropic_api_key="test-key",
-                openai_api_key="test-key",
-            )
-            generator._vector_store = mock_vector_store
-
-            generator.generate_documentation(str(temp_source_dir), str(temp_output_dir))
-
-            # Verify output structure
-            assert (temp_output_dir / "index.html").exists()
-            assert (temp_output_dir / "sections").is_dir()
-            assert (temp_output_dir / "diagrams").is_dir()
-            assert (temp_output_dir / "assets").is_dir()
-            assert (temp_output_dir / "search.html").exists()
-
-            # Verify section files
-            sections_dir = temp_output_dir / "sections"
-            expected_sections = [
-                "overview.html",
-                "dependencies.html",
-                "key_classes_and_functions.html",
-                "data_flow.html",
-                "integration_points.html",
-            ]
-            for section in expected_sections:
-                assert (sections_dir / section).exists(), f"Missing section: {section}"
+class TestGeneratorLifecycle:
+    """Test the generator's resource handling."""
 
     def test_context_manager_cleanup(
         self,

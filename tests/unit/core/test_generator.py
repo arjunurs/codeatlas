@@ -195,8 +195,8 @@ def mock_generator():
 
 
 def test_initialization():
-    """Test generator initialization."""
-    with pytest.raises(ValueError):
+    """A temperature outside 0 to 1 is rejected at construction."""
+    with pytest.raises(ValueError, match="Temperature must be between 0 and 1"):
         CodeDocumentationGenerator(
             anthropic_api_key="test",
             openai_api_key="test",

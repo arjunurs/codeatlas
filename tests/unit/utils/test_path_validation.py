@@ -1,8 +1,5 @@
 """Unit tests for path validation utilities."""
 
-import os
-from pathlib import Path
-
 import pytest
 
 from docgen.utils.path_validation import (
@@ -126,22 +123,19 @@ class TestValidateEnvFilePath:
         assert result == env_file.resolve()
 
     def test_home_directory_allowed(self, tmp_path, monkeypatch):
-        """Test that home directory is allowed by default."""
-        # Skip if home is not writable (CI environments)
-        home = Path.home()
-        if not os.access(home, os.W_OK):
-            pytest.skip("Home directory not writable")
+        """An env file in the home directory is allowed by default."""
+        home = tmp_path / "home"
+        work = tmp_path / "work"
+        home.mkdir()
+        work.mkdir()
+        monkeypatch.setenv("HOME", str(home))
+        # Work elsewhere, so only the home rule can allow the file
+        monkeypatch.chdir(work)
 
-        # Create temp env file in home
         test_env = home / ".test_docgen_env"
-        try:
-            test_env.write_text("TEST=value")
-            result = validate_env_file_path(str(test_env))
-            assert result == test_env.resolve()
-        finally:
-            # Cleanup
-            if test_env.exists():
-                test_env.unlink()
+        test_env.write_text("TEST=value")
+
+        assert validate_env_file_path(str(test_env)) == test_env.resolve()
 
     def test_symlink_traversal(self, tmp_path, monkeypatch):
         """Test that symlink traversal is handled safely."""

@@ -43,48 +43,6 @@ def sample_code_entity() -> CodeEntity:
 
 
 @pytest.fixture
-def sample_function_entity() -> CodeEntity:
-    """Create a sample function CodeEntity for testing.
-
-    Returns:
-        A CodeEntity representing a test function.
-    """
-    return CodeEntity(
-        name="test_function",
-        type="function",
-        docstring="A test function for documentation testing.",
-        start_line=1,
-        end_line=3,
-        source="def test_function(arg1, arg2):\n    return arg1 + arg2",
-    )
-
-
-@pytest.fixture
-def sample_file_analysis(
-    sample_code_entity: CodeEntity, tmp_path: Path
-) -> FileAnalysis:
-    """Create a sample FileAnalysis for testing.
-
-    Args:
-        sample_code_entity: A sample CodeEntity fixture
-        tmp_path: Pytest temporary path fixture
-
-    Returns:
-        A FileAnalysis with the sample entity.
-    """
-    # Create actual file so validation passes
-    test_file = tmp_path / "test_module.py"
-    test_file.write_text(sample_code_entity.source)
-
-    return FileAnalysis(
-        file_path=str(test_file),
-        entities=[sample_code_entity],
-        imports=["import os", "from typing import List"],
-        content=sample_code_entity.source,
-    )
-
-
-@pytest.fixture
 def sample_file_analysis_no_validation(sample_code_entity: CodeEntity) -> FileAnalysis:
     """Create a sample FileAnalysis without file validation.
 

@@ -215,11 +215,6 @@ def helper():
     test_file = tmp_path / "test.py"
     test_file.write_text(test_code)
 
-    # Debug: Print the AST structure
-    tree = ast.parse(test_code)
-    print("\nAST Structure:")
-    print(ast.dump(tree, indent=2))
-
     analysis = FileAnalysis(
         file_path=str(test_file),
         entities=[
@@ -246,7 +241,6 @@ def helper():
     )
 
     call_graph = analyzer.analyze_function_calls([analysis])
-    print("\nCall Graph:", call_graph)
 
     assert isinstance(call_graph, dict)
     assert "test_method" in call_graph
