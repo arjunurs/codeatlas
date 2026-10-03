@@ -27,13 +27,11 @@ repos:
         types_or: [python, pyi]
         require_serial: true
 
-      # Non-blocking: ty is early (0.0.x) and has false positives, so it reports
-      # but never fails a commit
+      # ty checks the whole project, so it runs once rather than per file
       - id: ty-check
-        name: ty type check (non-blocking)
-        entry: bash -c 'uv run ty check || true'
+        name: ty type check
+        entry: uv run ty check
         language: system
         types: [python]
         pass_filenames: false
-        verbose: true
-        files: ^src/
+        files: ^(src|tests)/

@@ -20,13 +20,13 @@ uv run pre-commit install                # file checks, ruff, and ty on commit
 uv sync --locked
 uv run ruff check src tests
 uv run ruff format --check src tests
+uv run ty check                              # type check of src and tests
 uv run pytest tests --cov-fail-under=87      # CI's coverage minimum, counting branches
 # CI's lowest-deps job also runs the tests with the oldest allowed dependencies;
 # see CONTRIBUTING.md before running it, since it rewrites uv.lock
 
 uv run pytest tests/unit/core/test_generator.py::test_initialization   # one test
 uv run pytest -k analyzer                                              # by name
-uv run ty check                          # advisory: ty is early and has false positives
 
 # Free runs: no API keys, no network
 uv run codeatlas --source . --diagrams-only -o <dir>

@@ -23,6 +23,7 @@ CI runs these commands, in `.github/workflows/test.yml`. Run them before pushing
 uv sync --locked
 uv run ruff check src tests                        # lint job, once per push
 uv run ruff format --check src tests
+uv run ty check                                    # type check of src and tests
 uv run pytest tests --cov-fail-under=87            # test job, on Python 3.10 to 3.13
 ```
 
@@ -52,7 +53,7 @@ uv run --no-sync pytest tests --no-cov
   file, no private keys, and no large files
 - **ruff check** (with `--fix`): the lint rules selected in `pyproject.toml`
 - **ruff format**: formatting
-- **ty**: type check of `src/`; non-blocking, it reports but never fails a commit
+- **ty**: type check of `src/` and `tests/`, run once for the whole project
 
 Ruff and ty run through `uv run`, so the hooks use the versions in `uv.lock`, the same ones CI
 uses.
