@@ -1,9 +1,12 @@
 """Unit tests for the CLI module."""
 
+import importlib.metadata
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+import docgen
+from docgen import cli
 from docgen.cli import __version__, main, parse_args
 
 
@@ -359,3 +362,29 @@ class TestVersion:
         parts = __version__.split(".")
         assert len(parts) >= 2  # At least major.minor
         assert all(part.isdigit() for part in parts[:2])
+
+    def test_version_comes_from_package_metadata(self):
+        """The version is read from the installed package, set in pyproject.toml."""
+        assert __version__ == importlib.metadata.version("codeatlas")
+
+    def test_package_exports_the_cli_version(self):
+        """docgen.__version__ and the --version output come from one lookup."""
+        assert docgen.__version__ == __version__
+
+    def test_version_flag_prints_version(self, capsys):
+        """--version prints the program name and version, then exits cleanly."""
+        with pytest.raises(SystemExit) as exc_info:
+            parse_args(["--version"])
+
+        assert exc_info.value.code == 0
+        assert capsys.readouterr().out.strip().endswith(__version__)
+
+    def test_version_falls_back_when_package_not_installed(self, monkeypatch):
+        """Importing from a source tree without installing still gives a version."""
+
+        def not_installed(name: str) -> str:
+            raise importlib.metadata.PackageNotFoundError(name)
+
+        monkeypatch.setattr(cli.importlib.metadata, "version", not_installed)
+
+        assert cli._package_version() == "0.0.0+unknown"

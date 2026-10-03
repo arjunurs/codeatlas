@@ -1,20 +1,34 @@
 repos:
-  # Ruff linting and formatting (official hooks)
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.14  # Keep in step with the ruff version in uv.lock
+  # File hygiene checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
     hooks:
-      # Run the linter
-      - id: ruff-check
-        args: [--fix]
-      # Run the formatter
-      - id: ruff-format
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: detect-private-key
+      - id: check-added-large-files
 
-  # Ty type checking (manual local hook until official hook available)
-  # See: https://docs.astral.sh/ty/ and https://github.com/astral-sh/ruff-pre-commit/issues/269
-  # NOTE: Non-blocking (verbose: true) - shows warnings but doesn't fail commit
-  #       Ty is in early development (v0.0.14) and has false positives
+  # Ruff and ty run through uv, so they use the versions in uv.lock: the same
+  # ones CI uses
   - repo: local
     hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      # Non-blocking: ty is early (0.0.x) and has false positives, so it reports
+      # but never fails a commit
       - id: ty-check
         name: ty type check (non-blocking)
         entry: bash -c 'uv run ty check || true'
@@ -22,5 +36,4 @@ repos:
         types: [python]
         pass_filenames: false
         verbose: true
-        # Only run on Python files in src/
         files: ^src/

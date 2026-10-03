@@ -5,6 +5,7 @@ including argument parsing and main execution flow.
 """
 
 import argparse
+import importlib.metadata
 import logging
 import sys
 from pathlib import Path
@@ -25,8 +26,21 @@ from .exceptions.errors import ApiKeyError, CacheError, DocumentationError
 
 logger = logging.getLogger(__name__)
 
-# Version string - update this when releasing new versions
-__version__ = "0.1.0"
+
+def _package_version() -> str:
+    """Return the installed package version, set in pyproject.toml.
+
+    Returns:
+        The version, or "0.0.0+unknown" when the package is not installed, for
+        example when the source tree is imported directly
+    """
+    try:
+        return importlib.metadata.version("codeatlas")
+    except importlib.metadata.PackageNotFoundError:
+        return "0.0.0+unknown"
+
+
+__version__ = _package_version()
 
 
 def _add_source_args(parser: argparse.ArgumentParser) -> None:

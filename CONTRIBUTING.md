@@ -33,13 +33,14 @@ coverage with a change.
 
 `.pre-commit-config.yaml` runs these on staged files:
 
-- **ruff-check** (with `--fix`): lint rules `E`, `F`, `I`, `N`, `W`, `UP` from `pyproject.toml`
-- **ruff-format**: formatting
+- **File checks** from `pre-commit-hooks`: valid TOML and YAML, a newline at the end of each
+  file, no private keys, and no large files
+- **ruff check** (with `--fix`): lint rules `E`, `F`, `I`, `N`, `W`, `UP` from `pyproject.toml`
+- **ruff format**: formatting
 - **ty**: type check of `src/`; non-blocking, it reports but never fails a commit
 
-The hook's ruff `rev` must match the ruff version in `uv.lock`, which CI uses through
-`uv run`. A mismatch lets a commit fail locally on code that CI accepts, or the reverse. After
-upgrading ruff, update the `rev` and run `uv run pre-commit run --all-files`.
+Ruff and ty run through `uv run`, so the hooks use the versions in `uv.lock`, the same ones CI
+uses.
 
 Tests are not a hook, to keep commits fast. Run them yourself before pushing.
 

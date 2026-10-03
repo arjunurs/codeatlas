@@ -14,7 +14,7 @@ vector store (RAG). The package is `docgen` (`src/docgen`); the command is `code
 
 ```bash
 uv sync                                  # install, including dev tools
-uv run pre-commit install                # ruff check, ruff format, ty on commit
+uv run pre-commit install                # file checks, ruff, and ty on commit
 
 # The four checks CI runs on Python 3.10 to 3.13
 uv sync --locked
@@ -71,8 +71,6 @@ Design decisions, caching, measured cost, and failure behavior are in
 
 - `.env` in the repo root may hold real API keys. Never read or print it; pass it with
   `--api-key-env .env`.
-- The ruff `rev` in `.pre-commit-config.yaml` must equal the ruff version in `uv.lock`, or
-  commits fail locally on code that CI accepts.
 - `pytest` addopts already include `-q` and a coverage report. Adding another `-q` hides the
   "N passed" summary.
 - The section cache key does not include the output token limit, the RAG wrapper template, or

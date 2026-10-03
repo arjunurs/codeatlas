@@ -8,8 +8,8 @@ resolution-markers = [
     "python_full_version == '3.13.*' and sys_platform == 'win32'",
     "python_full_version == '3.13.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.13.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version >= '3.11' and python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.11' and python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version == '3.11.*' and sys_platform == 'emscripten'",
     "python_full_version >= '3.11' and python_full_version < '3.13' and sys_platform != 'emscripten' and sys_platform != 'win32'",
     "python_full_version < '3.11'",
@@ -339,14 +339,6 @@ dependencies = [
     { name = "python-dotenv" },
 ]
 
-[package.optional-dependencies]
-dev = [
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
-
 [package.dev-dependencies]
 dev = [
     { name = "pre-commit" },
@@ -367,20 +359,15 @@ requires-dist = [
     { name = "langchain-text-splitters", specifier = ">=0.3.0" },
     { name = "markdown", specifier = ">=3.5" },
     { name = "nh3", specifier = ">=0.3.0" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.0.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
 ]
-provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "pre-commit", specifier = ">=3.0.0" },
-    { name = "pytest", specifier = ">=7.0.0" },
-    { name = "pytest-cov", specifier = ">=4.0.0" },
-    { name = "ruff", specifier = ">=0.1.0" },
+    { name = "pre-commit", specifier = ">=4.0" },
+    { name = "pytest", specifier = ">=9.0" },
+    { name = "pytest-cov", specifier = ">=7.0" },
+    { name = "ruff", specifier = ">=0.14" },
     { name = "ty", specifier = ">=0.0.14" },
 ]
 
@@ -1560,8 +1547,8 @@ resolution-markers = [
     "python_full_version == '3.13.*' and sys_platform == 'win32'",
     "python_full_version == '3.13.*' and sys_platform == 'emscripten'",
     "python_full_version == '3.13.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version >= '3.11' and python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.11' and python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version == '3.11.*' and sys_platform == 'emscripten'",
     "python_full_version >= '3.11' and python_full_version < '3.13' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
