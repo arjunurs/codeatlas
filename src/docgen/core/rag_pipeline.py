@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Sequence
+from functools import partial
 from pathlib import Path
 
 from langchain_chroma import Chroma
@@ -23,15 +24,35 @@ from ..config import GeneratorConfig
 from ..exceptions.errors import DocumentationError, VectorStoreError
 from ..models.code_entity import EntityType
 from ..models.file_analysis import FileAnalysis
-from ..prompts.rag_prompt import RAG_PROMPT_TEMPLATE
+from ..prompts.rag_prompt import EXCERPT_LABEL, RAG_PROMPT_TEMPLATE
 from ..utils.error_classification import describe_error
+from .modules import module_name, module_root
 
 logger = logging.getLogger(__name__)
 
 
-def _format_docs(docs: list[Document]) -> str:
-    """Format retrieved documents into a single string."""
-    return "\n\n---\n\n".join(doc.page_content for doc in docs)
+def format_excerpts(docs: Sequence[Document], root: str | None = None) -> str:
+    """Join retrieved chunks into the code context of a section prompt.
+
+    Each chunk is headed by the module it comes from, so a section can name
+    the code it describes instead of referring to "the code shown".
+
+    Args:
+        docs: Retrieved chunks
+        root: The directory module names start from (see module_root)
+
+    Returns:
+        The labeled chunks, separated by rules
+    """
+    excerpts = []
+    for doc in docs:
+        source = doc.metadata.get("source")
+        if source:
+            label = EXCERPT_LABEL.format(module=module_name(source, root))
+            excerpts.append(f"{label}\n{doc.page_content}")
+        else:
+            excerpts.append(doc.page_content)
+    return "\n\n---\n\n".join(excerpts)
 
 
 def format_entity_document(entity) -> str:
@@ -192,9 +213,13 @@ class RAGPipelineFactory:
             retriever = self._create_retriever(self._vector_store)
 
             rag_prompt = ChatPromptTemplate.from_template(RAG_PROMPT_TEMPLATE)
+            root = module_root(str(source_dir)) if source_dir else None
 
             rag_chain = (
-                {"context": retriever | _format_docs, "question": RunnablePassthrough()}
+                {
+                    "context": retriever | partial(format_excerpts, root=root),
+                    "question": RunnablePassthrough(),
+                }
                 | rag_prompt
                 | self.llm
                 | StrOutputParser()

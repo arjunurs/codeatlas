@@ -15,7 +15,7 @@ from langchain_core.runnables import Runnable
 from ..cache.content_cache import SectionContentCache
 from ..config import GeneratorConfig
 from ..models.file_analysis import FileAnalysis
-from ..prompts.rag_prompt import RAG_PROMPT_TEMPLATE
+from ..prompts.rag_prompt import EXCERPT_LABEL, RAG_PROMPT_TEMPLATE
 from ..prompts.sections import get_section_prompt, select_sections
 from ..utils.cost_tracker import CostTracker
 from ..utils.error_classification import describe_error
@@ -220,13 +220,15 @@ class SectionOrchestrator:
     def _generation_settings(self) -> str:
         """The settings besides the model and prompt that shape a section's text.
 
-        That is the template every section prompt is wrapped in, what the
-        retriever puts in it, and how long the answer may be.
+        That is the template every section prompt is wrapped in, how code
+        excerpts are labeled in it, what the retriever puts in it, and how
+        long the answer may be.
         """
         config = self.config
         return "\n".join(
             [
                 RAG_PROMPT_TEMPLATE,
+                EXCERPT_LABEL,
                 f"retriever k={config.RETRIEVER_K} "
                 f"search={config.RETRIEVER_SEARCH_TYPE} "
                 f"threshold={config.RETRIEVER_SCORE_THRESHOLD} "

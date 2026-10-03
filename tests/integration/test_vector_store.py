@@ -6,6 +6,7 @@ traffic.
 """
 
 import logging
+import re
 from typing import ClassVar
 
 import pytest
@@ -272,6 +273,17 @@ def test_default_retrieval_skips_a_near_duplicate(retrieved_prompt):
 
     assert "alpha_function" in prompt
     assert "beta_function" in prompt
+
+
+def test_prompt_names_the_module_of_each_excerpt(retrieved_prompt):
+    """Each retrieved excerpt is headed by its module, so a section can name it."""
+    prompt = retrieved_prompt(RETRIEVER_K=2)
+
+    for module in ("alpha", "beta"):
+        assert re.search(
+            rf"Module: {module}\n(def {module}_function|Type: \w+\nName: {module}_function)",
+            prompt,
+        )
 
 
 def test_score_threshold_drops_chunks_below_it(retrieved_prompt):

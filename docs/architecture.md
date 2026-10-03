@@ -81,7 +81,9 @@ Overview's 10 chunks with those copies (45 near-duplicate pairs among them, agai
 MMR). `--retriever-search-type similarity` selects plain similarity search, as a score threshold
 (`--retriever-score-threshold`) does. The retriever searches with the section's whole prompt.
 Short per-section queries were tried and dropped: they matched the one-line summaries of
-classes without docstrings, and retrieved a third as much code.
+classes without docstrings, and retrieved a third as much code. Each chunk reaches the prompt
+headed by its module (`Module: flask.app`), so a section can name the code it describes; without
+the label, sections on Flask wrote "the module imports" and "the code shown".
 
 **Dependency manifests.** Only Python files are indexed, so the Dependencies section is also
 given the project's manifests: `pyproject.toml`, `setup.cfg`, and `requirements*.txt`, from the

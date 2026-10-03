@@ -192,6 +192,25 @@ def test_changing_the_rag_template_regenerates_cached_section(tmp_path, monkeypa
     assert changed == "content 2"
 
 
+def test_changing_the_excerpt_label_regenerates_cached_section(tmp_path, monkeypatch):
+    """How each code excerpt is labeled in the prompt is part of the cache key."""
+    cache = SectionContentCache(tmp_path)
+    calls: list[str] = []
+    chain = counting_chain(calls)
+    cached_orchestrator(cache, "claude-sonnet-5")._generate_section_with_cache(
+        chain, "Overview"
+    )
+
+    monkeypatch.setattr(
+        "docgen.core.section_orchestrator.EXCERPT_LABEL", "File: {module}"
+    )
+    changed = cached_orchestrator(
+        cache, "claude-sonnet-5"
+    )._generate_section_with_cache(chain, "Overview")
+
+    assert changed == "content 2"
+
+
 def test_force_refresh_regenerates_and_still_caches(tmp_path):
     """force_refresh ignores cached content but caches the fresh result."""
     cache = SectionContentCache(tmp_path)

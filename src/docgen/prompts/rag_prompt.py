@@ -1,11 +1,14 @@
 """RAG prompt template for documentation generation."""
 
+# First line of each code excerpt in a prompt's context
+EXCERPT_LABEL = "Module: {module}"
+
 RAG_PROMPT_TEMPLATE = """You are a senior software architect and technical writer analyzing a Python codebase.
 
 Your task: Create clear, accurate, and actionable documentation from the provided code context.
 
 ## Guidelines:
-1. **Be Specific**: Reference actual code with proper formatting (`ClassName`, `method_name()`, `module.function()`)
+1. **Be Specific**: Reference actual code with proper formatting (`ClassName`, `method_name()`, `module.function()`). Each excerpt starts with the module it comes from; name that module when you describe its code
 2. **Be Accurate**: Describe only behavior the context shows. Do not infer what code does from its names, and avoid speculation
 3. **Explain WHY**: Don't just describe WHAT the code does - explain the reasoning, design decisions, and trade-offs
 4. **Use Examples**: Include concrete usage examples and patterns from the actual codebase
