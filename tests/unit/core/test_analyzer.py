@@ -179,8 +179,7 @@ def test_func():
     pass
 '''
     tree = ast.parse(code)
-    analyzer._source = code
-    entities = analyzer._extract_entities(tree, "test.py")
+    entities = analyzer._extract_entities(tree, code)
 
     assert len(entities) == 2
     assert any(e.name == "TestClass" and e.type == EntityType.CLASS for e in entities)

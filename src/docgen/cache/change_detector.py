@@ -89,7 +89,8 @@ class FileChangeDetector:
             ChangeDetectionResult with changed/new/deleted files
         """
         # First run - everything is new
-        if self.cache_metadata is None:
+        metadata = self.cache_metadata
+        if metadata is None:
             return ChangeDetectionResult(
                 changed_files=set(),
                 new_files={
@@ -106,10 +107,12 @@ class FileChangeDetector:
 
         # Detect changes based on strategy
         if strategy == ChangeDetectionStrategy.GIT:
-            return self._detect_via_git(current_files)
+            return self._detect_via_git(current_files, metadata)
         else:
             return self._detect_via_filesystem(
-                current_files, hash_only=(strategy == ChangeDetectionStrategy.HASH_ONLY)
+                current_files,
+                metadata,
+                hash_only=(strategy == ChangeDetectionStrategy.HASH_ONLY),
             )
 
     def _choose_strategy(self) -> ChangeDetectionStrategy:
@@ -135,17 +138,20 @@ class FileChangeDetector:
         """Get current git commit hash."""
         return self._git.get_current_commit()
 
-    def _detect_via_git(self, current_files: list[Path]) -> ChangeDetectionResult:
+    def _detect_via_git(
+        self, current_files: list[Path], metadata: CacheMetadata
+    ) -> ChangeDetectionResult:
         """Detect changes using git diff.
 
         Args:
             current_files: List of current Python files
+            metadata: The previous run's cache metadata
 
         Returns:
             ChangeDetectionResult
         """
         current_commit = self._get_current_git_commit()
-        cached_commit = self.cache_metadata.git_commit if self.cache_metadata else None
+        cached_commit = metadata.git_commit
 
         changed_files = set()
 
@@ -163,26 +169,28 @@ class FileChangeDetector:
                 logger.warning(
                     "Git diff returned no results, falling back to filesystem detection"
                 )
-                return self._detect_via_filesystem(current_files)
+                return self._detect_via_filesystem(current_files, metadata)
         else:
             # No cached commit or current commit - fall back
             logger.debug("No git commit info, falling back to filesystem detection")
-            return self._detect_via_filesystem(current_files)
+            return self._detect_via_filesystem(current_files, metadata)
 
         # Categorize files
         return self._categorize_files(
-            current_files, changed_files, ChangeDetectionStrategy.GIT
+            current_files, metadata, changed_files, ChangeDetectionStrategy.GIT
         )
 
     def _detect_via_filesystem(
         self,
         current_files: list[Path],
+        metadata: CacheMetadata,
         hash_only: bool = False,
     ) -> ChangeDetectionResult:
         """Detect changes using filesystem metadata.
 
         Args:
             current_files: List of current Python files
+            metadata: The previous run's cache metadata
             hash_only: If True, always compute hash (skip mtime check)
 
         Returns:
@@ -194,7 +202,7 @@ class FileChangeDetector:
             relative_path = file_path.relative_to(self.source_dir).as_posix()
 
             # Check if we have cached metadata
-            cached_meta = self.cache_metadata.file_metadata.get(relative_path)
+            cached_meta = metadata.file_metadata.get(relative_path)
 
             if cached_meta is None:
                 # New file
@@ -216,11 +224,12 @@ class FileChangeDetector:
             if hash_only
             else ChangeDetectionStrategy.FILESYSTEM
         )
-        return self._categorize_files(current_files, changed_files, strategy)
+        return self._categorize_files(current_files, metadata, changed_files, strategy)
 
     def _categorize_files(
         self,
         current_files: list[Path],
+        metadata: CacheMetadata,
         changed_files: set[str],
         strategy: ChangeDetectionStrategy,
     ) -> ChangeDetectionResult:
@@ -228,6 +237,7 @@ class FileChangeDetector:
 
         Args:
             current_files: List of current files
+            metadata: The previous run's cache metadata
             changed_files: Set of relative paths that changed
             strategy: Strategy used for detection
 
@@ -240,7 +250,7 @@ class FileChangeDetector:
         }
 
         # Get all cached relative paths
-        cached_relative = set(self.cache_metadata.file_metadata.keys())
+        cached_relative = set(metadata.file_metadata.keys())
 
         # Categorize
         new_files = current_relative - cached_relative

@@ -189,7 +189,7 @@ class RAGPipelineFactory:
                     client=in_memory_chroma_client(),
                 )
 
-            retriever = self._create_retriever()
+            retriever = self._create_retriever(self._vector_store)
 
             rag_prompt = ChatPromptTemplate.from_template(RAG_PROMPT_TEMPLATE)
 
@@ -210,10 +210,10 @@ class RAGPipelineFactory:
                 f"Failed to create vector store: {describe_error(e)}"
             ) from e
 
-    def _create_retriever(self):
-        """Create a retriever with configurable search parameters."""
+    def _create_retriever(self, vector_store: Chroma):
+        """Create a retriever over the store, with the configured search."""
         if self.config.RETRIEVER_SEARCH_TYPE == "mmr":
-            retriever = self._vector_store.as_retriever(
+            retriever = vector_store.as_retriever(
                 search_type="mmr",
                 search_kwargs={
                     "k": self.config.RETRIEVER_K,
@@ -227,7 +227,7 @@ class RAGPipelineFactory:
                 f"lambda_mult={self.config.RETRIEVER_LAMBDA_MULT}"
             )
         elif self.config.RETRIEVER_SCORE_THRESHOLD:
-            retriever = self._vector_store.as_retriever(
+            retriever = vector_store.as_retriever(
                 search_type="similarity_score_threshold",
                 search_kwargs={
                     "score_threshold": self.config.RETRIEVER_SCORE_THRESHOLD,
@@ -239,7 +239,7 @@ class RAGPipelineFactory:
                 f"threshold={self.config.RETRIEVER_SCORE_THRESHOLD}"
             )
         else:
-            retriever = self._vector_store.as_retriever(
+            retriever = vector_store.as_retriever(
                 search_type="similarity",
                 search_kwargs={"k": self.config.RETRIEVER_K},
             )

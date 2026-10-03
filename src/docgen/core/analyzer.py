@@ -8,7 +8,7 @@ import ast
 import fnmatch
 import logging
 import os
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 
 from ..config import DEFAULT_CONFIG
 from ..exceptions.errors import CodeParseError, FileEncodingError
@@ -61,7 +61,6 @@ class CodeAnalyzer:
         """
         self.skip_validation = skip_validation
         self.encoding = encoding or DEFAULT_CONFIG.DEFAULT_FILE_ENCODING
-        self._source: str | None = None
         self._analyzed_directory: str | None = None
         self._exclude_patterns: list[str] = []
 
@@ -82,7 +81,7 @@ class CodeAnalyzer:
 
         try:
             with open(file_path, encoding=self.encoding) as f:
-                self._source = f.read()
+                source = f.read()
         except UnicodeDecodeError as e:
             raise FileEncodingError(
                 f"Failed to decode {file_path} with encoding {self.encoding}: {e}"
@@ -90,19 +89,19 @@ class CodeAnalyzer:
         except OSError as e:
             raise CodeParseError(f"Failed to read {file_path}: {e}") from e
 
-        if not self._source and os.path.basename(file_path) != "__init__.py":
+        if not source and os.path.basename(file_path) != "__init__.py":
             raise CodeParseError(f"File is empty: {file_path}")
 
         try:
-            tree = ast.parse(self._source)
-            entities = self._extract_entities(tree, file_path)
+            tree = ast.parse(source)
+            entities = self._extract_entities(tree, source)
             imports = self._extract_imports(tree)
 
             return FileAnalysis(
                 file_path=os.path.abspath(file_path),
                 entities=entities,
                 imports=imports,
-                content=self._source,
+                content=source,
                 _skip_validation=self.skip_validation,
             )
         # ValueError covers a null byte on Python 3.10 and 3.11 (a SyntaxError
@@ -314,7 +313,7 @@ class CodeAnalyzer:
         return dependencies
 
     def analyze_function_calls(
-        self, analyses: list[FileAnalysis]
+        self, analyses: Sequence[FileAnalysis]
     ) -> dict[str, set[str]]:
         """Analyze function call relationships between entities.
 
@@ -383,12 +382,12 @@ class CodeAnalyzer:
 
         return call_graph
 
-    def _extract_entities(self, tree: ast.AST, file_path: str) -> list[CodeEntity]:
+    def _extract_entities(self, tree: ast.AST, source: str) -> list[CodeEntity]:
         """Extract code entities from an AST.
 
         Args:
             tree: AST to extract entities from
-            file_path: Path to the source file
+            source: The source code the AST was parsed from
 
         Returns:
             List of CodeEntity objects
@@ -407,7 +406,7 @@ class CodeAnalyzer:
                         methods.append(item.name)
 
                 # Get source code
-                source_lines = ast.get_source_segment(self._source, node)
+                source_lines = ast.get_source_segment(source, node)
                 if source_lines is None:
                     source_lines = ""
 
@@ -431,7 +430,7 @@ class CodeAnalyzer:
 
             elif isinstance(node, ast.FunctionDef):
                 docstring = ast.get_docstring(node) or ""
-                source_lines = ast.get_source_segment(self._source, node)
+                source_lines = ast.get_source_segment(source, node)
                 if source_lines is None:
                     source_lines = ""
 

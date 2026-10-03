@@ -106,10 +106,11 @@ class VectorStoreCache:
         self.vector_dir = self.cache_dir / "chromadb"
 
         # Load or create cache metadata
-        self.metadata = CacheMetadata.load(self.cache_dir)
-        if self.metadata is None or force_refresh:
+        metadata = CacheMetadata.load(self.cache_dir)
+        if metadata is None or force_refresh:
             logger.debug("Creating new cache metadata")
-            self.metadata = CacheMetadata.create_for_project(self.source_dir)
+            metadata = CacheMetadata.create_for_project(self.source_dir)
+        self.metadata = metadata
 
     def get_or_create_vector_store(
         self,

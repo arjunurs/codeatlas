@@ -7,6 +7,7 @@ for code documentation.
 import logging
 import os
 import re
+from collections.abc import Sequence
 
 from ..exceptions.errors import DiagramGenerationError, DiagramValidationError
 from ..models.code_entity import EntityType
@@ -231,7 +232,7 @@ class DiagramGenerator:
                 # Flowchart/graph diagrams support node definitions
                 diagram.append(f'    truncation_notice["{note_text}"]')
 
-    def generate_class_diagram(self, analyses: list[FileAnalysis]) -> str:
+    def generate_class_diagram(self, analyses: Sequence[FileAnalysis]) -> str:
         """Generate a class diagram from file analyses.
 
         Args:
@@ -466,7 +467,7 @@ class DiagramGenerator:
 
         return diagram_content
 
-    def generate_architecture_diagram(self, analyses: list[FileAnalysis]) -> str:
+    def generate_architecture_diagram(self, analyses: Sequence[FileAnalysis]) -> str:
         """Generate an architecture diagram showing module relationships.
 
         Args:
