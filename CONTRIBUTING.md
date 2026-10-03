@@ -97,9 +97,15 @@ Tests run **manually** before push (not on every commit) to keep commits fast (0
 
 ### Enforced by Pre-Commit Hooks
 
-- **Ruff** (lint) - Checks code quality, imports, naming conventions
-- **Ruff Format** - Formats code consistently
-- **Ty** (type check) - Validates type annotations (non-blocking)
+`.pre-commit-config.yaml` runs these on staged files:
+
+- **ruff-check** (with `--fix`) - lint rules `E`, `F`, `I`, `N`, `W`, `UP` from `pyproject.toml`
+- **ruff-format** - formatting
+- **ty** - type check of `src/`; non-blocking, it reports but never fails a commit
+
+The hook's ruff `rev` must match the ruff version in `uv.lock`, which CI uses through
+`uv run`. A mismatch lets a commit fail locally on code that CI accepts, or the reverse. After
+upgrading ruff, update the `rev` and run `uv run pre-commit run --all-files`.
 
 ### Manual Commands
 
@@ -220,9 +226,9 @@ codeatlas/
 │   └── cache/               # Caching system
 ├── tests/                   # Test suite
 ├── docs/                    # Documentation
-│   ├── features/            # Feature docs
-│   ├── design/              # Design decisions
-│   └── development/         # Developer guides
+│   ├── architecture.md      # How the pipeline works, decisions, cost, limits
+│   ├── design/              # Design proposals
+│   └── images/              # README screenshot
 └── pyproject.toml           # Project configuration
 ```
 
@@ -233,9 +239,9 @@ codeatlas/
 | File | Update When |
 |------|-------------|
 | `README.md` | Changing installation, CLI usage, or features |
-| `docs/features/` | Adding or modifying features |
-| `docs/design/` | Making architectural decisions |
-| `docs/development/` | Changing development processes |
+| `docs/architecture.md` | Changing the pipeline, caching, providers, or failure behavior |
+| `docs/design/` | Proposing a significant design change |
+| `CONTRIBUTING.md` | Changing the development workflow or tooling |
 
 ### Documentation Style
 
@@ -291,7 +297,5 @@ By contributing, you agree that your contributions will be licensed under the MI
 
 ## Additional Resources
 
-- [Pre-Commit Hooks Setup Guide](docs/development/pre-commit.md)
-- [Cost Optimization Design](docs/design/cost-optimization.md)
-- [Diagrams-Only Feature](docs/features/diagrams-only.md)
-- [Implementation Notes](docs/development/implementation.md)
+- [Architecture](docs/architecture.md): pipeline, design decisions, caching, cost, and limits
+- [Agent-enhanced design proposal](docs/design/agentic-architecture.md) (not implemented)

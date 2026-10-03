@@ -93,7 +93,8 @@ cache control, and retrieval tuning (`--retriever-k`, MMR search).
 5. **Render**: convert the Markdown to HTML, sanitize it, and render the site with Jinja
    templates.
 
-More detail: [architecture notes](docs/architecture/architecture-docs.html).
+More detail, including design decisions, caching, measured cost, and failure behavior:
+[docs/architecture.md](docs/architecture.md).
 
 ## Limitations
 
@@ -124,11 +125,8 @@ There are 400+ unit and integration tests with about 89% line coverage. CI runs 
 tests on Python 3.10 to 3.13. See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and code
 style.
 
-More documentation:
-[diagrams-only mode](docs/features/diagrams-only.md),
-[cost optimization](docs/design/cost-optimization.md),
-[pre-commit hooks](docs/development/pre-commit.md),
-[implementation notes](docs/development/implementation.md).
+A design proposal for agent-enhanced generation is in
+[docs/design/agentic-architecture.md](docs/design/agentic-architecture.md).
 
 ## License
 

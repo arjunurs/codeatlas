@@ -1,5 +1,8 @@
 # Agentic Architecture Design
 
+> **Status: design proposal, not implemented.** The current pipeline is described in
+> [architecture.md](../architecture.md).
+>
 > Design document for evolving the documentation generator from a fixed RAG pipeline
 > to an agent-enhanced architecture.
 
@@ -41,7 +44,7 @@ Source Directory
 3. For each section, the chain is invoked with the section's static prompt as the "question"
 4. The retriever returns the top-k documents by similarity to the section prompt
 5. The LLM generates content from those documents + the prompt
-6. No feedback loop — whatever comes back is the final output
+6. No feedback loop: whatever comes back is the final output
 
 ### Limitations
 
@@ -54,16 +57,23 @@ Source Directory
 | **Cross-reference is bolted on** | `_cross_reference_preprocessor` manually injects pre-analyzed data into the prompt string. This pattern doesn't scale to other sections that could benefit from structured analysis. |
 | **No iterative depth** | The LLM gets one shot. If it mentions a class but lacks detail, it cannot go back and retrieve more about that specific class. |
 
+**Measured evidence.** On FastAPI's package (52 files), five agents fact-checked the generated
+sections against the source: 87% of checkable claims were correct and no API was invented, but
+each section described only what its 10 retrieved chunks showed. Four of five over-weighted the
+same routing internals, the Overview called the package "three major subsystems" because three
+modules were retrieved, and several sections ended by noting what context they lacked. Adaptive
+retrieval (Phase 1) and a planning pass (Phase 2) target exactly these failures.
+
 ---
 
 ## Proposed Architecture: Agent-Enhanced Pipeline
 
 ### Design Principles
 
-1. **Keep what works** — AST analysis, diagram generation, caching, and HTML rendering stay as-is
-2. **Add intelligence where it matters** — retrieval, section planning, and quality assurance
-3. **Predictable cost** — bound agent loops to avoid runaway API costs
-4. **Incremental adoption** — each phase is independently valuable and deployable
+1. **Keep what works**: AST analysis, diagram generation, caching, and HTML rendering stay as-is
+2. **Add intelligence where it matters**: retrieval, section planning, and quality assurance
+3. **Predictable cost**: bound agent loops to avoid runaway API costs
+4. **Incremental adoption**: each phase is independently valuable and deployable
 
 ### Architecture Overview
 
@@ -73,7 +83,7 @@ Source Directory
     → FileAnalysis[]
     → CodeDocumentationGenerator (orchestrator)
         ├── DiagramGenerator (unchanged)
-        ├── RAGPipelineFactory (unchanged — still builds vector store)
+        ├── RAGPipelineFactory (unchanged: still builds vector store)
         │
         ├── NEW: PlanningAgent
         │       Input:  codebase summary, file list, entity list
@@ -218,19 +228,19 @@ class AdaptiveRetriever:
 
 #### Changes to Existing Code
 
-- `RAGPipelineFactory.create_rag_chain` — expose the vector store and retriever separately instead of only returning the composed chain
-- `SectionOrchestrator._generate_section` — use `AdaptiveRetriever` instead of invoking the fixed chain
+- `RAGPipelineFactory.create_rag_chain`: expose the vector store and retriever separately instead of only returning the composed chain
+- `SectionOrchestrator._generate_section`: use `AdaptiveRetriever` instead of invoking the fixed chain
 - Section prompts remain unchanged; only retrieval changes
 
 #### Files Modified
 
 | File | Change |
 |---|---|
-| `src/docgen/core/adaptive_retriever.py` | New — adaptive retrieval logic |
+| `src/docgen/core/adaptive_retriever.py` | New: adaptive retrieval logic |
 | `src/docgen/core/rag_pipeline.py` | Expose vector store; add method to create retriever per strategy |
 | `src/docgen/core/section_orchestrator.py` | Accept and use `AdaptiveRetriever` |
 | `src/docgen/prompts/sections.py` | Add `RetrievalStrategy` definitions alongside prompts |
-| `tests/unit/core/test_adaptive_retriever.py` | New — unit tests |
+| `tests/unit/core/test_adaptive_retriever.py` | New: unit tests |
 
 ---
 
@@ -293,7 +303,7 @@ class PlanningAgent:
     def create_plan(self, analyses: list[FileAnalysis]) -> DocumentationPlan:
         """Analyze the codebase and create a documentation plan."""
         summary = self._build_codebase_summary(analyses)
-        # Single LLM call — structured output
+        # Single LLM call: structured output
         response = self.llm.invoke(self.PLANNING_PROMPT.format(**summary))
         return self._parse_plan(response)
 ```
@@ -319,11 +329,11 @@ PlanningAgent
 
 | File | Change |
 |---|---|
-| `src/docgen/core/planning_agent.py` | New — planning agent |
-| `src/docgen/models/documentation_plan.py` | New — plan dataclasses |
+| `src/docgen/core/planning_agent.py` | New: planning agent |
+| `src/docgen/models/documentation_plan.py` | New: plan dataclasses |
 | `src/docgen/core/section_orchestrator.py` | Accept `DocumentationPlan`, use it for section filtering and context |
 | `src/docgen/core/generator.py` | Call planning agent before section generation |
-| `tests/unit/core/test_planning_agent.py` | New — unit tests |
+| `tests/unit/core/test_planning_agent.py` | New: unit tests |
 
 ---
 
@@ -331,7 +341,7 @@ PlanningAgent
 
 **Goal:** Give each section the ability to gather additional context on-demand rather than relying solely on pre-retrieved documents.
 
-**Current state:** Each section gets one RAG chain invocation — the LLM cannot ask for more information.
+**Current state:** Each section gets one RAG chain invocation: the LLM cannot ask for more information.
 
 **Proposed change:** Wrap section generation in a lightweight agent loop with tool access.
 
@@ -414,7 +424,7 @@ class SectionAgent:
             response = self.llm.invoke(messages, tools=self._tool_schemas())
 
             if not response.tool_calls:
-                # LLM is satisfied — return the content
+                # LLM is satisfied: return the content
                 return response.content
 
             # Execute tool calls
@@ -433,7 +443,7 @@ class SectionAgent:
 
 #### Cost Controls
 
-- `MAX_TOOL_CALLS = 3` per section — worst case is 4 LLM calls per section (1 initial + 3 tool iterations)
+- `MAX_TOOL_CALLS = 3` per section: worst case is 4 LLM calls per section (1 initial + 3 tool iterations)
 - Tools return truncated content (2000 chars max per file read)
 - The agent can choose to skip tool use entirely if initial context is sufficient
 
@@ -441,11 +451,11 @@ class SectionAgent:
 
 | File | Change |
 |---|---|
-| `src/docgen/core/section_agent.py` | New — section agent with tool loop |
-| `src/docgen/core/section_tools.py` | New — tool definitions |
+| `src/docgen/core/section_agent.py` | New: section agent with tool loop |
+| `src/docgen/core/section_tools.py` | New: tool definitions |
 | `src/docgen/core/section_orchestrator.py` | Use `SectionAgent` instead of direct chain invocation |
-| `src/docgen/prompts/agent_prompts.py` | New — system prompts for agent behavior |
-| `tests/unit/core/test_section_agent.py` | New — unit tests |
+| `src/docgen/prompts/agent_prompts.py` | New: system prompts for agent behavior |
+| `tests/unit/core/test_section_agent.py` | New: unit tests |
 
 ---
 
@@ -490,7 +500,7 @@ class CoherenceAgent:
 
 #### Cost
 
-- 1 LLM call for the review (all sections as input — uses the large context window)
+- 1 LLM call for the review (all sections as input: uses the large context window)
 - 0-N fix calls depending on issues found (typically 0-2)
 - Can be disabled via `--skip-review` flag for cost-sensitive runs
 
@@ -498,10 +508,10 @@ class CoherenceAgent:
 
 | File | Change |
 |---|---|
-| `src/docgen/core/coherence_agent.py` | New — review agent |
-| `src/docgen/models/coherence_report.py` | New — report dataclass |
+| `src/docgen/core/coherence_agent.py` | New: review agent |
+| `src/docgen/models/coherence_report.py` | New: report dataclass |
 | `src/docgen/core/generator.py` | Call coherence agent after section generation |
-| `tests/unit/core/test_coherence_agent.py` | New — unit tests |
+| `tests/unit/core/test_coherence_agent.py` | New: unit tests |
 
 ---
 
@@ -537,7 +547,7 @@ All agentic features are opt-in via CLI flags and config:
 @dataclass
 class AgentConfig:
     """Configuration for agentic features."""
-    adaptive_retrieval: bool = True       # Phase 1 (default on — no cost increase)
+    adaptive_retrieval: bool = True       # Phase 1 (default on: no cost increase)
     enable_planning: bool = False         # Phase 2
     enable_section_agents: bool = False   # Phase 3
     max_tool_calls_per_section: int = 3   # Phase 3 cost bound
@@ -563,7 +573,7 @@ docgen --source ./my_project --agent-mode full --max-tool-calls 1
 ### Backward Compatibility
 
 - All current CLI flags continue to work
-- Default behavior (no flags) uses Phase 1 only — no cost increase
+- Default behavior (no flags) uses Phase 1 only: no cost increase
 - `--dry-run` and `--diagrams-only` bypass all agentic features
 - Existing tests pass without modification
 - New features have their own test suites
@@ -579,8 +589,8 @@ docgen --source ./my_project --agent-mode full --max-tool-calls 1
 | **Current** | 0 | 5 | 0 | 0 | **5** |
 | **Phase 1** | 0 | 5 | 0 | 0 | **5** (same cost, better retrieval) |
 | **Phase 2** | 1 | 5 | 0 | 0 | **6** |
-| **Phase 3** | 1 | 5 | 0–15 | 0 | **6–21** (avg ~11) |
-| **Phase 4** | 1 | 5 | 0–15 | 1–3 | **7–24** (avg ~13) |
+| **Phase 3** | 1 | 5 | 0-15 | 0 | **6-21** (avg ~11) |
+| **Phase 4** | 1 | 5 | 0-15 | 1-3 | **7-24** (avg ~13) |
 
 ### Estimated Token Usage Increase
 
@@ -600,7 +610,7 @@ These components are correct by construction and benefit nothing from LLM involv
 
 | Component | Reason to Keep |
 |---|---|
-| `CodeAnalyzer` | AST parsing is deterministic and precise — agents add latency for no accuracy gain |
+| `CodeAnalyzer` | AST parsing is deterministic and precise: agents add latency for no accuracy gain |
 | `DiagramGenerator` | Mermaid output from structured data is reliable; LLM-generated diagrams have syntax errors |
 | `DiagramValidator` | Rule-based validation is complete and fast |
 | `VectorStoreCache` | Caching logic is orthogonal to generation strategy |
@@ -611,6 +621,6 @@ These components are correct by construction and benefit nothing from LLM involv
 
 ## Summary
 
-The current pipeline is solid for deterministic work (analysis, diagrams, rendering) but leaves quality on the table in the LLM-driven parts (retrieval, section generation, coherence). The proposed hybrid approach adds intelligence where it matters — retrieval targeting, dynamic planning, tool-augmented generation, and cross-section review — while keeping the reliable deterministic components intact.
+The current pipeline is solid for deterministic work (analysis, diagrams, rendering) but leaves quality on the table in the LLM-driven parts (retrieval, section generation, coherence). The proposed hybrid approach adds intelligence where it matters (retrieval targeting, dynamic planning, tool-augmented generation, and cross-section review) while keeping the reliable deterministic components intact.
 
 Phase 1 (adaptive retrieval) is the highest-ROI change: better output with zero additional LLM calls. Each subsequent phase trades cost for quality, with feature flags allowing users to choose their cost/quality tradeoff.
