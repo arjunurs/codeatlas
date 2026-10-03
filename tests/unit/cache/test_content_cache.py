@@ -1,8 +1,14 @@
 """Unit tests for section content caching."""
 
+from dataclasses import replace
+
 import pytest
 
-from docgen.cache.content_cache import SectionCacheEntry, SectionContentCache
+from docgen.cache.content_cache import (
+    SectionCacheEntry,
+    SectionContentCache,
+    _normalize_section_name,
+)
 from docgen.models.code_entity import CodeEntity, EntityType
 from docgen.models.file_analysis import FileAnalysis
 
@@ -195,6 +201,25 @@ def test_section_cache_stats(tmp_path, sample_analyses):
     assert stats["total_size_bytes"] > 0
     assert "overview" in stats["sections"]
     assert "dependencies" in stats["sections"]
+
+
+def test_cross_reference_section_depends_on_all_code(tmp_path, sample_analyses):
+    """Its prompt carries usage data from every file, so any code change counts."""
+    name = "Cross-Reference Documentation"
+    assert _normalize_section_name(name) == "cross_reference_documentation"
+    assert SectionContentCache.SECTION_DEPENDENCIES[_normalize_section_name(name)] == (
+        "all"
+    )
+
+    cache = SectionContentCache(tmp_path)
+    edited = [
+        replace(sample_analyses[0], content="def hello():\n    return 1\n"),
+        sample_analyses[1],
+    ]
+    assert (
+        cache.get_section_hash(name, edited)[0]
+        != cache.get_section_hash(name, sample_analyses)[0]
+    )
 
 
 def test_section_hash_covers_model_and_prompt(tmp_path, sample_analyses):

@@ -57,18 +57,20 @@ class SectionCacheEntry:
 def _normalize_section_name(name: str) -> str:
     """Normalize section name for dependency lookup.
 
-    Converts "Key Classes and Functions" -> "key_classes_functions"
+    Converts "Key Classes and Functions" to "key_classes_functions", and
+    "Cross-Reference Documentation" to "cross_reference_documentation".
     """
-    return name.lower().replace(" ", "_").replace("_and_", "_")
+    return name.lower().replace("-", "_").replace(" ", "_").replace("_and_", "_")
 
 
 class SectionContentCache:
     """Manages caching of generated documentation section content.
 
     Each section's content is cached with a hash of its code dependencies, the
-    model that generated it, and the exact prompt. When files change, only
-    sections that depend on those files are regenerated; changing the model or
-    a prompt regenerates the affected sections.
+    model that generated it, the exact prompt, and the settings that shape the
+    text (see SectionOrchestrator). When files change, only sections that
+    depend on those files are regenerated; changing the model, a prompt, or a
+    setting regenerates the affected sections.
     """
 
     # Define which files each section type depends on (use normalized names)
@@ -81,7 +83,8 @@ class SectionContentCache:
         # Optional sections
         "migration_guidance": "all",
         "code_quality_insights": "all",
-        "cross_reference_documentation": "entities",
+        # Its prompt carries usage data drawn from every file's code
+        "cross_reference_documentation": "all",
     }
 
     def __init__(self, cache_dir: Path):
@@ -125,6 +128,7 @@ class SectionContentCache:
         *,
         model: str = "",
         prompt: str = "",
+        settings: str = "",
     ) -> tuple[str, set[str]]:
         """Compute hash for a section from its dependencies, model, and prompt.
 
@@ -133,6 +137,7 @@ class SectionContentCache:
             analyses: List of file analyses
             model: Model that generates the section
             prompt: Exact prompt sent for the section
+            settings: Other settings that shape the section's text
 
         Returns:
             Tuple of (content hash, set of dependency file paths)
@@ -142,8 +147,8 @@ class SectionContentCache:
         hasher = hashlib.sha256()
         dependency_files = set()
 
-        # Separators keep the model and prompt from running into each other
-        for part in (model, prompt):
+        # Separators keep the parts from running into each other
+        for part in (model, prompt, settings):
             hasher.update(part.encode())
             hasher.update(b"\0")
 
@@ -174,6 +179,7 @@ class SectionContentCache:
         *,
         model: str = "",
         prompt: str = "",
+        settings: str = "",
     ) -> str | None:
         """Get cached content for a section if valid.
 
@@ -182,6 +188,7 @@ class SectionContentCache:
             analyses: Current file analyses
             model: Model that would generate the section
             prompt: Exact prompt that would be sent for the section
+            settings: Other settings that would shape the section's text
 
         Returns:
             Cached content if valid, None otherwise
@@ -192,7 +199,7 @@ class SectionContentCache:
 
         # Compute current hash
         current_hash, _ = self.get_section_hash(
-            section_name, analyses, model=model, prompt=prompt
+            section_name, analyses, model=model, prompt=prompt, settings=settings
         )
 
         # Check if cached hash matches
@@ -212,6 +219,7 @@ class SectionContentCache:
         *,
         model: str = "",
         prompt: str = "",
+        settings: str = "",
     ) -> None:
         """Cache generated section content.
 
@@ -221,9 +229,10 @@ class SectionContentCache:
             analyses: File analyses used to generate content
             model: Model that generated the content
             prompt: Exact prompt sent for the section
+            settings: Other settings that shaped the section's text
         """
         content_hash, dependency_files = self.get_section_hash(
-            section_name, analyses, model=model, prompt=prompt
+            section_name, analyses, model=model, prompt=prompt, settings=settings
         )
 
         entry = SectionCacheEntry(

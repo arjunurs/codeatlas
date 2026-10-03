@@ -1,6 +1,7 @@
 """Unit tests for SectionOrchestrator."""
 
 import logging
+from dataclasses import replace
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 
@@ -133,6 +134,57 @@ def test_changing_prompt_regenerates_cached_section(tmp_path):
 
     assert changed == "content 2"
     assert calls[1].endswith(" Be brief.")
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"RETRIEVER_K": 5},
+        {"RETRIEVER_SEARCH_TYPE": "mmr"},
+        {"RETRIEVER_SCORE_THRESHOLD": 0.5},
+        {"RETRIEVER_FETCH_K": 40},
+        {"RETRIEVER_LAMBDA_MULT": 0.9},
+        {"DEFAULT_MAX_OUTPUT_TOKENS": 4096},
+    ],
+)
+def test_changing_retrieval_or_output_settings_regenerates_cached_section(
+    tmp_path, change
+):
+    """Settings that shape a section's text are part of its cache key."""
+    cache = SectionContentCache(tmp_path)
+    calls: list[str] = []
+    chain = counting_chain(calls)
+
+    cached_orchestrator(cache, "claude-sonnet-5")._generate_section_with_cache(
+        chain, "Overview"
+    )
+    changed = SectionOrchestrator(
+        replace(DEFAULT_CONFIG, **change),
+        model_name="claude-sonnet-5",
+        section_cache=cache,
+        current_analyses=ANALYSES,
+    )._generate_section_with_cache(chain, "Overview")
+
+    assert changed == "content 2"
+
+
+def test_changing_the_rag_template_regenerates_cached_section(tmp_path, monkeypatch):
+    """The template that wraps every section prompt is part of the cache key."""
+    cache = SectionContentCache(tmp_path)
+    calls: list[str] = []
+    chain = counting_chain(calls)
+    cached_orchestrator(cache, "claude-sonnet-5")._generate_section_with_cache(
+        chain, "Overview"
+    )
+
+    monkeypatch.setattr(
+        "docgen.core.section_orchestrator.RAG_PROMPT_TEMPLATE", "{context}\n{question}"
+    )
+    changed = cached_orchestrator(
+        cache, "claude-sonnet-5"
+    )._generate_section_with_cache(chain, "Overview")
+
+    assert changed == "content 2"
 
 
 def test_force_refresh_regenerates_and_still_caches(tmp_path):

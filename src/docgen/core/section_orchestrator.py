@@ -15,6 +15,7 @@ from langchain_core.runnables import Runnable
 from ..cache.content_cache import SectionContentCache
 from ..config import GeneratorConfig
 from ..models.file_analysis import FileAnalysis
+from ..prompts.rag_prompt import RAG_PROMPT_TEMPLATE
 from ..prompts.sections import get_section_prompt, select_sections
 from ..utils.cost_tracker import CostTracker
 from ..utils.error_classification import describe_error
@@ -175,20 +176,23 @@ class SectionOrchestrator:
     ) -> str:
         """Generate a section, reusing cached content while it is still valid.
 
-        The cache key covers the section's code dependencies, the model, and the
-        exact prompt. With force_refresh, cached content is ignored but the
-        fresh result is still cached.
+        The cache key covers the section's code dependencies, the model, the
+        exact prompt, and the settings that shape the text. With
+        force_refresh, cached content is ignored but the fresh result is still
+        cached.
         """
         if not (self.section_cache and self.current_analyses):
             return self._generate_section(rag_chain, section_name)
 
         prompt = self._build_prompt(section_name)
+        settings = self._generation_settings()
         if not self.force_refresh:
             cached_content = self.section_cache.get_cached_section(
                 section_name,
                 self.current_analyses,
                 model=self.model_name,
                 prompt=prompt,
+                settings=settings,
             )
             if cached_content is not None:
                 if self.cost_tracker:
@@ -209,8 +213,28 @@ class SectionOrchestrator:
                 self.current_analyses,
                 model=self.model_name,
                 prompt=prompt,
+                settings=settings,
             )
         return content
+
+    def _generation_settings(self) -> str:
+        """The settings besides the model and prompt that shape a section's text.
+
+        That is the template every section prompt is wrapped in, what the
+        retriever puts in it, and how long the answer may be.
+        """
+        config = self.config
+        return "\n".join(
+            [
+                RAG_PROMPT_TEMPLATE,
+                f"retriever k={config.RETRIEVER_K} "
+                f"search={config.RETRIEVER_SEARCH_TYPE} "
+                f"threshold={config.RETRIEVER_SCORE_THRESHOLD} "
+                f"fetch_k={config.RETRIEVER_FETCH_K} "
+                f"lambda={config.RETRIEVER_LAMBDA_MULT}",
+                f"max_output_tokens={config.DEFAULT_MAX_OUTPUT_TOKENS}",
+            ]
+        )
 
     def _build_prompt(self, section_name: str) -> str:
         """Build the prompt for a section, applying registered preprocessors."""

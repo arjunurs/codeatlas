@@ -108,8 +108,8 @@ More detail, including design decisions, caching, measured cost, and failure beh
 - Full documentation needs keys from two providers: Anthropic for writing and OpenAI for
   embeddings.
 - Section text is LLM output. Review it before relying on it.
-- Changing the `--retriever-*` options does not invalidate cached sections. Use
-  `--force-refresh` after such changes.
+- Changing `--temperature` does not invalidate cached sections. Use `--force-refresh` after
+  changing it.
 - Directories named `build` or `dist` are skipped along with virtualenvs, as ruff does.
 - codeatlas is not published on PyPI, and the `codeatlas` name there belongs to an unrelated
   project. Install from GitHub: `pip install git+https://github.com/arjunurs/codeatlas.git`.

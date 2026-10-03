@@ -77,8 +77,8 @@ Design decisions, caching, measured cost, and failure behavior are in
   `--api-key-env .env`.
 - `pytest` addopts already include `-q` and a coverage report. Adding another `-q` hides the
   "N passed" summary.
-- The section cache key does not include the output token limit, the RAG wrapper template, or
-  the `--retriever-*` settings. After changing those, run once with `--force-refresh`.
+- The section cache key does not include `--temperature`. After changing it, run once with
+  `--force-refresh`.
 - `langchain-anthropic` retries twice on its own; the stop reason is in
   `message.response_metadata`.
 

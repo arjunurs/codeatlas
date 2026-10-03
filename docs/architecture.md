@@ -108,15 +108,15 @@ render time, diagram code is HTML-escaped, and Mermaid runs with `securityLevel:
   re-embedded and chunks of deleted files are removed. A file has changed when its size or
   modification time differs, or, when the time is too recent to trust, its content hash does;
   edits count whether or not they are committed.
-- **Level 2, sections.** A section is reused while its code dependencies, the model, and its exact
-  prompt are unchanged. Sections depend on different parts of the code (Overview on all content,
-  Dependencies on imports, Key Classes on entities), so an edit only regenerates the sections it
-  affects.
+- **Level 2, sections.** A section is reused while its code dependencies, the model, its exact
+  prompt, the prompt template it is wrapped in, the `--retriever-*` settings, and the output
+  token limit are unchanged. Sections depend on different parts of the code (Overview on all
+  content, Dependencies on imports, Key Classes on entities), so an edit only regenerates the
+  sections it affects.
 - `--force-refresh` rebuilds the vector store and regenerates every section; `--no-cache` skips
   both levels; `--clear-cache` deletes the project's cache.
 
-Known gap: the section key does not include the RAG wrapper template or the `--retriever-*`
-settings.
+Known gap: the section key does not include `--temperature`.
 
 ## Cost and latency
 
