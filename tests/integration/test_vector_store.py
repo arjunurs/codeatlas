@@ -8,9 +8,10 @@ traffic.
 import logging
 
 import pytest
+from langchain_core.embeddings import Embeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from docgen.config import DEFAULT_CONFIG
+from docgen.config import DEFAULT_CONFIG, GeneratorConfig
 from docgen.core.analyzer import CodeAnalyzer
 from docgen.core.rag_pipeline import RAGPipelineFactory
 
@@ -101,3 +102,86 @@ def test_force_refresh_reopens_the_store_with_the_same_settings(
 
     assert "Could not open existing vector store" not in caplog.text
     assert telemetry_enabled(store) is False
+
+
+class KeywordEmbeddings(Embeddings):
+    """Embeds each chunk by the function it mentions.
+
+    Queries sit closest to alpha_function (relevance 0.86) and further from
+    beta_function (0.72). Each file gives two chunks with the same vector, so
+    alpha's two chunks are exact near-duplicates of each other.
+    """
+
+    VECTORS = {
+        "alpha_function": [0.9, 0.43589, 0.0],
+        "beta_function": [0.8, 0.0, 0.6],
+    }
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self._vector(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return [1.0, 0.0, 0.0]
+
+    def _vector(self, text: str) -> list[float]:
+        for name, vector in self.VECTORS.items():
+            if name in text:
+                return vector
+        raise ValueError(f"No vector for chunk: {text!r}")
+
+
+@pytest.fixture
+def retrieved_prompt(tmp_path, fake_chat_model_with_usage):
+    """Run the RAG chain with given retriever settings; return the prompt sent."""
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "alpha.py").write_text("def alpha_function():\n    return 1\n")
+    (project / "beta.py").write_text("def beta_function():\n    return 2\n")
+    factories = []
+
+    def run(**retriever_settings) -> str:
+        factory = RAGPipelineFactory(
+            llm=fake_chat_model_with_usage,
+            embeddings=KeywordEmbeddings(),
+            config=GeneratorConfig(**retriever_settings),
+            text_splitter=RecursiveCharacterTextSplitter(
+                chunk_size=DEFAULT_CONFIG.CHUNK_SIZE,
+                chunk_overlap=DEFAULT_CONFIG.CHUNK_OVERLAP,
+            ),
+        )
+        factories.append(factory)
+        analyses = CodeAnalyzer().analyze_directory(str(project))
+        factory.create_rag_chain(analyses, source_dir=project).invoke(
+            "Describe the project"
+        )
+        return fake_chat_model_with_usage.prompts[-1]
+
+    yield run
+    for factory in factories:
+        factory.cleanup()
+
+
+def test_similarity_search_returns_the_nearest_chunks(retrieved_prompt):
+    """With k=2, similarity search returns alpha's two near-duplicate chunks."""
+    prompt = retrieved_prompt(RETRIEVER_K=2)
+
+    assert "alpha_function" in prompt
+    assert "beta_function" not in prompt
+
+
+def test_mmr_trades_a_near_duplicate_for_a_different_chunk(retrieved_prompt):
+    """With k=2, MMR returns one alpha chunk and the more different beta chunk."""
+    prompt = retrieved_prompt(
+        RETRIEVER_K=2, RETRIEVER_SEARCH_TYPE="mmr", RETRIEVER_FETCH_K=4
+    )
+
+    assert "alpha_function" in prompt
+    assert "beta_function" in prompt
+
+
+def test_score_threshold_drops_chunks_below_it(retrieved_prompt):
+    """With room for all four chunks, a 0.8 threshold still drops beta's."""
+    prompt = retrieved_prompt(RETRIEVER_SCORE_THRESHOLD=0.8)
+
+    assert "alpha_function" in prompt
+    assert "beta_function" not in prompt
