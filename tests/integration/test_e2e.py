@@ -12,10 +12,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from docgen.cli import main
+from docgen.config import CacheConfig, GenerationOptions
 from docgen.core.analyzer import CodeAnalyzer
 from docgen.core.generator import CodeDocumentationGenerator
 from docgen.exceptions.errors import ApiKeyError, DocumentationError
 from docgen.models.code_entity import EntityType
+from docgen.providers.base import BaseEmbeddingProvider, BaseLLMProvider
 from docgen.templates.html import get_template_manager
 
 SECTION_MARKDOWN = "## Summary\n\nThe calculator project adds **e2e-marker** numbers."
@@ -105,6 +107,47 @@ class TestCommandLineRun:
         summary = capsys.readouterr().out
         assert "Input tokens: 600" in summary
         assert "Output tokens: 150" in summary
+
+
+class TestPythonApiRun:
+    """Custom providers, written as CONTRIBUTING.md describes, run end to end."""
+
+    def test_custom_providers_generate_documentation(
+        self, tmp_path: Path, fake_chat_model_with_usage, fake_embeddings
+    ):
+        """Providers that only create their models are enough for a full run."""
+        chat_model = fake_chat_model_with_usage.model_copy(
+            update={"content": SECTION_MARKDOWN}
+        )
+
+        class LocalLLMProvider(BaseLLMProvider):
+            def _create_llm(self):
+                return chat_model
+
+        class LocalEmbeddingProvider(BaseEmbeddingProvider):
+            def _create_embeddings(self):
+                return fake_embeddings
+
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "calculator.py").write_text(CALCULATOR_SOURCE)
+        output = tmp_path / "output"
+
+        with CodeDocumentationGenerator.create(
+            llm_provider=LocalLLMProvider(api_key="unused", model="local-model"),
+            embedding_provider=LocalEmbeddingProvider(
+                api_key="unused", model="local-embeddings"
+            ),
+            generation_options=GenerationOptions(
+                selected_sections=["overview"], skip_diagrams=True
+            ),
+            cache_config=CacheConfig(enabled=False),
+        ) as generator:
+            generator.generate_documentation(str(project), str(output))
+
+        overview = (output / "sections" / "overview.html").read_text()
+        assert "<strong>e2e-marker</strong>" in overview
+        assert "def add_numbers" in chat_model.prompts[0]
 
 
 class TestGeneratorLifecycle:

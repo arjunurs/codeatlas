@@ -76,29 +76,6 @@ class TestAnthropicProvider:
             with pytest.raises(LLMError, match="Failed to create Anthropic LLM"):
                 provider.get_langchain_llm()
 
-    def test_invoke_success(self):
-        """Test successful invocation."""
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = "Generated response"
-
-        with patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm):
-            provider = AnthropicProvider(api_key="test-key")
-            result = provider.invoke("Test prompt")
-
-            mock_llm.invoke.assert_called_once_with("Test prompt")
-            assert result == "Generated response"
-
-    def test_invoke_failure(self):
-        """Test invocation failure raises LLMError."""
-        mock_llm = MagicMock()
-        mock_llm.invoke.side_effect = Exception("API error")
-
-        with patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm):
-            provider = AnthropicProvider(api_key="test-key")
-
-            with pytest.raises(LLMError, match="Failed to invoke Anthropic LLM"):
-                provider.invoke("Test prompt")
-
 
 def test_anthropicprovider_passes_max_tokens():
     """The output token limit reaches the LangChain chat model."""

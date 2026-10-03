@@ -78,8 +78,11 @@ is a natural next step, since the AST is already available.
 (`--retriever-search-type mmr`) when a codebase is repetitive and similarity returns
 near-duplicates.
 
-**Providers behind a protocol.** `LLMProvider` and `EmbeddingProvider` keep LangChain out of code
-that only needs to call a model; the RAG chain uses the extended `LangChain*Provider` protocols.
+**Providers supply LangChain models.** The RAG chain, the vector store, and usage tracking are
+all built on LangChain, so a provider's job is to configure and create the model: the
+`LLMProvider` and `EmbeddingProvider` protocols ask for a model name and a LangChain chat or
+embeddings model, nothing more. A new provider subclasses `BaseLLMProvider` or
+`BaseEmbeddingProvider` and implements one method that creates the model.
 Anthropic writes and OpenAI embeds by default; `--quality-mode` selects Claude Haiku, Sonnet, or
 Opus, and `--anthropic-model` overrides it. Each section call is capped at 8,192 output tokens,
 and a section that hits the cap is marked as cut off and not cached.

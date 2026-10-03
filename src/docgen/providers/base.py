@@ -1,7 +1,9 @@
-"""Abstract base classes for LLM and embedding providers.
+"""Provider interfaces for the chat and embedding models.
 
-This module defines the interfaces that all providers must implement,
-enabling provider-agnostic code in the documentation generator.
+The documentation pipeline is built on LangChain: the RAG chain, the Chroma
+vector store, and usage tracking all take LangChain models. A provider's job
+is to configure and create those models, so the protocols ask for exactly
+that.
 """
 
 from abc import ABC, abstractmethod
@@ -9,72 +11,40 @@ from typing import Protocol, runtime_checkable
 
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import BaseMessage
-
-from ..utils.error_classification import ERROR_PATTERNS, classify_api_error
-
-# Type alias for LLM responses - can be a message or string
-LLMResponse = BaseMessage | str
-
-# Re-export error classification for backward compatibility
-__all__ = ["ERROR_PATTERNS", "classify_api_error"]
 
 
 @runtime_checkable
 class LLMProvider(Protocol):
-    """Narrow protocol for LLM providers (no LangChain dependency)."""
+    """Supplies the LangChain chat model the RAG chain runs on."""
 
     @property
     def model_name(self) -> str:
-        """Get the name of the model being used."""
+        """Get the name of the model, used for pricing and cache keys."""
         ...
-
-    def invoke(self, prompt: str) -> LLMResponse:
-        """Invoke the LLM with a prompt."""
-        ...
-
-
-@runtime_checkable
-class LangChainLLMProvider(LLMProvider, Protocol):
-    """Extended LLM protocol that also exposes a LangChain chat model."""
 
     def get_langchain_llm(self) -> BaseChatModel:
-        """Get the underlying LangChain LLM instance."""
+        """Get the LangChain chat model."""
         ...
 
 
 @runtime_checkable
 class EmbeddingProvider(Protocol):
-    """Narrow protocol for embedding providers (no LangChain dependency)."""
+    """Supplies the LangChain embeddings model the vector store uses."""
 
     @property
     def model_name(self) -> str:
-        """Get the name of the embedding model being used."""
+        """Get the name of the embedding model, used for pricing."""
         ...
-
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        """Embed a list of documents."""
-        ...
-
-    def embed_query(self, text: str) -> list[float]:
-        """Embed a single query."""
-        ...
-
-
-@runtime_checkable
-class LangChainEmbeddingProvider(EmbeddingProvider, Protocol):
-    """Extended embedding protocol that also exposes LangChain embeddings."""
 
     def get_langchain_embeddings(self) -> Embeddings:
-        """Get the underlying LangChain embeddings instance."""
+        """Get the LangChain embeddings model."""
         ...
 
 
 class BaseLLMProvider(ABC):
-    """Abstract base class for LLM providers.
+    """Base class for LLM providers: validates settings, creates the model once.
 
-    This provides a common implementation structure for LLM providers
-    while enforcing the LLMProvider protocol.
+    Subclasses implement ``_create_llm``; the result satisfies LLMProvider.
     """
 
     def __init__(
@@ -136,24 +106,12 @@ class BaseLLMProvider(ABC):
             self._llm = self._create_llm()
         return self._llm
 
-    @abstractmethod
-    def invoke(self, prompt: str) -> LLMResponse:
-        """Invoke the LLM with a prompt.
-
-        Args:
-            prompt: The prompt to send to the LLM
-
-        Returns:
-            The LLM response (BaseMessage or string)
-        """
-        pass
-
 
 class BaseEmbeddingProvider(ABC):
-    """Abstract base class for embedding providers.
+    """Base class for embedding providers: validates settings, creates the model once.
 
-    This provides a common implementation structure for embedding providers
-    while enforcing the EmbeddingProvider protocol.
+    Subclasses implement ``_create_embeddings``; the result satisfies
+    EmbeddingProvider.
     """
 
     def __init__(
@@ -197,27 +155,3 @@ class BaseEmbeddingProvider(ABC):
         if self._embeddings is None:
             self._embeddings = self._create_embeddings()
         return self._embeddings
-
-    @abstractmethod
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        """Embed a list of documents.
-
-        Args:
-            texts: List of text documents to embed
-
-        Returns:
-            List of embedding vectors
-        """
-        pass
-
-    @abstractmethod
-    def embed_query(self, text: str) -> list[float]:
-        """Embed a single query.
-
-        Args:
-            text: The query text to embed
-
-        Returns:
-            Embedding vector for the query
-        """
-        pass

@@ -14,8 +14,10 @@ alwaysApply: false
   failed run rather than an unexpected error. Catch broad exceptions only at a boundary that
   records the failure and carries on (one file, one diagram, one section);
   `docs/architecture.md` lists what each failure does.
-- Code that only needs to call a model goes through the `LLMProvider` or `EmbeddingProvider`
-  protocol in `providers/base.py`, not LangChain directly.
+- The generator gets its models from an `LLMProvider` and an `EmbeddingProvider`
+  (`providers/base.py`), which supply LangChain models. Add a provider by subclassing
+  `BaseLLMProvider` or `BaseEmbeddingProvider` and implementing the one method that creates
+  the model; don't add model-calling wrappers the pipeline will not use.
 - LLM output and error text are untrusted. They reach HTML only after `nh3.clean` in
   `core/renderer.py`, which is what makes `| safe` in the templates acceptable.
 - Names from the analyzed code become Mermaid node IDs only through

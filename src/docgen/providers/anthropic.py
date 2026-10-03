@@ -10,7 +10,7 @@ from typing import Any
 from langchain_anthropic import ChatAnthropic
 
 from ..exceptions.errors import ApiKeyError, LLMError
-from .base import BaseLLMProvider, LLMResponse, classify_api_error
+from .base import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -84,35 +84,3 @@ class AnthropicProvider(BaseLLMProvider):
             ):
                 raise ApiKeyError(f"Invalid Anthropic API key: {str(e)}") from e
             raise LLMError(f"Failed to create Anthropic LLM: {str(e)}") from e
-
-    def invoke(self, prompt: str) -> LLMResponse:
-        """Invoke Claude with a prompt.
-
-        Args:
-            prompt: The prompt to send to Claude
-
-        Returns:
-            The Claude response (BaseMessage)
-
-        Raises:
-            LLMError: If invocation fails
-            ApiKeyError: If API key is invalid or expired
-        """
-        try:
-            llm = self.get_langchain_llm()
-            return llm.invoke(prompt)
-        except LLMError:
-            raise
-        except Exception as e:
-            error_type = classify_api_error(e)
-            error_messages = {
-                "rate_limit": "Anthropic rate limit exceeded. Please wait and retry",
-                "auth": "Invalid or expired Anthropic API key",
-                "timeout": "Anthropic request timed out. Please retry",
-                "connection": "Connection error to Anthropic API",
-            }
-            if error_type == "auth":
-                raise ApiKeyError(f"{error_messages[error_type]}: {e}") from e
-            if error_type in error_messages:
-                raise LLMError(f"{error_messages[error_type]}: {e}") from e
-            raise LLMError(f"Failed to invoke Anthropic LLM: {e}") from e

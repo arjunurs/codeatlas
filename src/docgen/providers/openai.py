@@ -10,12 +10,8 @@ from typing import Any, NoReturn
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from ..exceptions.errors import ApiKeyError, EmbeddingError, LLMError
-from .base import (
-    BaseEmbeddingProvider,
-    BaseLLMProvider,
-    LLMResponse,
-    classify_api_error,
-)
+from ..utils.error_classification import classify_api_error
+from .base import BaseEmbeddingProvider, BaseLLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -111,27 +107,6 @@ class OpenAIProvider(BaseLLMProvider):
         except Exception as e:
             _raise_openai_error(e, "create OpenAI LLM")
 
-    def invoke(self, prompt: str) -> LLMResponse:
-        """Invoke GPT with a prompt.
-
-        Args:
-            prompt: The prompt to send to GPT
-
-        Returns:
-            The GPT response (BaseMessage)
-
-        Raises:
-            LLMError: If invocation fails
-            ApiKeyError: If API key is invalid or expired
-        """
-        try:
-            llm = self.get_langchain_llm()
-            return llm.invoke(prompt)
-        except (LLMError, ApiKeyError):
-            raise
-        except Exception as e:
-            _raise_openai_error(e, "invoke OpenAI LLM")
-
 
 class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
     """OpenAI embedding provider.
@@ -179,51 +154,3 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
             raise EmbeddingError(f"OpenAI embeddings API incompatibility: {e}") from e
         except Exception as e:
             _raise_openai_error(e, "create OpenAI embeddings", EmbeddingError)
-
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        """Embed a list of documents using OpenAI.
-
-        Args:
-            texts: List of text documents to embed
-
-        Returns:
-            List of embedding vectors
-
-        Raises:
-            EmbeddingError: If embedding fails
-            ApiKeyError: If API key is invalid
-        """
-        if not texts:
-            return []
-
-        try:
-            embeddings = self.get_langchain_embeddings()
-            return embeddings.embed_documents(texts)
-        except (EmbeddingError, ApiKeyError):
-            raise
-        except Exception as e:
-            _raise_openai_error(e, "embed documents", EmbeddingError)
-
-    def embed_query(self, text: str) -> list[float]:
-        """Embed a single query using OpenAI.
-
-        Args:
-            text: The query text to embed
-
-        Returns:
-            Embedding vector for the query
-
-        Raises:
-            EmbeddingError: If embedding fails
-            ApiKeyError: If API key is invalid
-        """
-        if not text:
-            raise EmbeddingError("Cannot embed empty query text")
-
-        try:
-            embeddings = self.get_langchain_embeddings()
-            return embeddings.embed_query(text)
-        except (EmbeddingError, ApiKeyError):
-            raise
-        except Exception as e:
-            _raise_openai_error(e, "embed query", EmbeddingError)

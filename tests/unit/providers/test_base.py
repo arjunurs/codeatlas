@@ -9,48 +9,83 @@ from docgen.providers.base import (
     BaseLLMProvider,
     EmbeddingProvider,
     LLMProvider,
-    classify_api_error,
 )
+from docgen.utils.error_classification import classify_api_error
+
+
+class StubLLMProvider(BaseLLMProvider):
+    """The smallest LLM provider: it only creates the chat model."""
+
+    create_count = 0
+
+    def _create_llm(self):
+        self.create_count += 1
+        return MagicMock()
+
+
+class StubEmbeddingProvider(BaseEmbeddingProvider):
+    """The smallest embedding provider: it only creates the embeddings model."""
+
+    create_count = 0
+
+    def _create_embeddings(self):
+        self.create_count += 1
+        return MagicMock()
 
 
 class TestLLMProviderProtocol:
     """Test cases for LLMProvider protocol."""
 
     def test_protocol_check_valid(self):
-        """A class with model_name and invoke satisfies the protocol."""
+        """A class with model_name and get_langchain_llm satisfies the protocol."""
 
         class MinimalProvider:
             @property
             def model_name(self) -> str:
                 return "test-model"
 
-            def invoke(self, prompt: str) -> str:
-                return "response"
+            def get_langchain_llm(self):
+                return MagicMock()
 
         assert isinstance(MinimalProvider(), LLMProvider)
 
     def test_protocol_check_missing_method(self):
-        """Test that objects missing methods don't satisfy protocol."""
+        """A class that can invoke a model but not supply one does not satisfy it."""
 
-        class IncompleteProvider:
+        class InvokeOnlyProvider:
             model_name = "test"
-            # Missing invoke
 
-        # This will not satisfy the protocol at runtime
-        provider = IncompleteProvider()
-        assert not isinstance(provider, LLMProvider)
+            def invoke(self, prompt: str) -> str:
+                return "response"
+
+        assert not isinstance(InvokeOnlyProvider(), LLMProvider)
+
+    def test_base_class_needs_only_create_llm(self):
+        """A BaseLLMProvider subclass that creates its model is a full provider."""
+        assert isinstance(StubLLMProvider(api_key="k", model="m"), LLMProvider)
 
 
 class TestEmbeddingProviderProtocol:
     """Test cases for EmbeddingProvider protocol."""
 
     def test_protocol_check_valid(self):
-        """A class with model_name and both embed methods satisfies the protocol."""
+        """A class with model_name and get_langchain_embeddings satisfies it."""
 
         class MinimalEmbeddings:
             @property
             def model_name(self) -> str:
                 return "test-model"
+
+            def get_langchain_embeddings(self):
+                return MagicMock()
+
+        assert isinstance(MinimalEmbeddings(), EmbeddingProvider)
+
+    def test_protocol_check_missing_method(self):
+        """A class that can embed text but not supply a model does not satisfy it."""
+
+        class EmbedOnlyProvider:
+            model_name = "test"
 
             def embed_documents(self, texts: list[str]) -> list[list[float]]:
                 return [[0.1, 0.2] for _ in texts]
@@ -58,18 +93,13 @@ class TestEmbeddingProviderProtocol:
             def embed_query(self, text: str) -> list[float]:
                 return [0.1, 0.2]
 
-        assert isinstance(MinimalEmbeddings(), EmbeddingProvider)
+        assert not isinstance(EmbedOnlyProvider(), EmbeddingProvider)
 
-    def test_protocol_check_missing_method(self):
-        """A class without embed_query does not satisfy the protocol."""
+    def test_base_class_needs_only_create_embeddings(self):
+        """A BaseEmbeddingProvider subclass that creates its model is a provider."""
+        provider = StubEmbeddingProvider(api_key="k", model="m")
 
-        class IncompleteEmbeddings:
-            model_name = "test"
-
-            def embed_documents(self, texts: list[str]) -> list[list[float]]:
-                return [[0.1, 0.2] for _ in texts]
-
-        assert not isinstance(IncompleteEmbeddings(), EmbeddingProvider)
+        assert isinstance(provider, EmbeddingProvider)
 
 
 class TestBaseLLMProvider:
@@ -77,73 +107,32 @@ class TestBaseLLMProvider:
 
     def test_init_empty_api_key(self):
         """Test that empty API key raises ValueError."""
-
-        class TestProvider(BaseLLMProvider):
-            def _create_llm(self):
-                return MagicMock()
-
-            def invoke(self, prompt):
-                return "response"
-
         with pytest.raises(ValueError, match="API key cannot be empty"):
-            TestProvider(api_key="", model="test-model")
+            StubLLMProvider(api_key="", model="test-model")
 
     def test_init_invalid_temperature(self):
         """Test that invalid temperature raises ValueError."""
-
-        class TestProvider(BaseLLMProvider):
-            def _create_llm(self):
-                return MagicMock()
-
-            def invoke(self, prompt):
-                return "response"
+        with pytest.raises(ValueError, match="Temperature must be between 0 and 1"):
+            StubLLMProvider(api_key="test-key", model="test-model", temperature=1.5)
 
         with pytest.raises(ValueError, match="Temperature must be between 0 and 1"):
-            TestProvider(api_key="test-key", model="test-model", temperature=1.5)
-
-        with pytest.raises(ValueError, match="Temperature must be between 0 and 1"):
-            TestProvider(api_key="test-key", model="test-model", temperature=-0.1)
+            StubLLMProvider(api_key="test-key", model="test-model", temperature=-0.1)
 
     def test_model_name_property(self):
         """Test model_name property returns correct value."""
-
-        class TestProvider(BaseLLMProvider):
-            def _create_llm(self):
-                return MagicMock()
-
-            def invoke(self, prompt):
-                return "response"
-
-        provider = TestProvider(api_key="test-key", model="my-model")
+        provider = StubLLMProvider(api_key="test-key", model="my-model")
         assert provider.model_name == "my-model"
 
     def test_temperature_property(self):
         """Test temperature property returns correct value."""
-
-        class TestProvider(BaseLLMProvider):
-            def _create_llm(self):
-                return MagicMock()
-
-            def invoke(self, prompt):
-                return "response"
-
-        provider = TestProvider(api_key="test-key", model="my-model", temperature=0.5)
+        provider = StubLLMProvider(
+            api_key="test-key", model="my-model", temperature=0.5
+        )
         assert provider.temperature == 0.5
 
     def test_get_langchain_llm_caches(self):
         """Test that get_langchain_llm caches the LLM instance."""
-
-        class TestProvider(BaseLLMProvider):
-            create_count = 0
-
-            def _create_llm(self):
-                self.create_count += 1
-                return MagicMock()
-
-            def invoke(self, prompt):
-                return "response"
-
-        provider = TestProvider(api_key="test-key", model="my-model")
+        provider = StubLLMProvider(api_key="test-key", model="my-model")
 
         # First call should create
         llm1 = provider.get_langchain_llm()
@@ -160,53 +149,17 @@ class TestBaseEmbeddingProvider:
 
     def test_init_empty_api_key(self):
         """Test that empty API key raises ValueError."""
-
-        class TestProvider(BaseEmbeddingProvider):
-            def _create_embeddings(self):
-                return MagicMock()
-
-            def embed_documents(self, texts):
-                return [[0.1, 0.2]]
-
-            def embed_query(self, text):
-                return [0.1, 0.2]
-
         with pytest.raises(ValueError, match="API key cannot be empty"):
-            TestProvider(api_key="", model="test-model")
+            StubEmbeddingProvider(api_key="", model="test-model")
 
     def test_model_name_property(self):
         """Test model_name property returns correct value."""
-
-        class TestProvider(BaseEmbeddingProvider):
-            def _create_embeddings(self):
-                return MagicMock()
-
-            def embed_documents(self, texts):
-                return [[0.1, 0.2]]
-
-            def embed_query(self, text):
-                return [0.1, 0.2]
-
-        provider = TestProvider(api_key="test-key", model="my-embedding-model")
+        provider = StubEmbeddingProvider(api_key="test-key", model="my-embedding-model")
         assert provider.model_name == "my-embedding-model"
 
     def test_get_langchain_embeddings_caches(self):
         """Test that get_langchain_embeddings caches the embeddings instance."""
-
-        class TestProvider(BaseEmbeddingProvider):
-            create_count = 0
-
-            def _create_embeddings(self):
-                self.create_count += 1
-                return MagicMock()
-
-            def embed_documents(self, texts):
-                return [[0.1, 0.2]]
-
-            def embed_query(self, text):
-                return [0.1, 0.2]
-
-        provider = TestProvider(api_key="test-key", model="my-model")
+        provider = StubEmbeddingProvider(api_key="test-key", model="my-model")
 
         # First call should create
         emb1 = provider.get_langchain_embeddings()
