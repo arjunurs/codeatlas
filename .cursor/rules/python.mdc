@@ -18,6 +18,9 @@ alwaysApply: false
   (`providers/base.py`), which supply LangChain models. Add a provider by subclassing
   `BaseLLMProvider` or `BaseEmbeddingProvider` and implementing the one method that creates
   the model; don't add model-calling wrappers the pipeline will not use.
+- Open Chroma only through `persistent_chroma_client()` or `in_memory_chroma_client()`
+  (`cache/vector_cache.py`) and pass the client to langchain-chroma. They turn telemetry off,
+  and older langchain-chroma releases persist any store given `client_settings`.
 - LLM output and error text are untrusted. They reach HTML only after `nh3.clean` in
   `core/renderer.py`, which is what makes `| safe` in the templates acceptable.
 - Names from the analyzed code become Mermaid node IDs only through

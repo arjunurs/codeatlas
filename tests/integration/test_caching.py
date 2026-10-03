@@ -9,7 +9,7 @@ from langchain_core.documents import Document
 
 from docgen.cache import vector_cache
 from docgen.cache.metadata import CacheMetadata
-from docgen.cache.vector_cache import CHROMA_SETTINGS
+from docgen.cache.vector_cache import persistent_chroma_client
 from docgen.core.generator import CodeDocumentationGenerator
 
 
@@ -234,9 +234,8 @@ def _run_cached_generator(
 def _stored_chunks(project_cache_dir, embedding_provider):
     """Return the ids, metadatas, and documents in the cached vector store."""
     store = Chroma(
-        persist_directory=str(project_cache_dir / "chromadb"),
+        client=persistent_chroma_client(project_cache_dir / "chromadb"),
         embedding_function=embedding_provider.get_langchain_embeddings(),
-        client_settings=CHROMA_SETTINGS,
     )
     return store.get(include=["metadatas", "documents"])
 
@@ -326,9 +325,8 @@ def test_incremental_update_removes_orphaned_chunks(
     # Chunks left behind by older cache versions: one for a file that is no
     # longer tracked, and one from outside the source directory
     store = Chroma(
-        persist_directory=str(project_cache_dir / "chromadb"),
+        client=persistent_chroma_client(project_cache_dir / "chromadb"),
         embedding_function=mock_embedding_provider.get_langchain_embeddings(),
-        client_settings=CHROMA_SETTINGS,
     )
     store.add_documents(
         [

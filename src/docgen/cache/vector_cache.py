@@ -9,6 +9,8 @@ import shutil
 from collections.abc import Sequence
 from pathlib import Path
 
+import chromadb
+from chromadb.api import ClientAPI
 from chromadb.api.client import SharedSystemClient
 from chromadb.config import Settings
 from langchain_chroma import Chroma
@@ -27,10 +29,46 @@ logger = logging.getLogger(__name__)
 # add above its max batch size (5461 for the default SQLite backend).
 ADD_BATCH_SIZE = 1000
 
-# Chroma sends anonymized usage telemetry unless it is turned off. Every client
-# codeatlas opens uses these settings: Chroma refuses a second client on the
-# same directory with different ones.
-CHROMA_SETTINGS = Settings(anonymized_telemetry=False)
+
+def _chroma_settings() -> Settings:
+    """Settings for every Chroma client codeatlas opens.
+
+    Chroma sends anonymized usage telemetry unless it is turned off, and it
+    refuses a second client on the same directory with different settings,
+    so every client gets the same values. Each call returns a new object:
+    Chroma writes the directory into the settings a persistent client is
+    given, so a shared object would carry one store's directory into the next
+    client.
+
+    Returns:
+        Settings with telemetry off
+    """
+    return Settings(anonymized_telemetry=False)
+
+
+def persistent_chroma_client(path: Path) -> ClientAPI:
+    """Open the on-disk Chroma database in a directory, with telemetry off.
+
+    codeatlas creates its Chroma clients itself and hands them to
+    langchain-chroma, because older langchain-chroma releases treat any
+    client settings as a request to persist.
+
+    Args:
+        path: Directory that holds the database
+
+    Returns:
+        A Chroma client for that directory
+    """
+    return chromadb.PersistentClient(path=str(path), settings=_chroma_settings())
+
+
+def in_memory_chroma_client() -> ClientAPI:
+    """Open Chroma's in-memory database, with telemetry off.
+
+    Returns:
+        A Chroma client that writes nothing to disk
+    """
+    return chromadb.EphemeralClient(settings=_chroma_settings())
 
 
 class VectorStoreCache:
@@ -147,8 +185,7 @@ class VectorStoreCache:
         vector_store = Chroma.from_documents(
             documents=documents,
             embedding=self.embeddings,
-            persist_directory=str(self.vector_dir),
-            client_settings=CHROMA_SETTINGS,
+            client=persistent_chroma_client(self.vector_dir),
         )
 
         # Update metadata for all files
@@ -192,9 +229,8 @@ class VectorStoreCache:
 
         # Load existing vector store
         vector_store = Chroma(
-            persist_directory=str(self.vector_dir),
+            client=persistent_chroma_client(self.vector_dir),
             embedding_function=self.embeddings,
-            client_settings=CHROMA_SETTINGS,
         )
 
         # If no changes, return as-is
@@ -302,9 +338,8 @@ class VectorStoreCache:
         """
         try:
             Chroma(
-                persist_directory=str(self.vector_dir),
+                client=persistent_chroma_client(self.vector_dir),
                 embedding_function=self.embeddings,
-                client_settings=CHROMA_SETTINGS,
             ).delete_collection()
         except Exception as e:
             logger.warning(

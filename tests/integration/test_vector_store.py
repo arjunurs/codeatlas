@@ -104,6 +104,36 @@ def test_force_refresh_reopens_the_store_with_the_same_settings(
     assert telemetry_enabled(store) is False
 
 
+def test_in_memory_store_writes_nothing_to_disk(build_store, tmp_path, monkeypatch):
+    """Without the cache, nothing is written to the working directory.
+
+    Older langchain-chroma releases persist any store given client settings,
+    to ./chroma by default.
+    """
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+
+    build_store("alpha", "def alpha_only():\n    return 1\n")
+
+    assert list(workdir.iterdir()) == []
+
+
+def test_in_memory_store_stays_in_memory_after_a_cached_store(build_store, tmp_path):
+    """A cached store does not turn a later in-memory store into an on-disk one.
+
+    Chroma writes the directory into the settings object a persistent client
+    is given, so settings shared between clients carry one store's directory
+    into the next.
+    """
+    cache_args = {"cache_enabled": True, "cache_dir": tmp_path / "cache"}
+    build_store("alpha", "def alpha_only():\n    return 1\n", **cache_args)
+
+    store = build_store("beta", "def beta_only():\n    return 2\n")
+
+    assert store._client.get_settings().is_persistent is False
+
+
 class KeywordEmbeddings(Embeddings):
     """Embeds each chunk by the function it mentions.
 
