@@ -159,6 +159,7 @@ class _CallResolver:
                     self._functions[f"{qualified}.{method}"] = (module, item)
         self._known.update(self._functions, self._classes)
         self._by_suffix = unique_suffixes(self._known)
+        self._lineages: dict[str, list[str]] = {}
 
         # Bases first, since attributes are also looked up through them
         for info in self._classes.values():
@@ -361,16 +362,24 @@ class _CallResolver:
         return self._annotation_class(module, node.returns)
 
     def _lineage(self, class_name: str) -> list[str]:
-        """A class and its analyzed base classes, depth first, nearest first."""
-        lineage: list[str] = []
-        pending = [class_name]
-        while pending:
-            current = pending.pop()
-            if current in lineage or current not in self._classes:
-                continue
-            lineage.append(current)
-            pending.extend(reversed(self._classes[current].bases))
-        return lineage
+        """A class and its analyzed base classes, in method resolution order.
+
+        This is Python's C3 order over the analyzed classes. When the bases'
+        orders conflict, so Python itself would reject the class, they are
+        searched depth first instead.
+        """
+        if class_name not in self._lineages:
+            # Seed the entry first, so a cycle back to this class ends here
+            self._lineages[class_name] = [class_name]
+            bases = [b for b in self._classes[class_name].bases if b != class_name]
+            merged = _c3_merge([*(self._lineage(base) for base in bases), bases])
+            if merged is None:
+                merged = _depth_first(class_name, self._classes)
+            self._lineages[class_name] = [
+                class_name,
+                *(base for base in merged if base != class_name),
+            ]
+        return self._lineages[class_name]
 
     def _bases(self, class_name: str | None) -> list[str]:
         """A class's analyzed base classes, in lookup order, without the class."""
@@ -423,6 +432,39 @@ class _CallResolver:
         if target.split(".")[0] in STDLIB_MODULES:
             return None
         return self._by_suffix.get(target)
+
+
+def _c3_merge(sequences: list[list[str]]) -> list[str] | None:
+    """Merge base-class orders as C3 does, or None if they conflict."""
+    pending = [list(sequence) for sequence in sequences if sequence]
+    merged: list[str] = []
+    while pending:
+        for sequence in pending:
+            head = sequence[0]
+            if not any(head in other[1:] for other in pending):
+                break
+        else:
+            return None
+        merged.append(head)
+        pending = [
+            rest
+            for sequence in pending
+            if (rest := sequence[1:] if sequence[0] == head else sequence)
+        ]
+    return merged
+
+
+def _depth_first(class_name: str, classes: dict[str, _ClassInfo]) -> list[str]:
+    """A class and its analyzed bases, depth first, each once."""
+    order: list[str] = []
+    pending = [class_name]
+    while pending:
+        current = pending.pop()
+        if current in order:
+            continue
+        order.append(current)
+        pending.extend(reversed(classes[current].bases))
+    return order
 
 
 def _single(classes: Collection[str | None]) -> str | None:

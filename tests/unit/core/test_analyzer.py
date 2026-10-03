@@ -864,6 +864,75 @@ def handle():
         assert call_graph[f"pkg.app.{function}"] == ["tool"]
 
 
+def test_methods_are_looked_up_in_python_method_resolution_order(analyzer, tmp_path):
+    """In a diamond, a sibling's override comes before the shared base's method."""
+    code = """class Base:
+    def ping(self):
+        pass
+
+    def pong(self):
+        pass
+
+
+class Left(Base):
+    pass
+
+
+class Right(Base):
+    def ping(self):
+        pass
+
+
+class Both(Left, Right):
+    pass
+
+
+class Loop(Loop):
+    pass
+
+
+class Ping(Pong):
+    pass
+
+
+class Pong(Ping):
+    pass
+
+
+class X(Left, Right):
+    pass
+
+
+class Y(Right, Left):
+    pass
+
+
+class Z(X, Y):
+    pass
+
+
+def main(both: Both, loop: Loop, cycle: Ping):
+    both.ping()
+    both.pong()
+    loop.ping()
+    cycle.pong()
+
+
+def conflict(z: Z):
+    z.ping()
+"""
+    call_graph = call_graph_of(analyzer, tmp_path, {"shapes.py": code})
+
+    assert call_graph["shapes.main"] == [
+        "shapes.Right.ping",
+        "shapes.Base.pong",
+        "ping",
+        "pong",
+    ]
+    # C3 cannot order Z's bases, so they are searched depth first
+    assert call_graph["shapes.conflict"] == ["shapes.Base.ping"]
+
+
 def test_calls_the_analyzer_cannot_place_stay_bare(analyzer, tmp_path):
     """Built-ins, other libraries, and methods on other objects keep their bare name."""
     code = """import logging
