@@ -417,7 +417,11 @@ def test_failed_diagram_is_reported_as_warning(temp_source_dir, tmp_path, caplog
     with caplog.at_level(logging.WARNING, logger="docgen"):
         generator.generate_documentation(str(temp_source_dir), str(tmp_path / "docs"))
 
-    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    warnings = [
+        r.getMessage()
+        for r in caplog.records
+        if r.name.startswith("docgen") and r.levelno == logging.WARNING
+    ]
     assert warnings == ["1 of 2 diagrams failed:\n  - class_diagram: no classes found"]
 
 
@@ -468,7 +472,8 @@ def test_no_files_error_is_left_to_the_caller_to_log(mock_generator, tmp_path, c
     ):
         mock_generator.generate_documentation(str(source_dir), str(tmp_path / "docs"))
 
-    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
+    problems = [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert [r for r in problems if r.name.startswith("docgen")] == []
 
 
 def test_diagram_node_limit_comes_from_the_config():

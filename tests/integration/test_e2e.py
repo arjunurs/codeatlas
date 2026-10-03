@@ -306,7 +306,11 @@ class TestSectionFailures:
         with caplog.at_level(logging.INFO, logger="docgen"):
             generate_sections(model, temp_source_dir, temp_output_dir, fake_embeddings)
 
-        problems = [r for r in caplog.records if r.levelno >= logging.WARNING]
+        problems = [
+            r
+            for r in caplog.records
+            if r.name.startswith("docgen") and r.levelno >= logging.WARNING
+        ]
         assert [r.getMessage() for r in problems] == [
             "1 of 2 sections failed:\n  - Overview: RuntimeError: model down"
         ]

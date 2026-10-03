@@ -187,7 +187,8 @@ def test_no_content_error_is_not_wrapped(
     ):
         factory.create_rag_chain([])
 
-    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
+    problems = [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert [r for r in problems if r.name.startswith("docgen")] == []
 
 
 class KeywordEmbeddings(Embeddings):

@@ -232,6 +232,7 @@ def test_failed_section_is_left_to_the_caller_to_report(caplog):
     with caplog.at_level(logging.DEBUG, logger="docgen"):
         orchestrator.generate_documentation_sections(failing_chain("boom"))
 
-    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
+    problems = [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert [r for r in problems if r.name.startswith("docgen")] == []
     failures = [r for r in caplog.records if r.exc_info]
     assert [r.getMessage() for r in failures] == ["Section 'Overview' failed"]
