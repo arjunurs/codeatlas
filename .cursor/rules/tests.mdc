@@ -1,0 +1,24 @@
+---
+description: How tests are written and changed in codeatlas
+globs: tests/**/*.py
+alwaysApply: false
+---
+# Tests
+
+- For a bug, write a test that fails first, then fix the code.
+- Never weaken, skip, or delete a test to make it pass. If the code and a test disagree, show
+  both and say which one you think is wrong before changing either.
+- Tests make no network calls and need no API keys.
+- For behavior that passes through a LangChain chain (callbacks, token usage, stop reasons),
+  use the `fake_chat_model_with_usage` and `fake_embeddings` fixtures from `tests/conftest.py`.
+  They are real LangChain models that run offline. Use `MagicMock` only where the chain itself
+  is not under test.
+- Build `FileAnalysis` from synthetic data with `_skip_validation=True`.
+- Tests that generate diagrams from synthetic data use
+  `DiagramGenerator(validate_diagrams=False)`; validation has its own tests in
+  `tests/unit/utils/test_diagram_validator.py` and `tests/integration/test_diagram_validation.py`.
+- Cross-reference tests give imports as dotted strings, for example `["helper.HelperClass"]`.
+- Name a test after the behavior it checks, for example
+  `test_unknown_section_rejected_at_construction`.
+- Unit tests go under `tests/unit/`, mirroring `src/docgen/`. Integration tests in
+  `tests/integration/` run the whole generator with a real Chroma store and fake models.

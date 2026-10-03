@@ -1,0 +1,24 @@
+---
+description: How to check a change in codeatlas before calling it done
+alwaysApply: true
+---
+# Verifying a change
+
+A change is done when it has been checked against real output, not when the code looks right.
+
+- Run the four CI checks (`uv sync --locked`, `ruff check`, `ruff format --check`, `pytest`)
+  and report failures as they are.
+- Diagram or template changes: run `uv run codeatlas --source . --diagrams-only -o <dir>`,
+  serve the folder with `python3 -m http.server 8765 --bind 127.0.0.1`, and look at each
+  changed page in a browser. The validator checks known rules; only Mermaid itself shows
+  whether a diagram renders. For layout or noise problems, also try a larger real codebase.
+- Prompt or section changes need a paid run. Ask before running anything that calls the
+  Anthropic or OpenAI APIs, and say which model and roughly what it costs (the FastAPI
+  package costs about $0.39 with the default Sonnet model; see `docs/architecture.md`).
+- Check the claims in generated sections against the source code. A section that reads well
+  can still describe an API that does not exist.
+- Treat claims from other agents and tools, including your own earlier summaries, as
+  unverified until checked.
+- When behavior or a flag changes, update `README.md`, `docs/architecture.md`, or
+  `CONTRIBUTING.md` in the same change.
+- In the summary, say what was verified and how, and what was not.
