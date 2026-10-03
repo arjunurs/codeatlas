@@ -15,7 +15,11 @@ from docgen.core.structural_context import (
 FILES = {
     "pkg/__init__.py": """
         from .app import App
+        from .globals import request
         from .helpers import make_thing
+    """,
+    "pkg/globals.py": """
+        request = object()
     """,
     "pkg/base.py": '''
         class Base:
@@ -170,6 +174,13 @@ def test_overview_starts_with_the_public_api(project):
 
     assert "pkg.app: App" in first
     assert "pkg.helpers: make_thing" in first
+
+
+def test_the_api_map_includes_exported_objects(project):
+    """An exported object, such as a proxy or a signal, is part of the public API too."""
+    first = texts(structure(project), "Overview")[0]
+
+    assert "pkg.globals: request" in first
 
 
 def test_dependencies_get_the_third_party_imports_of_each_module(project):

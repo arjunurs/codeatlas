@@ -26,7 +26,7 @@ from .modules import ImportKind, ModuleIndex, import_base, module_name
 from .sequence import choose_entry, is_test, reached
 
 # Part of the section cache key: bump when the rules below change what is chosen
-RULES_VERSION = 1
+RULES_VERSION = 2
 
 # Longest excerpt of one function, and of one class outline, in characters
 FUNCTION_CAP = 2_500
@@ -209,12 +209,20 @@ class StructuralContext:
 
     def _exports(self) -> list[str]:
         """The classes and functions the top-level package re-exports."""
+        return [name for name in self._exported_names() if name in self._definitions]
+
+    def _exported_names(self) -> list[str]:
+        """Everything of its own the top-level package re-exports: classes and
+        functions, but also objects such as Flask's request proxy and signals."""
         names = []
         for analysis in self._top_packages():
             module = self._module(analysis)
             for imported in analysis.imports:
+                placed = self._modules.place(imported, module, True)
+                if placed is None or placed.kind is not ImportKind.INTERNAL:
+                    continue
                 name = self._absolute(imported, module, is_package=True)
-                if name in self._definitions and name not in names:
+                if name and name not in names:
                     names.append(name)
         return names
 
@@ -266,7 +274,9 @@ class StructuralContext:
     def _api_map(self) -> Iterator[tuple[str, Document]]:
         packages = self._top_packages()
         by_module: dict[str, list[str]] = {}
-        for name in self._exports():
+        for name in self._exported_names():
+            if "." not in name:
+                continue
             module, short = name.rsplit(".", 1)
             by_module.setdefault(module, []).append(short)
         if packages and by_module:
