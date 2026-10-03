@@ -1,7 +1,7 @@
 """Unit tests for the CLI module."""
 
 import importlib.metadata
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -128,225 +128,98 @@ class TestParseArgs:
 
 
 class TestMain:
-    """Tests for the main() function."""
+    """Tests for main() with real argument lists and a mocked generator."""
 
-    def test_verbose_quiet_mutually_exclusive(self):
-        """Test that --verbose and --quiet together causes error."""
-        with patch("docgen.cli.parse_args") as mock_parse:
-            mock_args = MagicMock()
-            mock_args.verbose = True
-            mock_args.quiet = True
-            mock_parse.return_value = mock_args
+    @pytest.fixture(autouse=True)
+    def no_logging_setup(self):
+        """Keep main() from reconfiguring logging for the rest of the run."""
+        with patch("docgen.cli.setup_logging"):
+            yield
 
-            with pytest.raises(SystemExit) as exc_info:
-                main()
-            assert exc_info.value.code == 1
+    @pytest.fixture
+    def generator_cls(self):
+        """The generator class as main() sees it."""
+        with patch("docgen.cli.CodeDocumentationGenerator") as cls:
+            yield cls
 
-    @patch("docgen.cli.CodeDocumentationGenerator")
-    @patch("docgen.cli.get_api_keys")
-    @patch("docgen.cli.setup_logging")
-    def test_diagrams_only_skips_api_keys(
-        self, mock_logging, mock_get_keys, mock_generator
-    ):
-        """Test that diagrams-only mode doesn't require API keys."""
-        with patch("docgen.cli.parse_args") as mock_parse:
-            mock_args = MagicMock()
-            mock_args.verbose = False
-            mock_args.quiet = False
-            mock_args.dry_run = False
-            mock_args.diagrams_only = True
-            mock_args.source = "./src"
-            mock_args.output = "./docs"
-            mock_args.temperature = 0.2
-            mock_args.anthropic_model = "claude-sonnet-4"
-            mock_args.openai_embedding_model = "text-embedding-3-small"
-            mock_args.exclude = []
-            mock_args.no_diagrams = False
-            mock_args.sections = None
-            mock_args.diagrams = None
-            mock_args.template_dir = None
-            mock_args.max_files = None
-            mock_args.api_key_env = None
-            # Cache-related attributes
-            mock_args.cache_dir = None
-            mock_args.no_cache = False
-            mock_args.force_refresh = False
-            mock_args.clear_cache = False
-            mock_args.cache_stats = False
-            # Phase 4 attributes
-            mock_args.quality_mode = "balanced"
-            mock_args.no_parallel = False
-            mock_args.no_cost_tracking = False
-            mock_parse.return_value = mock_args
+    @pytest.fixture
+    def get_api_keys(self):
+        """API key loading, returning fixed keys."""
+        with patch(
+            "docgen.cli.get_api_keys", return_value=("anthropic-key", "openai-key")
+        ) as get_keys:
+            yield get_keys
 
-            mock_gen_instance = MagicMock()
-            mock_generator.return_value = mock_gen_instance
+    def test_verbose_quiet_mutually_exclusive(self, capsys):
+        """--verbose and --quiet together exit with an error."""
+        with pytest.raises(SystemExit) as exc_info:
+            main(["--source", "./src", "--verbose", "--quiet"])
 
-            main()
+        assert exc_info.value.code == 1
+        assert "--verbose and --quiet are mutually exclusive" in capsys.readouterr().err
 
-            # get_api_keys should NOT be called in diagrams-only mode
-            mock_get_keys.assert_not_called()
+    def test_no_diagrams_and_diagrams_only_are_mutually_exclusive(self, capsys):
+        """--no-diagrams and --diagrams-only together exit with an error."""
+        with pytest.raises(SystemExit) as exc_info:
+            main(["--source", "./src", "--no-diagrams", "--diagrams-only"])
 
-            # Generator should be called with placeholder keys
-            call_kwargs = mock_generator.call_args[1]
-            assert call_kwargs["anthropic_api_key"] == "diagrams-only-placeholder"
-            assert call_kwargs["openai_api_key"] == "diagrams-only-placeholder"
-            assert call_kwargs["diagrams_only"] is True
+        assert exc_info.value.code == 1
+        assert (
+            "--no-diagrams and --diagrams-only are mutually exclusive"
+            in capsys.readouterr().err
+        )
 
-    @patch("docgen.cli.CodeDocumentationGenerator")
-    @patch("docgen.cli.get_api_keys")
-    @patch("docgen.cli.setup_logging")
-    def test_dry_run_skips_api_keys(self, mock_logging, mock_get_keys, mock_generator):
-        """Test that dry-run mode doesn't require API keys."""
-        with patch("docgen.cli.parse_args") as mock_parse:
-            mock_args = MagicMock()
-            mock_args.verbose = False
-            mock_args.quiet = False
-            mock_args.dry_run = True
-            mock_args.source = "./src"
-            mock_args.output = "./docs"
-            mock_args.temperature = 0.2
-            mock_args.anthropic_model = "claude-sonnet-4"
-            mock_args.openai_embedding_model = "text-embedding-3-small"
-            mock_args.exclude = []
-            mock_args.no_diagrams = False
-            mock_args.sections = None
-            mock_args.diagrams = None
-            mock_args.template_dir = None
-            mock_args.max_files = None
-            mock_args.api_key_env = None
-            # Cache-related attributes
-            mock_args.cache_dir = None
-            mock_args.no_cache = False
-            mock_args.force_refresh = False
-            mock_args.clear_cache = False
-            mock_args.cache_stats = False
-            # Phase 4 attributes
-            mock_args.quality_mode = "balanced"
-            mock_args.no_parallel = False
-            mock_args.no_cost_tracking = False
-            mock_args.diagrams_only = False
-            mock_parse.return_value = mock_args
+    def test_keys_are_loaded_and_passed_to_generator(self, generator_cls, get_api_keys):
+        """A normal run loads keys from --api-key-env and generates once."""
+        main(["--source", "./src", "-o", "./docs", "--api-key-env", "test.env"])
 
-            mock_gen_instance = MagicMock()
-            mock_generator.return_value = mock_gen_instance
+        get_api_keys.assert_called_once_with("test.env")
+        kwargs = generator_cls.call_args.kwargs
+        assert kwargs["anthropic_api_key"] == "anthropic-key"
+        assert kwargs["openai_api_key"] == "openai-key"
+        generator_cls.return_value.generate_documentation.assert_called_once_with(
+            "./src", "./docs"
+        )
 
-            main()
+    def test_diagrams_only_skips_api_keys(self, generator_cls, get_api_keys):
+        """Diagrams-only mode needs no API keys."""
+        main(["--source", "./src", "--diagrams-only"])
 
-            # get_api_keys should NOT be called in dry-run mode
-            mock_get_keys.assert_not_called()
+        get_api_keys.assert_not_called()
+        kwargs = generator_cls.call_args.kwargs
+        assert kwargs["anthropic_api_key"] == "diagrams-only-placeholder"
+        assert kwargs["openai_api_key"] == "diagrams-only-placeholder"
+        assert kwargs["diagrams_only"] is True
 
-            # Generator should be called with placeholder keys
-            call_kwargs = mock_generator.call_args[1]
-            assert call_kwargs["anthropic_api_key"] == "dry-run-placeholder"
-            assert call_kwargs["openai_api_key"] == "dry-run-placeholder"
-            assert call_kwargs["dry_run"] is True
+    def test_dry_run_skips_api_keys(self, generator_cls, get_api_keys):
+        """Dry-run mode needs no API keys and turns the cache off."""
+        main(["--source", "./src", "--dry-run"])
 
-    @patch("docgen.cli.CodeDocumentationGenerator")
-    @patch("docgen.cli.get_api_keys")
-    @patch("docgen.cli.setup_logging")
-    def test_sections_parsing(self, mock_logging, mock_get_keys, mock_generator):
-        """Test that --sections is correctly parsed."""
-        mock_get_keys.return_value = ("key1", "key2")
+        get_api_keys.assert_not_called()
+        kwargs = generator_cls.call_args.kwargs
+        assert kwargs["anthropic_api_key"] == "dry-run-placeholder"
+        assert kwargs["openai_api_key"] == "dry-run-placeholder"
+        assert kwargs["dry_run"] is True
+        assert kwargs["cache_enabled"] is False
 
-        with patch("docgen.cli.parse_args") as mock_parse:
-            mock_args = MagicMock()
-            mock_args.verbose = False
-            mock_args.quiet = False
-            mock_args.dry_run = False
-            mock_args.source = "./src"
-            mock_args.output = "./docs"
-            mock_args.temperature = 0.2
-            mock_args.anthropic_model = "claude-sonnet-4"
-            mock_args.openai_embedding_model = "text-embedding-3-small"
-            mock_args.exclude = []
-            mock_args.no_diagrams = False
-            mock_args.sections = "overview,dependencies"
-            mock_args.diagrams = None
-            mock_args.template_dir = None
-            mock_args.max_files = None
-            mock_args.api_key_env = None
-            # Cache-related attributes
-            mock_args.cache_dir = None
-            mock_args.no_cache = False
-            mock_args.force_refresh = False
-            mock_args.clear_cache = False
-            mock_args.cache_stats = False
-            # Phase 4 attributes
-            mock_args.quality_mode = "balanced"
-            mock_args.no_parallel = False
-            mock_args.no_cost_tracking = False
-            mock_args.diagrams_only = False
-            mock_parse.return_value = mock_args
+    def test_sections_parsing(self, generator_cls, get_api_keys):
+        """--sections is split on commas."""
+        main(["--source", "./src", "--sections", "overview,dependencies"])
 
-            mock_gen_instance = MagicMock()
-            mock_generator.return_value = mock_gen_instance
+        assert generator_cls.call_args.kwargs["sections"] == [
+            "overview",
+            "dependencies",
+        ]
 
-            main()
+    def test_diagrams_parsing(self, generator_cls, get_api_keys):
+        """--diagrams is split on commas, with surrounding spaces removed."""
+        main(["--source", "./src", "--diagrams", "architecture, class, sequence"])
 
-            call_kwargs = mock_generator.call_args[1]
-            assert call_kwargs["sections"] == ["overview", "dependencies"]
-
-    @patch("docgen.cli.CodeDocumentationGenerator")
-    @patch("docgen.cli.get_api_keys")
-    @patch("docgen.cli.setup_logging")
-    def test_diagrams_parsing(self, mock_logging, mock_get_keys, mock_generator):
-        """Test that --diagrams is correctly parsed."""
-        mock_get_keys.return_value = ("key1", "key2")
-
-        with patch("docgen.cli.parse_args") as mock_parse:
-            mock_args = MagicMock()
-            mock_args.verbose = False
-            mock_args.quiet = False
-            mock_args.dry_run = False
-            mock_args.source = "./src"
-            mock_args.output = "./docs"
-            mock_args.temperature = 0.2
-            mock_args.anthropic_model = "claude-sonnet-4"
-            mock_args.openai_embedding_model = "text-embedding-3-small"
-            mock_args.exclude = []
-            mock_args.no_diagrams = False
-            mock_args.sections = None
-            mock_args.diagrams = "architecture, class, sequence"
-            mock_args.template_dir = None
-            mock_args.max_files = None
-            mock_args.api_key_env = None
-            # Cache-related attributes
-            mock_args.cache_dir = None
-            mock_args.no_cache = False
-            mock_args.force_refresh = False
-            mock_args.clear_cache = False
-            mock_args.cache_stats = False
-            # Phase 4 attributes
-            mock_args.quality_mode = "balanced"
-            mock_args.no_parallel = False
-            mock_args.no_cost_tracking = False
-            mock_args.diagrams_only = False
-            mock_parse.return_value = mock_args
-
-            mock_gen_instance = MagicMock()
-            mock_generator.return_value = mock_gen_instance
-
-            main()
-
-            call_kwargs = mock_generator.call_args[1]
-            assert call_kwargs["diagrams"] == ["architecture", "class", "sequence"]
-
-    @patch("docgen.cli.setup_logging")
-    def test_no_diagrams_and_diagrams_only_are_mutually_exclusive(self, mock_logging):
-        """Test that --no-diagrams and --diagrams-only cannot be used together."""
-        with patch("docgen.cli.parse_args") as mock_parse:
-            mock_args = MagicMock()
-            mock_args.verbose = False
-            mock_args.quiet = False
-            mock_args.no_diagrams = True
-            mock_args.diagrams_only = True
-            mock_parse.return_value = mock_args
-
-            with pytest.raises(SystemExit) as exc_info:
-                main()
-
-            assert exc_info.value.code == 1
+        assert generator_cls.call_args.kwargs["diagrams"] == [
+            "architecture",
+            "class",
+            "sequence",
+        ]
 
 
 class TestVersion:

@@ -333,10 +333,15 @@ def _handle_cache_stats(cache_dir: Path) -> int:
     return 0
 
 
-def main() -> None:
-    """Main entry point for the CLI."""
+def main(argv: list[str] | None = None) -> None:
+    """Main entry point for the CLI.
+
+    Args:
+        argv: Command line arguments, without the program name. Defaults to
+            sys.argv[1:].
+    """
     try:
-        args = parse_args()
+        args = parse_args(argv)
 
         # Handle mutually exclusive verbose/quiet
         if args.verbose and args.quiet:
