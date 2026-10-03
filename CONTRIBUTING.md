@@ -1,301 +1,146 @@
 # Contributing to codeatlas
 
-Thank you for your interest in contributing! This guide will help you get started.
+## Setup
 
-## Quick Start
-
-### Prerequisites
-
-- Python 3.10 or higher
-- [uv](https://docs.astral.sh/uv/) package manager
-- Git
-
-### Setup Development Environment
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/arjunurs/codeatlas.git
-   cd codeatlas
-   ```
-
-2. **Install dependencies**
-   ```bash
-   uv sync
-   ```
-
-3. **Install pre-commit hooks**
-   ```bash
-   uv run pre-commit install
-   ```
-
-4. **Verify setup**
-   ```bash
-   # Run tests
-   uv run pytest tests/ -v
-
-   # Run pre-commit checks
-   uv run pre-commit run --all-files
-   ```
-
-## Development Workflow
-
-### Making Changes
-
-Follow this workflow for every contribution:
-
-#### 1. Run Code Simplifier
-Use the code-simplifier plugin to review and clean up your changes before committing.
-
-#### 2. Commit Changes
-```bash
-git add .
-git commit -m "descriptive message"
-```
-
-**Pre-commit hooks run automatically** and check:
-- ✅ **ruff check --fix** - Lint and auto-fix issues
-- ✅ **ruff format** - Format code consistently
-- ⚠️ **ty check** - Type check (non-blocking, shows warnings)
-
-If hooks fail, fix the issues and commit again.
-
-#### 3. Run Tests Before Pushing
-
-**REQUIRED:** Always run tests before pushing.
+You need Python 3.10 or newer, [uv](https://docs.astral.sh/uv/), and Git.
 
 ```bash
-# Run all tests with coverage
-uv run pytest tests/ -v
-
-# Or run separately:
-uv run pytest tests/unit/ -v        # Unit tests (fast, ~0.8s)
-uv run pytest tests/integration/ -v # Integration tests (slower)
+git clone https://github.com/arjunurs/codeatlas.git
+cd codeatlas
+uv sync
+uv run pre-commit install
 ```
 
-**Requirements:**
-- ✅ All 196 unit tests must pass
-- ✅ All 11 integration tests must pass
-- ✅ Code coverage must remain at 75%+
+No API keys are needed for development: the tests replace the APIs with fakes and mocks, and
+`uv run codeatlas --source . --diagrams-only` exercises the analysis and diagram pipeline
+without network calls.
 
-#### 4. Push When Tests Pass
+## Checks
+
+CI runs these four commands on Python 3.10 to 3.13. Run them before pushing:
+
 ```bash
-git push
+uv sync --locked
+uv run ruff check src tests
+uv run ruff format --check src tests
+uv run pytest tests
 ```
 
-### Why Tests Aren't in Pre-Commit
+`pytest` prints a coverage report on every run. There is no enforced threshold yet; do not lower
+coverage with a change.
 
-Tests run **manually** before push (not on every commit) to keep commits fast (0.25s) while maintaining quality. Pre-commit hooks focus on quick checks that complete instantly.
-
-## Code Style
-
-### Standards
-
-- **Type hints** required for all function signatures
-- **Google-style docstrings** for all public functions and classes
-- **PEP 8** compliance with Ruff formatting (88 char line length)
-- **Dataclasses** for data models with `__post_init__` validation
-
-### Enforced by Pre-Commit Hooks
+### Pre-commit hooks
 
 `.pre-commit-config.yaml` runs these on staged files:
 
-- **ruff-check** (with `--fix`) - lint rules `E`, `F`, `I`, `N`, `W`, `UP` from `pyproject.toml`
-- **ruff-format** - formatting
-- **ty** - type check of `src/`; non-blocking, it reports but never fails a commit
+- **ruff-check** (with `--fix`): lint rules `E`, `F`, `I`, `N`, `W`, `UP` from `pyproject.toml`
+- **ruff-format**: formatting
+- **ty**: type check of `src/`; non-blocking, it reports but never fails a commit
 
 The hook's ruff `rev` must match the ruff version in `uv.lock`, which CI uses through
 `uv run`. A mismatch lets a commit fail locally on code that CI accepts, or the reverse. After
 upgrading ruff, update the `rev` and run `uv run pre-commit run --all-files`.
 
-### Manual Commands
+Tests are not a hook, to keep commits fast. Run them yourself before pushing.
 
-```bash
-# Lint and auto-fix
-uv run ruff check src/ tests/ --fix
+## Code style
 
-# Format code
-uv run ruff format src/ tests/
+- Type hints on all function signatures
+- Google-style docstrings for public functions and classes
+- Ruff formatting, 88-character lines
+- Dataclasses for data models, with validation in `__post_init__`
 
-# Type check
-uv run ty check
-
-# Run all pre-commit hooks manually
-uv run pre-commit run --all-files
-```
-
-## Testing
-
-### Test Structure
+## Tests
 
 ```
 tests/
-├── unit/              # Unit tests (fast, isolated)
-│   ├── core/          # Core functionality tests
-│   ├── models/        # Data model tests
-│   ├── providers/     # Provider tests
-│   └── utils/         # Utility tests
-└── integration/       # Integration tests (slower, end-to-end)
+├── conftest.py        # shared fixtures, including fake LangChain chat and embedding models
+├── unit/              # fast and isolated: cache, core, models, prompts, providers,
+│                      # templates, utils, plus test_cli.py and test_config.py
+└── integration/       # full generator runs with a real Chroma store and fake models
 ```
-
-### Running Tests
 
 ```bash
-# All tests with coverage
-uv run pytest tests/ -v
-
-# Specific test file
-uv run pytest tests/unit/core/test_generator.py -v
-
-# Specific test
-uv run pytest tests/unit/core/test_generator.py::test_generate_documentation_success -v
-
-# Tests matching pattern
-uv run pytest -k "test_analyzer" -v
-
-# With coverage report
-uv run pytest tests/ -v --cov=docgen --cov-report=term-missing
+uv run pytest tests/unit/core/test_generator.py          # one file
+uv run pytest tests/unit/core/test_generator.py::test_initialization  # one test
+uv run pytest -k analyzer                                # by name
 ```
 
-### Writing Tests
+Guidelines:
 
-- **Unit tests**: Mock external dependencies, test individual functions/classes
-- **Integration tests**: Test complete workflows end-to-end
-- **Fixtures**: Use shared fixtures from `tests/conftest.py`
-- **Naming**: Use descriptive names (`test_<function>_<scenario>`)
-- **Coverage**: Aim to maintain or improve the 75% coverage threshold
+- Write a failing test first for a bug, then fix it.
+- For behavior that passes through a LangChain chain (callbacks, usage, stop reasons), use the
+  `fake_chat_model_with_usage` and `fake_embeddings` fixtures: they are real LangChain models
+  that need no network. Use `MagicMock` only where the chain itself is not under test.
+- Tests that generate diagrams from synthetic data can use
+  `DiagramGenerator(validate_diagrams=False)`; validation has its own tests.
+- Name tests after the behavior they check, for example
+  `test_unknown_section_rejected_at_construction`.
 
-## Pull Request Process
+## Pull requests
 
-### Before Creating a PR
+- Keep each change focused, with a plain description of what changed and why.
+- Include tests for new behavior and for fixed bugs.
+- Update the docs in the same change when behavior or flags change:
 
-1. ✅ Run code simplifier
-2. ✅ All pre-commit hooks pass
-3. ✅ All tests pass (196 unit + 11 integration)
-4. ✅ Code coverage at 75%+
-5. ✅ Documentation updated if needed
-
-### PR Guidelines
-
-- **Title**: Clear, descriptive summary (e.g., "Add caching support for vector store")
-- **Description**: Explain what, why, and how
-  - What problem does this solve?
-  - What approach did you take?
-  - Any breaking changes?
-- **Small PRs**: Keep changes focused and reviewable
-- **Documentation**: Update README.md or docs/ if adding features
-- **Tests**: Include tests for new functionality
-
-### PR Template
-
-```markdown
-## Description
-Brief description of changes
-
-## Type of Change
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Breaking change
-- [ ] Documentation update
-
-## Testing
-- [ ] Unit tests added/updated
-- [ ] Integration tests added/updated
-- [ ] All tests pass locally
-
-## Checklist
-- [ ] Code follows style guidelines
-- [ ] Pre-commit hooks pass
-- [ ] Documentation updated
-- [ ] Tests provide adequate coverage
-```
-
-## Project Structure
-
-```
-codeatlas/
-├── src/docgen/              # Main package
-│   ├── core/                # Core functionality
-│   │   ├── analyzer.py      # Code analysis
-│   │   ├── diagrams.py      # Diagram generation
-│   │   └── generator.py     # Main orchestrator
-│   ├── models/              # Data models
-│   ├── providers/           # LLM provider abstractions
-│   ├── prompts/             # Prompt management
-│   ├── templates/           # HTML templates
-│   ├── utils/               # Utilities
-│   └── cache/               # Caching system
-├── tests/                   # Test suite
-├── docs/                    # Documentation
-│   ├── architecture.md      # How the pipeline works, decisions, cost, limits
-│   ├── design/              # Design proposals
-│   └── images/              # README screenshot
-└── pyproject.toml           # Project configuration
-```
-
-## Documentation
-
-### When to Update Documentation
-
-| File | Update When |
-|------|-------------|
-| `README.md` | Changing installation, CLI usage, or features |
-| `docs/architecture.md` | Changing the pipeline, caching, providers, or failure behavior |
+| File | Update when |
+|---|---|
+| `README.md` | Installation, CLI usage, or user-visible features change |
+| `docs/architecture.md` | The pipeline, caching, providers, or failure behavior change |
 | `docs/design/` | Proposing a significant design change |
-| `CONTRIBUTING.md` | Changing the development workflow or tooling |
+| `CONTRIBUTING.md` | The development workflow or tooling changes |
 
-### Documentation Style
+## Common changes
 
-- Use **clear, concise language**
-- Include **code examples** for features
-- Add **usage examples** for new CLI options
-- Use **tables** for structured information
-- Include **diagrams** for complex concepts
+### A new CLI option
 
-## Common Development Tasks
+1. Add the argument in `parse_args()` in `src/docgen/cli.py` and pass it to
+   `CodeDocumentationGenerator`.
+2. Implement it in the generator or the component it affects.
+3. Add tests in `tests/unit/test_cli.py` and for the behavior itself.
+4. If users will reach for it, add it to the options table in `README.md`.
 
-### Adding a New CLI Option
+### A new LLM or embedding provider
 
-1. Add argument to `src/docgen/cli.py` in `parse_args()`
-2. Pass parameter to `CodeDocumentationGenerator`
-3. Implement functionality in generator
-4. Add tests in `tests/unit/test_cli.py`
-5. Update `README.md` with new option
+1. Subclass `BaseLLMProvider` or `BaseEmbeddingProvider` in `src/docgen/providers/base.py`
+   and implement `_create_llm()` or `_create_embeddings()`.
+2. Register it in `src/docgen/providers/registry.py`.
+3. Add tests in `tests/unit/providers/`.
 
-### Adding a New LLM Provider
+The CLI always uses Anthropic and OpenAI. Another provider is used through the Python API, by
+passing provider instances to `CodeDocumentationGenerator.create(llm_provider=...,
+embedding_provider=...)`.
 
-1. Create provider class in `src/docgen/providers/`
-2. Implement `LLMProvider` or `EmbeddingProvider` protocol
-3. Register in `src/docgen/providers/registry.py`
-4. Add tests in `tests/unit/providers/`
-5. Update documentation
+### A new diagram type
 
-### Adding a New Diagram Type
+1. Add a value to `DiagramType` in `src/docgen/models/diagram_validation.py`. This also makes
+   it a valid `--diagrams` name.
+2. Add a `generate_*` method to `DiagramGenerator` in `src/docgen/core/diagrams.py` that
+   validates its output, and register a validator for the type in `DiagramValidator`
+   (`src/docgen/utils/diagram_validator.py`).
+3. Call it from `_generate_all_diagrams()` in `src/docgen/core/generator.py`.
+4. Add the page to `diagram_files` in `src/docgen/core/renderer.py` and a link in
+   `src/docgen/templates/files/navigation.html`.
+5. Add tests in `tests/unit/core/test_diagrams.py`, and check that the diagram renders in a
+   browser.
 
-1. Add method to `DiagramGenerator` in `src/docgen/core/diagrams.py`
-2. Add tests in `tests/unit/core/test_diagrams.py`
-3. Update CLI to support new diagram type
-4. Document in `README.md`
+## Project layout
 
-## Getting Help
+```
+src/docgen/
+├── cli.py            # argument parsing and the codeatlas command
+├── config.py         # GeneratorConfig defaults, quality modes
+├── core/             # analyzer, diagrams, generator, RAG pipeline, sections, renderer
+├── cache/            # vector store and section caches
+├── providers/        # Anthropic and OpenAI providers, registry
+├── prompts/          # section prompts and selection
+├── templates/        # Jinja2 HTML templates
+└── utils/            # logging, API keys, cost tracking, diagram validation
+```
 
-- **Issues**: Check [GitHub Issues](https://github.com/arjunurs/codeatlas/issues)
-- **Discussions**: Start a discussion for questions
-- **Documentation**: See [docs/](docs/) for detailed guides
+See [docs/architecture.md](docs/architecture.md) for how the pieces fit together.
 
-## Code of Conduct
+## Questions and license
 
-- Be respectful and inclusive
-- Provide constructive feedback
-- Focus on the code, not the person
-- Help create a welcoming environment
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the MIT License.
-
----
-
-## Additional Resources
-
-- [Architecture](docs/architecture.md): pipeline, design decisions, caching, cost, and limits
-- [Agent-enhanced design proposal](docs/design/agentic-architecture.md) (not implemented)
+Open a [GitHub issue](https://github.com/arjunurs/codeatlas/issues) for bugs and questions.
+By contributing, you agree that your contributions are licensed under the MIT License.
