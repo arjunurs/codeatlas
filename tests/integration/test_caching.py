@@ -9,6 +9,7 @@ from langchain_core.documents import Document
 
 from docgen.cache import vector_cache
 from docgen.cache.metadata import CacheMetadata
+from docgen.cache.vector_cache import CHROMA_SETTINGS
 from docgen.core.generator import CodeDocumentationGenerator
 
 
@@ -235,6 +236,7 @@ def _stored_chunks(project_cache_dir, embedding_provider):
     store = Chroma(
         persist_directory=str(project_cache_dir / "chromadb"),
         embedding_function=embedding_provider.get_langchain_embeddings(),
+        client_settings=CHROMA_SETTINGS,
     )
     return store.get(include=["metadatas", "documents"])
 
@@ -326,6 +328,7 @@ def test_incremental_update_removes_orphaned_chunks(
     store = Chroma(
         persist_directory=str(project_cache_dir / "chromadb"),
         embedding_function=mock_embedding_provider.get_langchain_embeddings(),
+        client_settings=CHROMA_SETTINGS,
     )
     store.add_documents(
         [

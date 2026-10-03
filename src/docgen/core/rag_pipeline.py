@@ -18,7 +18,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable, RunnablePassthrough
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from ..cache.vector_cache import VectorStoreCache
+from ..cache.vector_cache import CHROMA_SETTINGS, VectorStoreCache
 from ..config import GeneratorConfig
 from ..exceptions.errors import DocumentationError, VectorStoreError
 from ..models.code_entity import EntityType
@@ -184,6 +184,7 @@ class RAGPipelineFactory:
                     texts,
                     self.embeddings,
                     collection_name=f"codeatlas-{uuid.uuid4().hex}",
+                    client_settings=CHROMA_SETTINGS,
                 )
 
             retriever = self._create_retriever()

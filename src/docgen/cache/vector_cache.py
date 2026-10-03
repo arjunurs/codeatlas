@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from chromadb.api.client import SharedSystemClient
+from chromadb.config import Settings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
@@ -25,6 +26,11 @@ logger = logging.getLogger(__name__)
 # Documents added per call during incremental updates. Chroma rejects a single
 # add above its max batch size (5461 for the default SQLite backend).
 ADD_BATCH_SIZE = 1000
+
+# Chroma sends anonymized usage telemetry unless it is turned off. Every client
+# codeatlas opens uses these settings: Chroma refuses a second client on the
+# same directory with different ones.
+CHROMA_SETTINGS = Settings(anonymized_telemetry=False)
 
 
 class VectorStoreCache:
@@ -142,6 +148,7 @@ class VectorStoreCache:
             documents=documents,
             embedding=self.embeddings,
             persist_directory=str(self.vector_dir),
+            client_settings=CHROMA_SETTINGS,
         )
 
         # Update metadata for all files
@@ -187,6 +194,7 @@ class VectorStoreCache:
         vector_store = Chroma(
             persist_directory=str(self.vector_dir),
             embedding_function=self.embeddings,
+            client_settings=CHROMA_SETTINGS,
         )
 
         # If no changes, return as-is
@@ -296,6 +304,7 @@ class VectorStoreCache:
             Chroma(
                 persist_directory=str(self.vector_dir),
                 embedding_function=self.embeddings,
+                client_settings=CHROMA_SETTINGS,
             ).delete_collection()
         except Exception as e:
             logger.warning(

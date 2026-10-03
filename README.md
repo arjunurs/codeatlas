@@ -87,7 +87,8 @@ cache control, and retrieval tuning (`--retriever-k`, MMR search).
 1. **Analyze**: walk the source tree and parse each file's AST into classes, functions, imports,
    and calls.
 2. **Diagram**: build Mermaid source for each diagram type and validate it.
-3. **Index**: split the code into chunks, embed them with OpenAI, and store them in Chroma.
+3. **Index**: split the code into chunks, embed them with OpenAI, and store them in a local
+   Chroma database, with Chroma's anonymized telemetry turned off.
 4. **Write**: for each section, retrieve the most relevant chunks and ask Claude to write it.
    Sections run in parallel.
 5. **Render**: convert the Markdown to HTML, sanitize it, and render the site with Jinja

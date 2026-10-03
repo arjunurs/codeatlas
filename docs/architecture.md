@@ -66,7 +66,8 @@ as a warning.
 **Chroma as the vector store.** It runs in-process, persists to SQLite, supports similarity and
 MMR search, and adds no infrastructure to a CLI tool. FAISS lacks built-in persistence; hosted
 stores add a network dependency and cost for no gain at this scale. SQLite is single-writer,
-which is fine for one user and would not be for a hosted service.
+which is fine for one user and would not be for a hosted service. Chroma's anonymized usage
+telemetry is on by default; codeatlas turns it off for every client it opens.
 
 **Chunking.** Each file produces one document with its full source and one document per class or
 function (name, type, docstring, methods, base class). Documents are split into 2,000-character

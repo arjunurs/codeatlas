@@ -1,4 +1,11 @@
-"""The vector stores codeatlas builds, checked against a real Chroma."""
+"""The vector stores codeatlas builds, checked against a real Chroma.
+
+Chroma turns its telemetry off by itself whenever pytest is imported, so the
+telemetry tests check the settings each client was created with, not network
+traffic.
+"""
+
+import logging
 
 import pytest
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -18,7 +25,7 @@ def build_store(tmp_path, fake_embeddings, fake_chat_model_with_usage):
 
     def build(name: str, code: str, **cache_args):
         project = tmp_path / name
-        project.mkdir()
+        project.mkdir(exist_ok=True)
         (project / f"{name}.py").write_text(code)
 
         factory = RAGPipelineFactory(
@@ -53,3 +60,44 @@ def test_in_memory_stores_do_not_share_chunks(build_store):
     documents = second.get(include=["documents"])["documents"]
     assert documents
     assert not [doc for doc in documents if "alpha_only" in doc]
+
+
+def telemetry_enabled(store) -> bool:
+    """Whether the client behind a langchain Chroma store has telemetry on."""
+    return store._client.get_settings().anonymized_telemetry
+
+
+def test_in_memory_store_has_telemetry_off(build_store):
+    """Without the cache, the in-memory store is created with telemetry off."""
+    store = build_store("alpha", "def alpha_only():\n    return 1\n")
+
+    assert telemetry_enabled(store) is False
+
+
+def test_cached_store_has_telemetry_off(build_store, tmp_path):
+    """The cached store has telemetry off when created and when reopened."""
+    code = "def alpha_only():\n    return 1\n"
+    cache_args = {"cache_enabled": True, "cache_dir": tmp_path / "cache"}
+
+    assert telemetry_enabled(build_store("alpha", code, **cache_args)) is False
+    assert telemetry_enabled(build_store("alpha", code, **cache_args)) is False
+
+
+def test_force_refresh_reopens_the_store_with_the_same_settings(
+    build_store, tmp_path, caplog
+):
+    """Rebuilding drops the old collection instead of deleting the directory.
+
+    Chroma refuses a second client on the same directory with different
+    settings, so a client opened without them would fall back to deleting
+    the directory, with a warning.
+    """
+    code = "def alpha_only():\n    return 1\n"
+    cache_args = {"cache_enabled": True, "cache_dir": tmp_path / "cache"}
+    build_store("alpha", code, **cache_args)
+
+    with caplog.at_level(logging.WARNING, logger="docgen.cache.vector_cache"):
+        store = build_store("alpha", code, force_refresh=True, **cache_args)
+
+    assert "Could not open existing vector store" not in caplog.text
+    assert telemetry_enabled(store) is False
