@@ -167,9 +167,11 @@ exits 0.
 - **Diagrams.** The architecture, dependency, and call graph diagrams show only the project's
   own code and its third-party packages, and keep their 50 most connected nodes, so on a large
   codebase they show its busiest parts rather than all of it. The call graph draws only calls
-  it can trace (to a function, a method through `self`, or an imported name), not calls through
-  other attributes. The sequence diagram lists calls from the call graph, in the order each
-  function makes them, rather than following a workflow.
+  it can trace: to a function or class, an imported name, or a method of an object whose class
+  is known from an annotation or an assignment (`self.store = Store()`), including methods
+  inherited from the project's own classes. Calls on objects of unknown class are left out.
+  The sequence diagram lists calls from the call graph, in the order each function makes them,
+  rather than following a workflow.
 - **Scale.** All analyses are held in memory, and analysis is single-threaded: analyzing and
   diagramming 7,819 files took 144 s. `--max-files` and `--exclude` bound a run on very large
   trees.

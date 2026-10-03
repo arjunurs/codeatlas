@@ -9,6 +9,7 @@ graph TD
     end
     subgraph shop_orders__group["shop.orders"]
         shop_orders_Order["Order"]
+        shop_orders_Order_total["Order.total"]
         shop_orders_place_order["place_order"]
     end
     subgraph shop_payments_gateway__group["shop.payments.gateway"]
@@ -20,5 +21,6 @@ graph TD
     shop_cli_main --> shop_catalog_Catalog_load
     shop_cli_main --> shop_orders_place_order
     shop_orders_place_order --> shop_orders_Order
+    shop_orders_place_order --> shop_orders_Order_total
     shop_orders_place_order --> shop_payments_gateway_charge
     shop_payments_gateway_refund --> shop_payments_gateway_charge

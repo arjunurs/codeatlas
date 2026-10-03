@@ -464,6 +464,381 @@ def main():
     }
 
 
+def test_calls_through_attributes_resolve(analyzer, tmp_path):
+    """self.x.method() leads to the method when the class of x is known."""
+    main = """from dataclasses import dataclass
+
+from .engine import Engine
+
+
+class Spare:
+    def inflate(self):
+        pass
+
+
+class Radio:
+    def play(self):
+        pass
+
+
+class Horn:
+    def honk(self):
+        pass
+
+
+@dataclass
+class Dashboard:
+    radio: Radio
+
+    def show(self):
+        self.radio.play()
+
+
+class Car:
+    horn: "Horn"
+
+    def __init__(self, engine: Engine):
+        self.engine = engine
+        self.spare = Spare()
+        self.radio: Radio | None = None
+
+    def drive(self):
+        self.engine.start()
+        self.spare.inflate()
+        self.radio.play()
+        self.horn.honk()
+"""
+    call_graph = call_graph_of(
+        analyzer,
+        tmp_path,
+        {
+            "car/__init__.py": "",
+            "car/engine.py": "class Engine:\n    def start(self):\n        pass\n",
+            "car/main.py": main,
+        },
+    )
+
+    assert call_graph["car.main.Car.drive"] == [
+        "car.engine.Engine.start",
+        "car.main.Spare.inflate",
+        "car.main.Radio.play",
+        "car.main.Horn.honk",
+    ]
+    assert call_graph["car.main.Dashboard.show"] == ["car.main.Radio.play"]
+
+
+def test_calls_through_local_variables_resolve(analyzer, tmp_path):
+    """A local's class comes from its value, a return annotation, or its annotation."""
+    code = """class Store:
+    def save(self):
+        pass
+
+    def load(self):
+        pass
+
+    def close(self):
+        pass
+
+
+class Cache:
+    def get(self):
+        pass
+
+
+def open_store() -> Store:
+    return Store()
+
+
+class App:
+    def __init__(self):
+        self.cache = Cache()
+
+    def run(self, backup: "Store"):
+        store = open_store()
+        store.save()
+        cached = self.cache
+        cached.get()
+        with Store() as session:
+            session.load()
+        backup.close()
+"""
+    call_graph = call_graph_of(analyzer, tmp_path, {"app.py": code})
+
+    assert call_graph["app.App.run"] == [
+        "app.open_store",
+        "app.Store.save",
+        "app.Cache.get",
+        "app.Store",
+        "app.Store.load",
+        "app.Store.close",
+    ]
+
+
+def test_inherited_methods_resolve_to_the_base_class(analyzer, tmp_path):
+    """self.method(), super().method(), and obj.method() find a base's method."""
+    child = """from .base import Base
+
+
+class Child(Base):
+    def __init__(self):
+        super().__init__()
+        self.ping()
+
+
+def main(child: Child):
+    child.ping()
+    Child.pong()
+"""
+    base = """class Base:
+    def __init__(self):
+        pass
+
+    def ping(self):
+        pass
+
+    @classmethod
+    def pong(cls):
+        pass
+"""
+    call_graph = call_graph_of(
+        analyzer,
+        tmp_path,
+        {"pkg/__init__.py": "", "pkg/base.py": base, "pkg/child.py": child},
+    )
+
+    assert call_graph["pkg.child.Child.__init__"] == [
+        "super",
+        "pkg.base.Base.__init__",
+        "pkg.base.Base.ping",
+    ]
+    assert call_graph["pkg.child.main"] == ["pkg.base.Base.ping", "pkg.base.Base.pong"]
+
+
+def test_properties_and_closures_carry_types(analyzer, tmp_path):
+    """A property's return annotation types it, and a nested function sees self."""
+    code = """class Engine:
+    def start(self):
+        pass
+
+
+class Car:
+    @property
+    def engine(self) -> Engine:
+        return Engine()
+
+    def drive(self):
+        def go():
+            self.engine.start()
+
+        go()
+
+    @staticmethod
+    def build(other):
+        other.drive()
+"""
+    call_graph = call_graph_of(analyzer, tmp_path, {"app.py": code})
+
+    assert call_graph["app.Car.drive.go"] == ["app.Engine.start"]
+    assert call_graph["app.Car.build"] == ["drive"]
+
+
+def test_unknown_and_ambiguous_types_stay_bare(analyzer, tmp_path):
+    """A name with no single known class, or one hiding a module, is not traced."""
+    code = """from . import util
+
+
+class A:
+    def go(self):
+        pass
+
+
+class B:
+    def go(self):
+        pass
+
+
+def main(flag, either: A | B, util):
+    thing = A() if flag else B()
+    x = A()
+    x = B()
+    x.go()
+    either.go()
+    thing.go()
+    util.tool()
+"""
+    call_graph = call_graph_of(
+        analyzer,
+        tmp_path,
+        {
+            "pkg/__init__.py": "",
+            "pkg/util.py": "def tool():\n    pass\n",
+            "pkg/app.py": code,
+        },
+    )
+
+    assert call_graph["pkg.app.main"] == ["pkg.app.A", "pkg.app.B", "go", "tool"]
+
+
+def test_annotation_forms_name_the_class(analyzer, tmp_path):
+    """Optional, Union, string, and annotated-local forms all name the class."""
+    code = """import typing
+from typing import Optional
+
+
+class Engine:
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+    def tune(self):
+        pass
+
+    def rev(self):
+        pass
+
+    def idle(self):
+        pass
+
+
+def build():
+    return Engine()
+
+
+class Client:
+    async def fetch(self):
+        pass
+
+
+async def connect() -> Client:
+    return Client()
+
+
+class Garage:
+    spare = Engine()
+
+    def work(
+        self,
+        a: Optional[Engine],
+        b: typing.Union[Engine, None],
+        c: list[Engine],
+        d: "not valid(",
+        e: "Engine | None",
+    ):
+        a.start()
+        b.stop()
+        c.inspect()
+        d.polish()
+        e.tune()
+        self.spare.rev()
+        x: Engine = build()
+        x.idle()
+        a.missing()
+
+    async def visit(self):
+        client = await connect()
+        await client.fetch()
+"""
+    call_graph = call_graph_of(analyzer, tmp_path, {"app.py": code})
+
+    assert call_graph["app.Garage.work"] == [
+        "app.Engine.start",
+        "app.Engine.stop",
+        "inspect",
+        "polish",
+        "app.Engine.tune",
+        "app.Engine.rev",
+        "app.build",
+        "app.Engine.idle",
+        "missing",
+    ]
+    assert call_graph["app.Garage.visit"] == ["app.connect", "app.Client.fetch"]
+
+
+def test_lookups_and_bindings_that_do_not_trace(analyzer, tmp_path):
+    """Lookups follow every base once; loop and unpacked names hide modules."""
+    code = """import functools
+
+import pkg.util
+from . import util
+
+
+class Base:
+    def ping(self):
+        pass
+
+
+class Left(Base):
+    pass
+
+
+class Right(Base):
+    pass
+
+
+class Both(Left, Right):
+    def __init__(self):
+        super().__init__()
+        self.ping()
+
+    @functools.lru_cache(maxsize=None)
+    def cached(self):
+        pass
+
+    def run(self):
+        self.cached.cache_clear()
+        pkg.util.tool()
+        pkg.util.missing()
+
+
+def loop(items):
+    for util in items:
+        util.tool()
+
+
+def unpack(pair):
+    util, _ = pair
+    util.tool()
+
+
+def context(manager):
+    with manager:
+        pass
+    with manager as (util, _):
+        util.tool()
+
+
+def handle():
+    try:
+        pass
+    except Exception as util:
+        util.tool()
+"""
+    call_graph = call_graph_of(
+        analyzer,
+        tmp_path,
+        {
+            "pkg/__init__.py": "",
+            "pkg/util.py": "def tool():\n    pass\n",
+            "pkg/app.py": code,
+        },
+    )
+
+    assert call_graph["pkg.app.Both.__init__"] == [
+        "super",
+        "__init__",
+        "pkg.app.Base.ping",
+    ]
+    assert call_graph["pkg.app.Both.run"] == [
+        "cache_clear",
+        "pkg.util.tool",
+        "missing",
+    ]
+    for function in ("loop", "unpack", "context", "handle"):
+        assert call_graph[f"pkg.app.{function}"] == ["tool"]
+
+
 def test_calls_the_analyzer_cannot_place_stay_bare(analyzer, tmp_path):
     """Built-ins, other libraries, and methods on other objects keep their bare name."""
     code = """import logging

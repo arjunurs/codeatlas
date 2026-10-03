@@ -300,8 +300,11 @@ class CodeAnalyzer:
         Functions are named by module path from the source root, as in
         pkg.module.func and pkg.module.Class.method. A call is named the same
         way when it can be traced to a function or class in the analyzed code:
-        one in the same module, a method called through self or cls, or a name
-        imported from an analyzed module. Any other call keeps its bare name.
+        one in the same module, a name imported from an analyzed module, or a
+        method of an object whose class is known (self, cls, or a name or
+        attribute annotated with the class or assigned an instance of it),
+        including a method inherited from an analyzed base class. Any other
+        call keeps its bare name.
         Calls are listed in the order Python makes them (arguments before the
         call), each once.
 
@@ -316,10 +319,9 @@ class CodeAnalyzer:
         """
         parsed = []
         for analysis in analyses:
-            # Clean up the code by removing leading/trailing whitespace
+            # An empty file is still parsed: an empty __init__.py is a module
+            # that calls are traced through, as in pkg.util.tool()
             cleaned_code = analysis.content.strip()
-            if not cleaned_code:
-                continue
             try:
                 tree = ast.parse(cleaned_code)
             except SyntaxError as e:
