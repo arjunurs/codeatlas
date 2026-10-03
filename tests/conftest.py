@@ -13,6 +13,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
+from pydantic import Field
 
 from docgen.models.code_entity import CodeEntity
 from docgen.models.file_analysis import FileAnalysis
@@ -362,12 +363,15 @@ class FakeChatModelWithUsage(BaseChatModel):
 
     stop_reason mimics Anthropic's response metadata and finish_reason mimics
     OpenAI's generation info, so tests can simulate a truncated response.
+    Each prompt it receives is recorded in ``prompts``.
     """
 
+    content: str = "generated text"
     input_tokens: int = 120
     output_tokens: int = 30
     stop_reason: str | None = None
     finish_reason: str | None = None
+    prompts: list[str] = Field(default_factory=list)
 
     @property
     def _llm_type(self) -> str:
@@ -380,8 +384,9 @@ class FakeChatModelWithUsage(BaseChatModel):
         run_manager: Any = None,
         **kwargs: Any,
     ) -> ChatResult:
+        self.prompts.append("\n".join(str(m.content) for m in messages))
         message = AIMessage(
-            content="generated text",
+            content=self.content,
             usage_metadata={
                 "input_tokens": self.input_tokens,
                 "output_tokens": self.output_tokens,

@@ -11,11 +11,100 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from docgen.cli import main
 from docgen.core.analyzer import CodeAnalyzer
 from docgen.core.generator import CodeDocumentationGenerator
 from docgen.exceptions.errors import ApiKeyError, DocumentationError
 from docgen.models.code_entity import EntityType
 from docgen.templates.html import get_template_manager
+
+SECTION_MARKDOWN = "## Summary\n\nThe calculator project adds **e2e-marker** numbers."
+
+CALCULATOR_SOURCE = '''"""A small calculator."""
+
+
+class Calculator:
+    """Adds numbers."""
+
+    def add_numbers(self, a: int, b: int) -> int:
+        """Return the sum of a and b."""
+        return a + b
+'''
+
+MAIN_SOURCE = '''from calculator import Calculator
+
+
+def run() -> int:
+    """Add two numbers."""
+    return Calculator().add_numbers(2, 3)
+'''
+
+
+class TestCommandLineRun:
+    """The codeatlas command on a small project, down to the generated HTML.
+
+    Only the two SDK clients are replaced, by fake LangChain models. Analysis,
+    chunking, the Chroma store, retrieval, the RAG chain, usage tracking,
+    Markdown rendering, sanitizing, and templates all run for real.
+    """
+
+    def test_generated_text_reaches_every_section_page(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+        capsys,
+        fake_chat_model_with_usage,
+        fake_embeddings,
+    ):
+        """Each section page shows the model's text, rendered from Markdown."""
+        project = tmp_path / "project"
+        project.mkdir()
+        (project / "calculator.py").write_text(CALCULATOR_SOURCE)
+        (project / "main.py").write_text(MAIN_SOURCE)
+        output = tmp_path / "output"
+
+        chat_model = fake_chat_model_with_usage.model_copy(
+            update={"content": SECTION_MARKDOWN}
+        )
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
+        monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+        # Keep any default paths, such as .docgen_cache, out of the repository
+        monkeypatch.chdir(tmp_path)
+
+        with (
+            patch("docgen.providers.anthropic.ChatAnthropic", return_value=chat_model),
+            patch(
+                "docgen.providers.openai.OpenAIEmbeddings",
+                return_value=fake_embeddings,
+            ),
+            # setup_logging replaces the root handlers, including pytest's
+            patch("docgen.cli.setup_logging"),
+        ):
+            main(["--source", str(project), "-o", str(output)])
+
+        pages = sorted(path.name for path in (output / "sections").glob("*.html"))
+        assert pages == [
+            "data_flow.html",
+            "dependencies.html",
+            "integration_points.html",
+            "key_classes_and_functions.html",
+            "overview.html",
+        ]
+        for page in pages:
+            html = (output / "sections" / page).read_text()
+            assert "<strong>e2e-marker</strong>" in html, page
+
+        # Retrieval put the project's code into every section prompt
+        assert len(chat_model.prompts) == 5
+        assert all("def add_numbers" in prompt for prompt in chat_model.prompts)
+
+        # The diagrams were built from the same analysis
+        assert "Calculator" in (output / "diagrams" / "classes.html").read_text()
+
+        # The reported usage reached the cost summary: 5 calls of 120 + 30 tokens
+        summary = capsys.readouterr().out
+        assert "Input tokens: 600" in summary
+        assert "Output tokens: 150" in summary
 
 
 class TestFullWorkflow:
