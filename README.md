@@ -8,6 +8,9 @@ codeatlas maps a Python codebase and generates browsable HTML documentation for 
 the code with Python's `ast` module, draws Mermaid diagrams of the structure, and uses an LLM with
 retrieval over the code (RAG) to write the narrative sections.
 
+**[See what it generated for Flask](https://arjunurs.github.io/codeatlas/)**, published unedited,
+with how it was made and how its claims were fact-checked.
+
 ![Sequence diagram generated for Flask, showing how Flask.__call__ handles a request](docs/images/flask-sequence.png)
 
 *The sequence diagram codeatlas draws for Flask: how `Flask.__call__` handles a request, from
@@ -62,10 +65,10 @@ The Dependencies section also reads the project's `pyproject.toml`, `setup.cfg`,
 `requirements*.txt`, so it can name every dependency and version, not only the ones the
 retrieved code happens to import.
 
-![The Dependencies section generated for FastAPI](docs/images/fastapi-dependencies-section.png)
+![The Dependencies section generated for Flask](docs/images/flask-dependencies-section.png)
 
-*The Dependencies section codeatlas wrote for FastAPI's package. Each version is the one in
-FastAPI's `pyproject.toml`; what each package is used for comes from the retrieved code.*
+*The Dependencies section codeatlas wrote for Flask's package. Each version is the one in
+Flask's `pyproject.toml`; which module imports what comes from the code.*
 
 ## Full documentation (needs API keys)
 
