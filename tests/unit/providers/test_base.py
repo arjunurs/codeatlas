@@ -17,13 +17,17 @@ class TestLLMProviderProtocol:
     """Test cases for LLMProvider protocol."""
 
     def test_protocol_check_valid(self):
-        """Test that valid objects satisfy the protocol."""
-        mock = MagicMock()
-        mock.model_name = "test-model"
-        mock.invoke = MagicMock(return_value="response")
+        """A class with model_name and invoke satisfies the protocol."""
 
-        # Protocol check should pass
-        assert isinstance(mock, LLMProvider)
+        class MinimalProvider:
+            @property
+            def model_name(self) -> str:
+                return "test-model"
+
+            def invoke(self, prompt: str) -> str:
+                return "response"
+
+        assert isinstance(MinimalProvider(), LLMProvider)
 
     def test_protocol_check_missing_method(self):
         """Test that objects missing methods don't satisfy protocol."""
@@ -41,13 +45,31 @@ class TestEmbeddingProviderProtocol:
     """Test cases for EmbeddingProvider protocol."""
 
     def test_protocol_check_valid(self):
-        """Test that valid objects satisfy the protocol."""
-        mock = MagicMock()
-        mock.model_name = "test-model"
-        mock.embed_documents = MagicMock(return_value=[[0.1, 0.2]])
-        mock.embed_query = MagicMock(return_value=[0.1, 0.2])
+        """A class with model_name and both embed methods satisfies the protocol."""
 
-        assert isinstance(mock, EmbeddingProvider)
+        class MinimalEmbeddings:
+            @property
+            def model_name(self) -> str:
+                return "test-model"
+
+            def embed_documents(self, texts: list[str]) -> list[list[float]]:
+                return [[0.1, 0.2] for _ in texts]
+
+            def embed_query(self, text: str) -> list[float]:
+                return [0.1, 0.2]
+
+        assert isinstance(MinimalEmbeddings(), EmbeddingProvider)
+
+    def test_protocol_check_missing_method(self):
+        """A class without embed_query does not satisfy the protocol."""
+
+        class IncompleteEmbeddings:
+            model_name = "test"
+
+            def embed_documents(self, texts: list[str]) -> list[list[float]]:
+                return [[0.1, 0.2] for _ in texts]
+
+        assert not isinstance(IncompleteEmbeddings(), EmbeddingProvider)
 
 
 class TestBaseLLMProvider:

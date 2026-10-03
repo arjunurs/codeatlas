@@ -3,12 +3,14 @@
 Tests end-to-end diagram generation and validation scenarios.
 """
 
+import logging
+
 import pytest
 
 from docgen.core.diagrams import DiagramGenerator
 from docgen.exceptions.errors import DiagramGenerationError
 from docgen.models.code_entity import CodeEntity
-from docgen.models.diagram_validation import ValidationConfig
+from docgen.models.diagram_validation import DiagramType, ValidationConfig
 from docgen.models.file_analysis import FileAnalysis
 
 
@@ -105,28 +107,17 @@ class TestDiagramValidationIntegration:
         assert diagram
 
     def test_validation_warnings_logged(self, caplog):
-        """Test that validation warnings are logged."""
+        """Validation warnings are logged without failing the diagram."""
         generator = DiagramGenerator(validate_diagrams=True)
 
-        entities = [
-            CodeEntity(name="MyClass", type="class", docstring="Test"),
-            CodeEntity(name="method1", type="function", docstring="Method"),
-        ]
-        analysis = FileAnalysis(
-            file_path="test.py",
-            entities=entities,
-            imports=[],
-            content="",
-            _skip_validation=True,
-        )
+        # A graph without a direction is accepted but draws a warning
+        with caplog.at_level(logging.WARNING, logger="docgen.core.diagrams"):
+            generator._validate_diagram(
+                "graph\n    A[A] --> B[B]", DiagramType.ARCHITECTURE
+            )
 
-        # Generate diagram
-        diagram = generator.generate_class_diagram([analysis])
-        assert diagram
-
-        # Check if any warnings were logged (may or may not have warnings)
-        # This test verifies the logging mechanism works
-        assert caplog.text is not None
+        assert "architecture diagram has 1 warning(s)" in caplog.text
+        assert "Graph direction not specified" in caplog.text
 
     def test_dependency_diagram_validation(self):
         """Test dependency diagram validation."""

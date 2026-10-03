@@ -5,6 +5,7 @@ to final documentation output, testing the integration between all
 components.
 """
 
+import logging
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -238,19 +239,19 @@ class TestCodeAnalysis:
         assert len(func_entities) >= 1
         assert any(e.name == "helper_function" for e in func_entities)
 
-    def test_analyzer_handles_syntax_errors(self, tmp_path: Path):
-        """Test that analyzer handles files with syntax errors gracefully."""
+    def test_analyzer_skips_files_with_syntax_errors(self, tmp_path: Path, caplog):
+        """A file that does not parse is skipped with a warning; others are analyzed."""
         source_dir = tmp_path / "src"
         source_dir.mkdir()
-
-        # Create file with syntax error
         (source_dir / "bad.py").write_text("def broken(\n    syntax error here")
+        (source_dir / "good.py").write_text("def ok():\n    return 1\n")
 
-        analyzer = CodeAnalyzer()
-        analyses = analyzer.analyze_directory(str(source_dir))
+        with caplog.at_level(logging.WARNING, logger="docgen.core.analyzer"):
+            analyses = CodeAnalyzer().analyze_directory(str(source_dir))
 
-        # Should still return a result (possibly with error flag)
-        assert len(analyses) >= 0  # May be empty or have error info
+        assert [Path(a.file_path).name for a in analyses] == ["good.py"]
+        assert "Skipping" in caplog.text
+        assert "bad.py" in caplog.text
 
 
 class TestTemplateRendering:
