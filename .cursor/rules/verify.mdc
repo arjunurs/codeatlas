@@ -6,8 +6,8 @@ alwaysApply: true
 
 A change is done when it has been checked against real output, not when the code looks right.
 
-- Run the four CI checks (`uv sync --locked`, `ruff check`, `ruff format --check`, `pytest`)
-  and report failures as they are.
+- Run the CI checks (`uv sync --locked`, `ruff check`, `ruff format --check`, and
+  `pytest tests --cov-fail-under=<minimum in test.yml>`) and report failures as they are.
 - Diagram or template changes: run `uv run codeatlas --source . --diagrams-only -o <dir>`,
   serve the folder with `python3 -m http.server 8765 --bind 127.0.0.1`, and look at each
   changed page in a browser. The validator checks known rules; only Mermaid itself shows

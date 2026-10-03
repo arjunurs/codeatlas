@@ -64,6 +64,9 @@ minversion = "9.0"
 addopts = "-ra -q --cov=docgen --cov-report=term-missing"
 testpaths = ["tests"]
 
+[tool.coverage.run]
+branch = true
+
 [tool.ruff]
 line-length = 88
 target-version = "py310"

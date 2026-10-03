@@ -16,11 +16,11 @@ vector store (RAG). The package is `docgen` (`src/docgen`); the command is `code
 uv sync                                  # install, including dev tools
 uv run pre-commit install                # file checks, ruff, and ty on commit
 
-# The four checks CI runs on Python 3.10 to 3.13
+# The checks CI runs (.github/workflows/test.yml): lint once, tests on 3.10 to 3.13
 uv sync --locked
 uv run ruff check src tests
 uv run ruff format --check src tests
-uv run pytest tests
+uv run pytest tests --cov-fail-under=87      # CI's coverage minimum, counting branches
 
 uv run pytest tests/unit/core/test_generator.py::test_initialization   # one test
 uv run pytest -k analyzer                                              # by name

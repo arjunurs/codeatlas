@@ -17,17 +17,19 @@ without network calls.
 
 ## Checks
 
-CI runs these four commands on Python 3.10 to 3.13. Run them before pushing:
+CI runs these commands, in `.github/workflows/test.yml`. Run them before pushing:
 
 ```bash
 uv sync --locked
-uv run ruff check src tests
+uv run ruff check src tests                        # lint job, once per push
 uv run ruff format --check src tests
-uv run pytest tests
+uv run pytest tests --cov-fail-under=87            # test job, on Python 3.10 to 3.13
 ```
 
-`pytest` prints a coverage report on every run. There is no enforced threshold yet; do not lower
-coverage with a change.
+`pytest` prints a coverage report on every run, counting branches. CI fails the tests if total
+coverage drops below the minimum in `test.yml`, which is the measured figure rounded down. When
+a change raises coverage, raise the minimum with it. The minimum is not in `pyproject.toml`, so
+running a single test file locally does not fail on coverage.
 
 ### Pre-commit hooks
 
