@@ -11,6 +11,7 @@ from docgen.exceptions.errors import DiagramValidationError
 from docgen.models.diagram_validation import (
     DiagramType,
     ValidationConfig,
+    ValidationError,
     ValidationResult,
 )
 from docgen.utils.diagram_rules import COMMON_RULES, ValidationRule
@@ -114,14 +115,32 @@ class BaseValidator:
         )
 
         if raise_on_error and not is_valid:
-            error_msg = f"{self.diagram_type.value} diagram validation failed"
-            if errors:
-                error_msg += f" with {len(errors)} error(s)"
+            failures = list(errors)
+            counts = [f"{len(errors)} error(s)"] if errors else []
             if warnings and self.config.fail_on_warnings:
-                error_msg += f" and {len(warnings)} warning(s)"
-            raise DiagramValidationError(error_msg)
+                failures.extend(warnings)
+                counts.append(f"{len(warnings)} warning(s)")
+            raise DiagramValidationError(
+                f"{self.diagram_type.value} diagram validation failed with "
+                f"{' and '.join(counts)}: {_describe_issues(failures)}"
+            )
 
         return result
+
+
+# The most failing issues a validation error names; the rest are counted
+_ISSUES_NAMED = 3
+
+
+def _describe_issues(issues: list[ValidationError]) -> str:
+    """Name the first few issues by rule and line, and count the rest."""
+    described = []
+    for issue in issues[:_ISSUES_NAMED]:
+        where = f" at line {issue.line_number}" if issue.line_number is not None else ""
+        described.append(f"{issue.rule_name}{where}: {issue.message}")
+    if len(issues) > _ISSUES_NAMED:
+        described.append(f"and {len(issues) - _ISSUES_NAMED} more")
+    return "; ".join(described)
 
 
 class DiagramValidator:

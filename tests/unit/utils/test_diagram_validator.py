@@ -68,6 +68,45 @@ class TestDiagramValidator:
                 raise_on_error=True,
             )
 
+    def test_validation_error_names_the_failing_rules_and_lines(self):
+        """The raised error says which rule failed, and where."""
+        validator = DiagramValidator()
+        diagram = 'graph TD\n    A["say "hi""] --> B'
+        with pytest.raises(DiagramValidationError) as raised:
+            validator.validate(diagram, DiagramType.ARCHITECTURE, raise_on_error=True)
+        assert str(raised.value) == (
+            "architecture diagram validation failed with 1 error(s): "
+            "quote_escaping at line 2: Double quote inside a quoted label"
+        )
+
+    def test_validation_error_lists_at_most_three_issues(self):
+        """Past three failing issues, the rest are counted."""
+        validator = DiagramValidator()
+        labels = "\n".join(f'    N{i}["say "hi""]' for i in range(5))
+        with pytest.raises(DiagramValidationError) as raised:
+            validator.validate(
+                f"graph TD\n{labels}", DiagramType.ARCHITECTURE, raise_on_error=True
+            )
+        message = str(raised.value)
+        assert message.startswith(
+            "architecture diagram validation failed with 5 error(s): "
+        )
+        named = [line for line in range(2, 7) if f"line {line}:" in message]
+        assert named == [2, 3, 4]
+        assert message.endswith("; and 2 more")
+
+    def test_validation_error_names_warnings_that_fail_it(self):
+        """With fail_on_warnings, the warnings are named; one with no line is too."""
+        validator = DiagramValidator(ValidationConfig(fail_on_warnings=True))
+        diagram = "graph TD\n    A --> B{x}"
+        with pytest.raises(DiagramValidationError) as raised:
+            validator.validate(diagram, DiagramType.ARCHITECTURE, raise_on_error=True)
+        assert str(raised.value) == (
+            "architecture diagram validation failed with 2 warning(s): "
+            "special_characters at line 2: Special character '{' may need quoting; "
+            "node_definition: Nodes referenced but not defined: A, B"
+        )
+
     def test_validate_auto_detect_architecture(self):
         """Test auto-detection of architecture diagram."""
         validator = DiagramValidator()
