@@ -16,7 +16,7 @@ from ..cache.content_cache import SectionContentCache
 from ..config import GeneratorConfig
 from ..models.file_analysis import FileAnalysis
 from ..prompts.rag_prompt import RAG_PROMPT_TEMPLATE
-from ..prompts.sections import get_section_prompt, select_sections
+from ..prompts.sections import get_section_prompt, get_section_query, select_sections
 from ..utils.cost_tracker import CostTracker
 from ..utils.error_classification import describe_error
 from ..utils.usage_tracking import TokenUsageCallback
@@ -185,7 +185,7 @@ class SectionOrchestrator:
             return self._generate_section(rag_chain, section_name)
 
         prompt = self._build_prompt(section_name)
-        settings = self._generation_settings()
+        settings = self._generation_settings(section_name)
         if not self.force_refresh:
             cached_content = self.section_cache.get_cached_section(
                 section_name,
@@ -217,16 +217,18 @@ class SectionOrchestrator:
             )
         return content
 
-    def _generation_settings(self) -> str:
+    def _generation_settings(self, section_name: str) -> str:
         """The settings besides the model and prompt that shape a section's text.
 
         That is the template every section prompt is wrapped in, what the
-        retriever puts in it, and how long the answer may be.
+        retriever puts in it (the section's query and the retriever's
+        settings), and how long the answer may be.
         """
         config = self.config
         return "\n".join(
             [
                 RAG_PROMPT_TEMPLATE,
+                f"query={get_section_query(section_name)}",
                 f"retriever k={config.RETRIEVER_K} "
                 f"search={config.RETRIEVER_SEARCH_TYPE} "
                 f"threshold={config.RETRIEVER_SCORE_THRESHOLD} "
@@ -274,7 +276,10 @@ class SectionOrchestrator:
             prompt = self._build_prompt(section_name)
 
         usage = TokenUsageCallback()
-        content = rag_chain.invoke(prompt, config={"callbacks": [usage]})
+        content = rag_chain.invoke(
+            {"question": prompt, "query": get_section_query(section_name)},
+            config={"callbacks": [usage]},
+        )
         if self.cost_tracker:
             self.cost_tracker.record_llm_usage(
                 model=self.model_name,

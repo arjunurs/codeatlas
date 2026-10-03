@@ -76,7 +76,9 @@ is a natural next step, since the AST is already available.
 
 **Retrieval.** Each section retrieves 10 chunks by similarity (`--retriever-k`), or by MMR
 (`--retriever-search-type mmr`) when a codebase is repetitive and similarity returns
-near-duplicates.
+near-duplicates. The retriever searches with a short query per section ("main entry points,
+top-level classes, and the public API" for the Overview), not with the section's full prompt,
+whose instructions and examples would otherwise steer which code is found.
 
 **Providers supply LangChain models.** The RAG chain, the vector store, and usage tracking are
 all built on LangChain, so a provider's job is to configure and create the model: the
@@ -109,8 +111,8 @@ render time, diagram code is HTML-escaped, and Mermaid runs with `securityLevel:
   modification time differs, or, when the time is too recent to trust, its content hash does;
   edits count whether or not they are committed.
 - **Level 2, sections.** A section is reused while its code dependencies, the model, its exact
-  prompt, the prompt template it is wrapped in, the `--retriever-*` settings, and the output
-  token limit are unchanged. Sections depend on different parts of the code (Overview on all
+  prompt and retrieval query, the prompt template it is wrapped in, the `--retriever-*`
+  settings, and the output token limit are unchanged. Sections depend on different parts of the code (Overview on all
   content, Dependencies on imports, Key Classes on entities), so an edit only regenerates the
   sections it affects.
 - `--force-refresh` rebuilds the vector store and regenerates every section; `--no-cache` skips

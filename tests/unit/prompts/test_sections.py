@@ -2,7 +2,12 @@
 
 import pytest
 
-from docgen.prompts.sections import SECTION_ORDER, select_sections
+from docgen.prompts.sections import (
+    SECTION_ORDER,
+    get_section_prompt,
+    get_section_query,
+    select_sections,
+)
 
 ALL_SECTIONS = [
     "Overview",
@@ -61,3 +66,12 @@ def test_unknown_section_raises_with_available_names():
     assert "overveiw" in message
     assert "Key Classes and Functions" in message
     assert "Cross-Reference Documentation" in message
+
+
+@pytest.mark.parametrize("section", ALL_SECTIONS)
+def test_each_section_retrieves_with_a_short_query(section):
+    """The retriever gets a few words about what to find, not the whole prompt."""
+    query = get_section_query(section)
+
+    assert 3 <= len(query.split()) <= 15
+    assert query not in get_section_prompt(section)

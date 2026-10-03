@@ -9,13 +9,14 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Sequence
+from operator import itemgetter
 from pathlib import Path
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import Runnable, RunnablePassthrough
+from langchain_core.runnables import Runnable
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from ..cache.vector_cache import VectorStoreCache, in_memory_chroma_client
@@ -193,8 +194,13 @@ class RAGPipelineFactory:
 
             rag_prompt = ChatPromptTemplate.from_template(RAG_PROMPT_TEMPLATE)
 
+            # The chain takes {"question": ..., "query": ...}: the short query
+            # finds the code, and the full section prompt is what is answered
             rag_chain = (
-                {"context": retriever | _format_docs, "question": RunnablePassthrough()}
+                {
+                    "context": itemgetter("query") | retriever | _format_docs,
+                    "question": itemgetter("question"),
+                }
                 | rag_prompt
                 | self.llm
                 | StrOutputParser()
