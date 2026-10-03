@@ -153,47 +153,32 @@ class TestPythonApiRun:
 class TestGeneratorLifecycle:
     """Test the generator's resource handling."""
 
-    def test_context_manager_cleanup(
+    def test_context_manager_drops_the_in_memory_store(
         self,
         temp_source_dir: Path,
         temp_output_dir: Path,
-        mock_llm,
-        mock_embeddings,
+        fake_chat_model_with_usage,
+        fake_embeddings,
     ):
-        """Test that the context manager properly cleans up resources."""
-        # Create a mock RAG chain that returns strings directly
-        mock_rag_chain = MagicMock()
-        mock_rag_chain.invoke.return_value = "Content"
+        """Leaving the with block drops the run's in-memory vector store."""
+        llm_provider = MagicMock(model_name="claude-sonnet-5")
+        llm_provider.get_langchain_llm.return_value = fake_chat_model_with_usage
+        embedding_provider = MagicMock(model_name="text-embedding-3-small")
+        embedding_provider.get_langchain_embeddings.return_value = fake_embeddings
 
-        mock_vector_store = MagicMock()
-        mock_vector_store.delete_collection = MagicMock()
-
-        with (
-            patch("docgen.providers.anthropic.ChatAnthropic", return_value=mock_llm),
-            patch(
-                "docgen.providers.openai.OpenAIEmbeddings", return_value=mock_embeddings
+        with CodeDocumentationGenerator.create(
+            llm_provider=llm_provider,
+            embedding_provider=embedding_provider,
+            generation_options=GenerationOptions(
+                selected_sections=["overview"], skip_diagrams=True
             ),
-            patch("docgen.core.rag_pipeline.Chroma") as mock_chroma,
-            patch.object(
-                CodeDocumentationGenerator,
-                "_create_vector_store_and_rag_chain",
-                return_value=mock_rag_chain,
-            ),
-        ):
-            mock_chroma.from_documents.return_value = mock_vector_store
+            cache_config=CacheConfig(enabled=False),
+        ) as generator:
+            generator.generate_documentation(str(temp_source_dir), str(temp_output_dir))
+            client = generator._rag_pipeline.vector_store._client
+            collections_during_run = client.count_collections()
 
-            with CodeDocumentationGenerator(
-                anthropic_api_key="test-key",
-                openai_api_key="test-key",
-                cache_enabled=False,  # Disable caching so cleanup deletes the collection
-            ) as generator:
-                generator._vector_store = mock_vector_store
-                generator.generate_documentation(
-                    str(temp_source_dir), str(temp_output_dir)
-                )
-
-            # After context exit, cleanup should have been called
-            mock_vector_store.delete_collection.assert_called_once()
+        assert client.count_collections() == collections_during_run - 1
 
 
 class TestErrorHandling:

@@ -1,4 +1,6 @@
-"""Unit tests for DocumentationRenderer HTML safety."""
+"""Unit tests for DocumentationRenderer."""
+
+from unittest.mock import Mock
 
 import pytest
 
@@ -73,3 +75,17 @@ def test_mermaid_uses_strict_security_level(rendered):
 
     assert "securityLevel: 'strict'" in html
     assert "securityLevel: 'loose'" not in html
+
+
+def test_generate_navigation_passes_titles_active_page_and_base_url():
+    """Navigation is rendered from the section titles, the active page, and base URL."""
+    navigation = Mock(render=Mock(return_value="<nav>Test Navigation</nav>"))
+    renderer = DocumentationRenderer(Mock(templates={"navigation": navigation}))
+    sections = [{"title": "Overview"}, {"title": "Dependencies"}]
+
+    nav_html = renderer.generate_navigation("Overview", sections, "./")
+
+    assert nav_html == "<nav>Test Navigation</nav>"
+    navigation.render.assert_called_once_with(
+        active="Overview", sections=["Overview", "Dependencies"], base_url="./"
+    )

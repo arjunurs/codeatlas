@@ -306,28 +306,6 @@ def test_generate_documentation_with_errors(generator, tmp_path):
     assert "Failed to generate documentation" in str(exc_info.value)
 
 
-def test_generate_navigation(generator):
-    """Test navigation generation."""
-    sections = [{"title": "Overview"}, {"title": "Dependencies"}]
-
-    nav_html = generator._generate_navigation("Overview", sections, "./")
-    assert isinstance(nav_html, str)
-    assert generator.template_manager.templates["navigation"].render.called
-    assert (
-        generator.template_manager.templates["navigation"].render.call_args[1]["active"]
-        == "Overview"
-    )
-    assert generator.template_manager.templates["navigation"].render.call_args[1][
-        "sections"
-    ] == ["Overview", "Dependencies"]
-    assert (
-        generator.template_manager.templates["navigation"].render.call_args[1][
-            "base_url"
-        ]
-        == "./"
-    )
-
-
 def test_documentation_content_structure(generator, tmp_path):
     """Test the structure of generated documentation content."""
     source_dir = tmp_path / "src"

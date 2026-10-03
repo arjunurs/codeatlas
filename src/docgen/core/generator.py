@@ -28,7 +28,6 @@ from ..exceptions.errors import (
     ApiKeyError,
     DocumentationError,
     LLMError,
-    TemplateError,
 )
 from ..models.file_analysis import FileAnalysis
 from ..prompts.sections import select_sections
@@ -383,16 +382,6 @@ class CodeDocumentationGenerator:
         if self._rag_pipeline is not None:
             self._rag_pipeline.cleanup(preserve_cache=self.cache_enabled)
             self._rag_pipeline = None
-        # Backward compat: also clean up vector store if set directly via tests
-        direct_store = getattr(self, "_direct_vector_store", None)
-        if direct_store is not None:
-            try:
-                if not self.cache_enabled:
-                    direct_store.delete_collection()
-            except Exception as e:
-                logger.warning(f"Error cleaning up vector store: {str(e)}")
-            finally:
-                self._direct_vector_store = None
 
     @property
     def llm_provider(self) -> LLMProvider | None:
@@ -497,8 +486,9 @@ class CodeDocumentationGenerator:
                 )
 
                 # Generate documentation sections (with error aggregation)
-                documentation, section_errors = self._generate_documentation_sections(
-                    rag_chain
+                orchestrator = self._create_section_orchestrator()
+                documentation, section_errors = (
+                    orchestrator.generate_documentation_sections(rag_chain)
                 )
 
             # Create final HTML output with any generation errors
@@ -598,47 +588,6 @@ class CodeDocumentationGenerator:
 
         return diagrams, errors
 
-    # ---- Backward-compatible delegating methods ----
-    # These allow existing tests that patch or call these methods directly
-    # to continue working. New code should use the extracted classes.
-
-    def _setup_output_directories(self, output_dir: str) -> None:
-        """Create the output directory structure (delegates to renderer)."""
-        self._renderer.setup_output_directories(output_dir)
-
-    def _convert_markdown_to_html(self, content: str) -> str:
-        """Convert markdown content to HTML (delegates to renderer)."""
-        return self._renderer.convert_markdown_to_html(content)
-
-    def _generate_navigation(
-        self, active_page: str, sections: list[dict[str, str]], base_url: str
-    ) -> str:
-        """Generate navigation HTML (delegates to renderer)."""
-        return self._renderer.generate_navigation(active_page, sections, base_url)
-
-    # Keep as property for test compatibility
-    @property
-    def _vector_store(self):
-        """Get the underlying vector store (for backward compat)."""
-        if self._rag_pipeline is not None:
-            return self._rag_pipeline.vector_store
-        return getattr(self, "_direct_vector_store", None)
-
-    @_vector_store.setter
-    def _vector_store(self, value):
-        """Set the vector store directly (for backward compat / tests)."""
-        self._direct_vector_store = value
-
-    def _generate_html_documentation(
-        self,
-        documentation: dict[str, Any],
-        diagrams: dict[str, str],
-        output_dir: str,
-        generation_errors: dict[str, list[tuple[str, str]]] | None = None,
-    ) -> None:
-        """Generate HTML documentation (delegates to renderer)."""
-        self._renderer.render(documentation, diagrams, output_dir, generation_errors)
-
     def _create_vector_store_and_rag_chain(
         self,
         analyses: Sequence[FileAnalysis],
@@ -662,21 +611,9 @@ class CodeDocumentationGenerator:
         )
         return self._rag_pipeline.create_rag_chain(analyses, source_dir=source_dir)
 
-    def _create_documents(self, analyses: Sequence[FileAnalysis]):
-        """Create LangChain documents (delegates to rag_pipeline module)."""
-        from .rag_pipeline import create_documents
-
-        return create_documents(analyses)
-
-    def _format_entity_document(self, entity) -> str:
-        """Format a code entity as a document string (delegates to rag_pipeline module)."""
-        from .rag_pipeline import format_entity_document
-
-        return format_entity_document(entity)
-
-    def _generate_documentation_sections(self, rag_chain):
-        """Generate all documentation sections (delegates to SectionOrchestrator)."""
-        orchestrator = SectionOrchestrator(
+    def _create_section_orchestrator(self) -> SectionOrchestrator:
+        """Create the orchestrator that generates the documentation sections."""
+        return SectionOrchestrator(
             config=self.config,
             model_name=self.model_name,
             parallel=self.parallel_sections,
@@ -685,62 +622,6 @@ class CodeDocumentationGenerator:
             force_refresh=self.force_refresh,
             current_analyses=self._current_analyses,
             selected_sections=self.selected_sections,
-            section_preprocessors={
-                "cross": _cross_reference_preprocessor,
-            },
+            section_preprocessors={"cross": _cross_reference_preprocessor},
             convert_markdown_to_html=self._renderer.convert_markdown_to_html,
         )
-        return orchestrator.generate_documentation_sections(rag_chain)
-
-    def _generate_section_with_cache(self, rag_chain, section_name: str) -> str:
-        """Generate a section with caching support (delegates to SectionOrchestrator)."""
-        orchestrator = SectionOrchestrator(
-            config=self.config,
-            model_name=self.model_name,
-            parallel=self.parallel_sections,
-            cost_tracker=self.cost_tracker,
-            section_cache=self._section_cache,
-            force_refresh=self.force_refresh,
-            current_analyses=self._current_analyses,
-            selected_sections=self.selected_sections,
-            section_preprocessors={
-                "cross": _cross_reference_preprocessor,
-            },
-            convert_markdown_to_html=self._renderer.convert_markdown_to_html,
-        )
-        return orchestrator._generate_section_with_cache(rag_chain, section_name)
-
-    def _generate_section(self, rag_chain, section_name: str) -> str:
-        """Generate a section (delegates to SectionOrchestrator)."""
-        orchestrator = SectionOrchestrator(
-            config=self.config,
-            model_name=self.model_name,
-            parallel=self.parallel_sections,
-            cost_tracker=self.cost_tracker,
-            section_cache=self._section_cache,
-            force_refresh=self.force_refresh,
-            current_analyses=self._current_analyses,
-            selected_sections=self.selected_sections,
-            section_preprocessors={
-                "cross": _cross_reference_preprocessor,
-            },
-            convert_markdown_to_html=self._renderer.convert_markdown_to_html,
-        )
-        return orchestrator._generate_section(rag_chain, section_name)
-
-    def _create_final_html_output(
-        self,
-        documentation: dict[str, Any],
-        diagrams: dict[str, str],
-        output_dir: str,
-        generation_errors: dict[str, list[tuple[str, str]]] | None = None,
-    ) -> None:
-        """Generate final HTML output (delegates to renderer)."""
-        logger.debug("Generating HTML documentation...")
-        try:
-            self._renderer.render(
-                documentation, diagrams, output_dir, generation_errors
-            )
-        except Exception as e:
-            logger.error(f"Error generating HTML documentation: {str(e)}")
-            raise TemplateError(f"Failed to generate HTML documentation: {str(e)}")
