@@ -23,7 +23,7 @@ flowchart LR
 
 | Stage | Module | What it does |
 |---|---|---|
-| Analyze | `core/analyzer.py` | Walks the tree (skipping virtualenvs, `.git`, build and tool directories), parses each file's AST into classes, functions, imports, and calls |
+| Analyze | `core/analyzer.py`, `core/calls.py` | Walks the tree (skipping virtualenvs, `.git`, build and tool directories), parses each file's AST into classes, functions, imports, and calls |
 | Diagram | `core/diagrams.py` | Builds Mermaid source for five diagram types from the analysis, then validates it |
 | Index | `core/rag_pipeline.py`, `cache/vector_cache.py` | Splits the code into chunks, embeds them with OpenAI, and stores them in Chroma |
 | Write | `core/section_orchestrator.py`, `prompts/` | For each section, retrieves relevant chunks and asks Claude to write it; sections run in parallel |
