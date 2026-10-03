@@ -72,23 +72,28 @@ class TestQuoteEscapingRule:
     """Tests for QuoteEscapingRule."""
 
     def test_properly_escaped_quotes(self):
-        """Test diagram with properly escaped quotes."""
+        """A quote written as #quot;, which Mermaid renders as ", is not flagged."""
         rule = QuoteEscapingRule()
-        diagram = 'graph TD\nA["Label with \\"quotes\\""]'
+        diagram = 'graph TD\nA["Label with #quot;quotes#quot;"] --> B["b"]'
         errors = rule.validate(diagram, DiagramType.ARCHITECTURE)
-        # May have warnings for other reasons, but not for escaping
-        assert all("Unescaped" not in e.message for e in errors)
+        assert errors == []
 
     def test_double_quotes_in_label(self):
-        """Test that labels with internal quotes are flagged."""
+        """A double quote inside a label breaks Mermaid's parse, so it is an error."""
         rule = QuoteEscapingRule()
-        # Test a simpler case - embedded quote character in label
-        diagram = 'graph TD\nA["say "hello""]'
+        diagram = 'graph TD\nA["say "hello" now"]'
         errors = rule.validate(diagram, DiagramType.ARCHITECTURE)
-        # This may or may not trigger depending on quote parsing
-        # The rule is best-effort for quote detection
-        # If it doesn't trigger, that's okay - it's a permissive check
-        assert isinstance(errors, list)
+        assert [(e.severity, e.rule_name, e.line_number) for e in errors] == [
+            (ValidationSeverity.ERROR, "quote_escaping", 2)
+        ]
+        assert "#quot;" in (errors[0].suggestion or "")
+
+    def test_backslash_escaped_quotes_are_flagged(self):
+        """Mermaid does not accept \\" in a label either, so it is flagged too."""
+        rule = QuoteEscapingRule()
+        diagram = 'graph TD\nA["say \\"hi\\" now"]'
+        errors = rule.validate(diagram, DiagramType.ARCHITECTURE)
+        assert [e.line_number for e in errors] == [2]
 
     def test_single_quotes_with_double_quotes(self):
         """Test single quotes inside double quotes (valid)."""

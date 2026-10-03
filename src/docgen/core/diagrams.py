@@ -249,10 +249,9 @@ class DiagramGenerator:
             if cls.methods:
                 # Class with methods
                 diagram_lines.append(f"    class {clean_name} {{")
+                # Method names are identifiers, so they need no escaping
                 for method in cls.methods:
-                    # Clean method name and escape special characters
-                    clean_method = method.replace('"', '\\"')
-                    diagram_lines.append(f"        +{clean_method}()")
+                    diagram_lines.append(f"        +{method}()")
                 diagram_lines.append("    }")
             else:
                 # Empty class

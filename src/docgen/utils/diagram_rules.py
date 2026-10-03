@@ -88,14 +88,22 @@ class SyntaxHeaderRule:
 
 
 class QuoteEscapingRule:
-    """Validates that quotes are properly escaped in labels."""
+    """Validates that quoted labels contain no double quotes.
+
+    Mermaid ends a ["..."] label at its next double quote, and does not
+    accept a backslash before one, so either breaks the diagram. A quote is
+    written as #quot; instead.
+    """
 
     rule_name = "quote_escaping"
+
+    # From [" to the first "] after it, so a label's own quotes are inside
+    _QUOTED_LABEL = re.compile(r'\["(.*?)"\]')
 
     def validate(
         self, diagram_content: str, diagram_type: DiagramType
     ) -> list[ValidationError]:
-        """Check for unescaped quotes in labels."""
+        """Check for double quotes inside quoted labels."""
         errors = []
         lines = diagram_content.split("\n")
 
@@ -104,22 +112,17 @@ class QuoteEscapingRule:
             if line.strip().startswith("%%"):
                 continue
 
-            # Check for labels in brackets with double quotes: ["..."]
-            bracket_double = re.finditer(r'\["([^"]*)"\]', line)
-            for match in bracket_double:
-                label = match.group(1)
-                # Look for embedded unescaped quotes (not at boundaries)
-                if '"' in label:
-                    errors.append(
-                        ValidationError(
-                            severity=ValidationSeverity.WARNING,
-                            message="Unescaped double quote in label",
-                            line_number=line_num,
-                            line_content=line.strip(),
-                            rule_name=self.rule_name,
-                            suggestion='Escape quotes as \\" or use single quotes',
-                        )
+            if any('"' in label for label in self._QUOTED_LABEL.findall(line)):
+                errors.append(
+                    ValidationError(
+                        severity=ValidationSeverity.ERROR,
+                        message="Double quote inside a quoted label",
+                        line_number=line_num,
+                        line_content=line.strip(),
+                        rule_name=self.rule_name,
+                        suggestion="Write the quote as #quot; or use single quotes",
                     )
+                )
 
         return errors
 
