@@ -1,14 +1,17 @@
 # codeatlas
 
 [![Test and Lint](https://github.com/arjunurs/codeatlas/actions/workflows/test.yml/badge.svg)](https://github.com/arjunurs/codeatlas/actions/workflows/test.yml)
+![Python 3.10 to 3.13](https://img.shields.io/badge/python-3.10%20to%203.13-blue)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 codeatlas maps a Python codebase and generates browsable HTML documentation for it. It parses
 the code with Python's `ast` module, draws Mermaid diagrams of the structure, and uses an LLM with
 retrieval over the code (RAG) to write the narrative sections.
 
-![Class diagram generated for codeatlas's own providers package](docs/images/class-diagram.jpg)
+![Sequence diagram generated for Flask, showing how Flask.__call__ handles a request](docs/images/flask-sequence.png)
 
-*The class diagram codeatlas generates for its own `providers` package.*
+*The sequence diagram codeatlas draws for Flask: how `Flask.__call__` handles a request, from
+`AppContext.from_environ()` to the teardown calls. Made with `--diagrams-only`, without API keys.*
 
 ## Try it without API keys
 
@@ -44,11 +47,24 @@ syntax, and so on) before it is written. The architecture, dependency, and call 
 keep their 50 most connected nodes when there are more, and the sequence diagram its first 50
 calls. Every diagram is the same from run to run.
 
+![Class diagram generated for codeatlas's own providers package](docs/images/providers-class-diagram.png)
+
+*The class diagram for codeatlas's own `providers` package (`--source src/docgen/providers`).*
+
 **Sections** (written by Claude, using code retrieved from a vector store)
 
 - Core: Overview, Dependencies, Key Classes and Functions, Data Flow, Integration Points
 - Optional, via `--sections`: Migration Guidance, Code Quality Insights, Cross-Reference
   Documentation
+
+The Dependencies section also reads the project's `pyproject.toml`, `setup.cfg`, and
+`requirements*.txt`, so it can name every dependency and version, not only the ones the
+retrieved code happens to import.
+
+![The Dependencies section generated for FastAPI](docs/images/fastapi-dependencies-section.png)
+
+*The Dependencies section codeatlas wrote for FastAPI's package. Each version is the one in
+FastAPI's `pyproject.toml`; what each package is used for comes from the retrieved code.*
 
 ## Full documentation (needs API keys)
 
@@ -65,11 +81,13 @@ read unless you pass it.
 
 At the end of a run, codeatlas prints the token usage and estimated cost per model. LLM tokens
 are the counts the API reports; embedding tokens are estimated from text length, because
-LangChain does not expose the embedding API's usage.
+LangChain does not expose the embedding API's usage. A first run on FastAPI's package (52 files)
+takes about 45 seconds and costs about $0.38 with the default model.
 
 Runs are cached in `.docgen_cache` in the current directory (change it with `--cache-dir`): the
-vector store is updated incrementally, and a section is reused while its code, the model, and its
-prompt are unchanged.
+vector store is updated incrementally, and a section is reused while its code, the model, its
+prompt, and the retrieval settings are unchanged. A second run with nothing changed takes about a
+second and makes no API calls.
 
 ## Useful options
 
@@ -85,29 +103,63 @@ prompt are unchanged.
 | `--force-refresh` | Ignore the cache and regenerate everything |
 
 `uv run codeatlas --help` lists every option, including model selection, diagram selection,
-cache control, and retrieval tuning (`--retriever-k`, MMR search).
+cache control, and retrieval tuning (`--retriever-k`, `--retriever-search-type`).
 
 ## How it works
+
+```mermaid
+flowchart LR
+    src[/"Python source"/] --> analyze["Analyze<br/>parse each file's AST"]
+    analyze --> diagram["Diagram<br/>5 Mermaid diagrams,<br/>validated"]
+    analyze --> index["Index<br/>embed with OpenAI,<br/>store in Chroma"]
+    index --> write["Write<br/>one Claude call<br/>per section"]
+    manifests[/"pyproject.toml,<br/>requirements files"/] --> write
+    diagram --> render["Render<br/>Markdown to HTML,<br/>sanitized"]
+    write --> render
+    render --> site[/"HTML site"/]
+```
 
 1. **Analyze**: walk the source tree and parse each file's AST into classes, functions, imports,
    and calls.
 2. **Diagram**: build Mermaid source for each diagram type and validate it.
 3. **Index**: split the code into chunks, embed them with OpenAI, and store them in a local
    Chroma database, with Chroma's anonymized telemetry turned off.
-4. **Write**: for each section, retrieve the most relevant chunks and ask Claude to write it.
-   Sections run in parallel.
+4. **Write**: for each section, retrieve 10 relevant chunks, skipping near-duplicates (MMR), and
+   ask Claude to write it. Sections run in parallel.
 5. **Render**: convert the Markdown to HTML, sanitize it, and render the site with Jinja
    templates.
 
-More detail, including design decisions, caching, measured cost, and failure behavior:
+`--diagrams-only` stops after step 2 and renders the diagrams; `--dry-run` skips steps 3 and 4.
+More detail, including caching, measured cost, and failure behavior:
 [docs/architecture.md](docs/architecture.md).
+
+## Design decisions
+
+- **Diagrams come from the AST, not the LLM**, so they are deterministic, free, and fast, and
+  each one is validated before it is written.
+  [More](docs/architecture.md#design-decisions)
+- **Chroma runs in-process**: a CLI tool gets a persistent vector store without any service to
+  run.
+- **Retrieval uses MMR with the section's whole prompt as the query.** Plain similarity search
+  filled FastAPI's Overview with near-copies of one repeated block, and short per-section
+  queries retrieved a third as much code; both were measured and dropped.
+- **Two cache levels**: embeddings per file, and sections keyed on the code they depend on, the
+  model, the exact prompt, and the retrieval settings. [More](docs/architecture.md#caching)
+- **Model output is untrusted**: it is sanitized with nh3 before it reaches HTML, and Mermaid
+  runs in strict mode.
+- **A failed diagram or section does not fail the run**: it is reported, and the rest are still
+  generated. [More](docs/architecture.md#failure-behavior)
 
 ## Limitations
 
 - Python only.
 - Full documentation needs keys from two providers: Anthropic for writing and OpenAI for
   embeddings.
-- Section text is LLM output. Review it before relying on it.
+- Section text is LLM output, written from 10 retrieved chunks per section, so it can miss
+  central APIs. Review it before relying on it. See
+  [known limits](docs/architecture.md#known-limits).
+- On a codebase the size of Flask or FastAPI, the architecture and class diagrams are too dense
+  to read at a glance.
 - Changing `--temperature` does not invalidate cached sections. Use `--force-refresh` after
   changing it.
 - Directories named `build` or `dist` are skipped along with virtualenvs, as ruff does.
@@ -125,10 +177,9 @@ uv run pre-commit install
 uv run pytest
 ```
 
-There are 400+ unit and integration tests, with about 90% coverage counting branches. CI runs
+There are 600+ unit and integration tests, with about 94% coverage counting branches. CI runs
 ruff and ty once and the tests on Python 3.10 to 3.13, and fails if coverage drops below a set
-minimum.
-It also runs the tests against the oldest dependency versions the project allows.
+minimum. It also runs the tests against the oldest dependency versions the project allows.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and code style.
 
 A design proposal for agent-enhanced generation is in
