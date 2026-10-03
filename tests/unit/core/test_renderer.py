@@ -152,6 +152,15 @@ def test_a_diagram_page_is_marked_current_in_the_sidebar(diagrams_only):
     assert page.count('aria-current="page"') == 1
 
 
+def test_site_has_no_search(diagrams_only):
+    """The site has no search box and no search page."""
+    index = (diagrams_only / "index.html").read_text()
+
+    assert not (diagrams_only / "search.html").exists()
+    assert 'type="search"' not in index
+    assert "search" not in index.lower()
+
+
 def test_overview_card_shows_only_the_overview(tmp_path):
     """Without an Overview section, the index shows no overview card."""
     renderer = DocumentationRenderer(get_template_manager())

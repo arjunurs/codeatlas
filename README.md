@@ -111,7 +111,6 @@ More detail, including design decisions, caching, measured cost, and failure beh
 - The cache has known gaps. In a git repository, uncommitted edits (and any edits when `--source`
   is a subdirectory of the repository) are not detected, and changing the `--retriever-*`
   options does not invalidate cached sections. Use `--force-refresh` after such changes.
-- The search box in the generated site is not wired up yet.
 - Directories named `build` or `dist` are skipped along with virtualenvs, as ruff does.
 - codeatlas is not published on PyPI, and the `codeatlas` name there belongs to an unrelated
   project. Install from GitHub: `pip install git+https://github.com/arjunurs/codeatlas.git`.

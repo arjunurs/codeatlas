@@ -158,7 +158,6 @@ def test_generate_documentation_success(generator, tmp_path):
             "diagrams/classes.html",
             "diagrams/sequence.html",
             "diagrams/call_graph.html",
-            "search.html",
         }
 
         # Extract filenames from call arguments

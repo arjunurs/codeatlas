@@ -21,7 +21,6 @@ class TestTemplateManager:
         assert "index" in manager.templates
         assert "section" in manager.templates
         assert "diagrams" in manager.templates
-        assert "search" in manager.templates
         assert "navigation" in manager.templates
 
     def test_custom_template_directory(self, tmp_path):
@@ -31,7 +30,6 @@ class TestTemplateManager:
         (tmp_path / "index.html").write_text("{% extends 'base.html' %}Index")
         (tmp_path / "section.html").write_text("{% extends 'base.html' %}Section")
         (tmp_path / "diagrams.html").write_text("{% extends 'base.html' %}Diagrams")
-        (tmp_path / "search.html").write_text("{% extends 'base.html' %}Search")
         (tmp_path / "navigation.html").write_text("<nav></nav>")
 
         manager = TemplateManager(template_dir=str(tmp_path))
@@ -48,8 +46,8 @@ class TestTemplateManager:
         assert manager.render_to_string("section", {"title": "Overview"}) == (
             "custom Overview"
         )
-        assert "Search Documentation" in manager.render_to_string(
-            "search", {"title": "Search"}
+        assert "mermaid" in manager.render_to_string(
+            "diagrams", {"title": "Classes", "diagram_code": "classDiagram"}
         )
 
     def test_render_template_creates_file(self, tmp_path):
@@ -60,15 +58,16 @@ class TestTemplateManager:
 
         context = {
             "title": "Test Title",
+            "diagram_code": "graph TD",
             "navigation": "<nav>Nav</nav>",
         }
 
-        manager.render_template("search", context, str(output_dir), "search.html")
+        manager.render_template("diagrams", context, str(output_dir), "classes.html")
 
-        output_file = output_dir / "search.html"
+        output_file = output_dir / "classes.html"
         assert output_file.exists()
         content = output_file.read_text()
-        assert "Search Documentation" in content
+        assert "<title>Test Title</title>" in content
 
     def test_render_template_creates_subdirectory(self, tmp_path):
         """Test that render_template creates subdirectories if needed."""
@@ -158,7 +157,6 @@ class TestFileBasedTemplates:
             "index.html",
             "section.html",
             "diagrams.html",
-            "search.html",
             "navigation.html",
         ]
 
@@ -177,7 +175,6 @@ class TestFileBasedTemplates:
             "index.html",
             "section.html",
             "diagrams.html",
-            "search.html",
             "navigation.html",
         ]
 

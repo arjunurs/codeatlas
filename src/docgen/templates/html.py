@@ -68,7 +68,6 @@ class TemplateManager:
             "index",
             "section",
             "diagrams",
-            "search",
             "navigation",
         ]
         for name in template_names:

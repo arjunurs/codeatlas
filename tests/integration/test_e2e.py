@@ -379,14 +379,6 @@ class TestTemplateRendering:
         assert "Overview" in nav_html
         assert "Dependencies" in nav_html
 
-        # Test search template
-        context = {
-            "title": "Search",
-            "navigation": nav_html,
-        }
-        manager.render_template("search", context, str(temp_output_dir), "search.html")
-        assert (temp_output_dir / "search.html").exists()
-
         # Test diagram template
         context = {
             "title": "Test Diagram",

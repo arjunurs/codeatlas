@@ -103,56 +103,6 @@
             margin: 4px 0 24px 0;
         }
 
-        /* Search */
-        .search-container {
-            position: relative;
-            margin-bottom: 20px;
-        }
-        .search-icon {
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #9ca3af;
-            pointer-events: none;
-        }
-        .search-box {
-            width: 100%;
-            padding: 10px 10px 10px 36px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 14px;
-            background: white;
-        }
-        .search-box:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-        .search-box::placeholder {
-            color: #9ca3af;
-        }
-
-        /* Clear search button */
-        .search-clear {
-            position: absolute;
-            right: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #9ca3af;
-            cursor: pointer;
-            padding: 4px;
-            display: none;
-        }
-        .search-clear:hover {
-            color: #374151;
-        }
-        .search-box:not(:placeholder-shown) + .search-clear {
-            display: block;
-        }
-
         /* Navigation */
         .nav-section {
             margin-bottom: 20px;
@@ -413,7 +363,7 @@
 
         /* Print styles */
         @media print {
-            .sidebar, .mobile-header, .diagram-toolbar, .footer-nav, .search-container {
+            .sidebar, .mobile-header, .diagram-toolbar, .footer-nav {
                 display: none !important;
             }
             .main-content {
@@ -548,26 +498,6 @@
             }
         }
 
-        // Clear search
-        function clearSearch() {
-            const searchBox = document.getElementById('search');
-            if (searchBox) {
-                searchBox.value = '';
-                searchBox.focus();
-            }
-        }
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            // Focus search with '/'
-            if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
-                const searchBox = document.getElementById('search');
-                if (searchBox && document.activeElement !== searchBox) {
-                    e.preventDefault();
-                    searchBox.focus();
-                }
-            }
-        });
     </script>
 </head>
 <body>
@@ -589,18 +519,6 @@
     <nav class="sidebar" aria-label="Main navigation">
         <div class="sidebar-header">
             <h1 class="sidebar-title">{{ project or "Documentation" }}</h1>
-        </div>
-
-        <div class="search-container">
-            <i class="fas fa-search search-icon" aria-hidden="true"></i>
-            <input type="search"
-                   id="search"
-                   class="search-box"
-                   placeholder="Search... (press /)"
-                   aria-label="Search documentation">
-            <button class="search-clear" onclick="clearSearch()" aria-label="Clear search">
-                <i class="fas fa-times"></i>
-            </button>
         </div>
 
         <div id="navigation">

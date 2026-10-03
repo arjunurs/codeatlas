@@ -49,7 +49,7 @@ class DocumentationRenderer:
     """Renders documentation content into HTML pages.
 
     Handles the HTML output pipeline: setting up directories, rendering
-    index/section/diagram/search pages via the template manager.
+    index, section, and diagram pages via the template manager.
     """
 
     def __init__(self, template_manager) -> None:
@@ -169,17 +169,6 @@ class DocumentationRenderer:
                     output_dir,
                     f"diagrams/{page.page}.html",
                 )
-
-            # Generate search page
-            search_context = {
-                "title": "Search Documentation",
-                "project": project,
-                "base_url": "./",
-                "navigation": self.generate_navigation("search", sections, "./", pages),
-            }
-            self.template_manager.render_template(
-                "search", search_context, output_dir, "search.html"
-            )
 
         except (OSError, jinja2.TemplateError) as e:
             raise DocumentationError(

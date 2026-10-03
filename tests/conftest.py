@@ -163,7 +163,6 @@ def mock_template_manager():
         "index": MagicMock(render=MagicMock(return_value="<html>Index</html>")),
         "section": MagicMock(render=MagicMock(return_value="<html>Section</html>")),
         "diagrams": MagicMock(render=MagicMock(return_value="<html>Diagrams</html>")),
-        "search": MagicMock(render=MagicMock(return_value="<html>Search</html>")),
         "navigation": MagicMock(render=MagicMock(return_value="<nav>Nav</nav>")),
     }
     return mock
