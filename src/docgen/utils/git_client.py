@@ -21,20 +21,6 @@ class GitClient:
     def __init__(self, working_dir: Path) -> None:
         self.working_dir = working_dir
 
-    def is_git_repo(self) -> bool:
-        """Check whether *working_dir* is inside a git repository."""
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "--git-dir"],
-                cwd=self.working_dir,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return False
-
     def get_current_commit(self) -> str | None:
         """Return the current HEAD commit hash, or *None* on failure."""
         try:
@@ -50,29 +36,3 @@ class GitClient:
         except (subprocess.TimeoutExpired, FileNotFoundError):
             pass
         return None
-
-    def get_changed_files(self, from_commit: str, to_commit: str) -> set[str]:
-        """Return file paths changed between two commits.
-
-        Args:
-            from_commit: Base commit hash.
-            to_commit: Target commit hash.
-
-        Returns:
-            Set of relative file paths that changed.
-        """
-        try:
-            result = subprocess.run(
-                ["git", "diff", "--name-only", from_commit, to_commit],
-                cwd=self.working_dir,
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            if result.returncode == 0:
-                return {
-                    line.strip() for line in result.stdout.splitlines() if line.strip()
-                }
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pass
-        return set()

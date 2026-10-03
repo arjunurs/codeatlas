@@ -79,7 +79,6 @@ Design decisions, caching, measured cost, and failure behavior are in
   "N passed" summary.
 - The section cache key does not include the output token limit, the RAG wrapper template, or
   the `--retriever-*` settings. After changing those, run once with `--force-refresh`.
-- In a git repository, change detection only sees committed changes.
 - `langchain-anthropic` retries twice on its own; the stop reason is in
   `message.response_metadata`.
 

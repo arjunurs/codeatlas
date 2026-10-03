@@ -1,7 +1,7 @@
 """File change detection for intelligent caching.
 
-This module provides multiple strategies for detecting which files
-have changed since the last documentation run.
+This module detects which files have changed since the last documentation
+run, from each file's modification time and size, and its content hash.
 """
 
 import logging
@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-from ..utils.git_client import GitClient
 from .metadata import CacheMetadata, FileMetadata
 
 logger = logging.getLogger(__name__)
@@ -18,7 +17,6 @@ logger = logging.getLogger(__name__)
 class ChangeDetectionStrategy(Enum):
     """Strategy for detecting file changes."""
 
-    GIT = "git"  # Use git diff (fastest)
     FILESYSTEM = "filesystem"  # Use mtime + content hash
     HASH_ONLY = "hash_only"  # Always check content hash
 
@@ -55,10 +53,9 @@ class ChangeDetectionResult:
 class FileChangeDetector:
     """Detects which files have changed since last run.
 
-    Uses multiple strategies in order of preference:
-    1. Git-based detection (fastest, requires git repo)
-    2. Filesystem metadata (mtime + size check, then hash)
-    3. Content hash only (fallback)
+    A file whose modification time and size are unchanged, and old enough to
+    trust, is unchanged; otherwise its content hash decides. Working-tree
+    edits count, in or out of a git repository.
     """
 
     def __init__(
@@ -76,8 +73,7 @@ class FileChangeDetector:
         """
         self.source_dir = source_dir.resolve()
         self.cache_metadata = cache_metadata
-        self.forced_strategy = strategy
-        self._git = GitClient(self.source_dir)
+        self.strategy = strategy or ChangeDetectionStrategy.FILESYSTEM
 
     def detect_changes(self, current_files: list[Path]) -> ChangeDetectionResult:
         """Detect which files have changed.
@@ -101,83 +97,11 @@ class FileChangeDetector:
                 strategy_used=ChangeDetectionStrategy.FILESYSTEM,
             )
 
-        # Choose detection strategy
-        strategy = self._choose_strategy()
-        logger.debug(f"Using change detection strategy: {strategy.value}")
-
-        # Detect changes based on strategy
-        if strategy == ChangeDetectionStrategy.GIT:
-            return self._detect_via_git(current_files, metadata)
-        else:
-            return self._detect_via_filesystem(
-                current_files,
-                metadata,
-                hash_only=(strategy == ChangeDetectionStrategy.HASH_ONLY),
-            )
-
-    def _choose_strategy(self) -> ChangeDetectionStrategy:
-        """Choose the best change detection strategy.
-
-        Returns:
-            Selected strategy
-        """
-        if self.forced_strategy:
-            return self.forced_strategy
-
-        # Prefer git if available
-        if self._is_git_repo():
-            return ChangeDetectionStrategy.GIT
-
-        return ChangeDetectionStrategy.FILESYSTEM
-
-    def _is_git_repo(self) -> bool:
-        """Check if source directory is in a git repository."""
-        return self._git.is_git_repo()
-
-    def _get_current_git_commit(self) -> str | None:
-        """Get current git commit hash."""
-        return self._git.get_current_commit()
-
-    def _detect_via_git(
-        self, current_files: list[Path], metadata: CacheMetadata
-    ) -> ChangeDetectionResult:
-        """Detect changes using git diff.
-
-        Args:
-            current_files: List of current Python files
-            metadata: The previous run's cache metadata
-
-        Returns:
-            ChangeDetectionResult
-        """
-        current_commit = self._get_current_git_commit()
-        cached_commit = metadata.git_commit
-
-        changed_files = set()
-
-        if cached_commit and current_commit:
-            # Get changed files between commits
-            all_changed = self._git.get_changed_files(cached_commit, current_commit)
-            if all_changed or cached_commit == current_commit:
-                git_changed = {f for f in all_changed if f.endswith(".py")}
-                current_relative = {
-                    f.relative_to(self.source_dir).as_posix() for f in current_files
-                }
-                changed_files = git_changed & current_relative
-                logger.debug(f"Git detected {len(changed_files)} changed files")
-            else:
-                logger.warning(
-                    "Git diff returned no results, falling back to filesystem detection"
-                )
-                return self._detect_via_filesystem(current_files, metadata)
-        else:
-            # No cached commit or current commit - fall back
-            logger.debug("No git commit info, falling back to filesystem detection")
-            return self._detect_via_filesystem(current_files, metadata)
-
-        # Categorize files
-        return self._categorize_files(
-            current_files, metadata, changed_files, ChangeDetectionStrategy.GIT
+        logger.debug(f"Using change detection strategy: {self.strategy.value}")
+        return self._detect_via_filesystem(
+            current_files,
+            metadata,
+            hash_only=self.strategy is ChangeDetectionStrategy.HASH_ONLY,
         )
 
     def _detect_via_filesystem(

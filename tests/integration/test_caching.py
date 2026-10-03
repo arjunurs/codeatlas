@@ -1,5 +1,6 @@
 """Integration tests for caching functionality."""
 
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -300,6 +301,65 @@ def test_incremental_update_refreshes_vector_store(
     assert "def added" in contents
     assert "Greeter" not in contents  # old module1.py
     assert "Calculator" not in contents  # deleted module2.py
+
+
+def _git(repo: Path, *args: str) -> None:
+    """Run git in a repository, independent of the user's git config."""
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "init.defaultBranch=main",
+            *args,
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+
+
+@pytest.mark.parametrize("commit_edit", [False, True])
+def test_edits_in_a_git_repository_are_picked_up(
+    tmp_path,
+    cache_dir,
+    mock_llm_provider,
+    mock_embedding_provider,
+    commit_edit,
+):
+    """An uncommitted edit, or a committed one under a subdirectory --source, is seen."""
+    repo = tmp_path / "repo"
+    source = repo / "src"
+    source.mkdir(parents=True)
+    (source / "shop.py").write_text('def old_name():\n    """Old."""\n    return 1\n')
+    _git(repo, "init", "-q")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-qm", "first")
+    project_cache_dir = cache_dir / "project"
+    run_args = (
+        source,
+        project_cache_dir,
+        tmp_path / "output",
+        mock_llm_provider,
+        mock_embedding_provider,
+    )
+    _run_cached_generator(*run_args)
+
+    (source / "shop.py").write_text('def new_name():\n    """New."""\n    return 2\n')
+    if commit_edit:
+        _git(repo, "commit", "-qam", "second")
+    _run_cached_generator(*run_args)
+
+    contents = "\n".join(
+        _stored_chunks(project_cache_dir, mock_embedding_provider)["documents"]
+    )
+    assert "def new_name" in contents
+    assert "def old_name" not in contents
 
 
 def test_incremental_update_removes_orphaned_chunks(

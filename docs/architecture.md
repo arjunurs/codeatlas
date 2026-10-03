@@ -105,7 +105,9 @@ render time, diagram code is HTML-escaped, and Mermaid runs with `securityLevel:
 ```
 
 - **Level 1, embeddings.** Unchanged files keep their vectors; changed and new files are
-  re-embedded and chunks of deleted files are removed.
+  re-embedded and chunks of deleted files are removed. A file has changed when its size or
+  modification time differs, or, when the time is too recent to trust, its content hash does;
+  edits count whether or not they are committed.
 - **Level 2, sections.** A section is reused while its code dependencies, the model, and its exact
   prompt are unchanged. Sections depend on different parts of the code (Overview on all content,
   Dependencies on imports, Key Classes on entities), so an edit only regenerates the sections it
@@ -113,9 +115,8 @@ render time, diagram code is HTML-escaped, and Mermaid runs with `securityLevel:
 - `--force-refresh` rebuilds the vector store and regenerates every section; `--no-cache` skips
   both levels; `--clear-cache` deletes the project's cache.
 
-Known gaps: in a git repository, change detection only sees committed changes (and none when
-`--source` is a subdirectory of the repository), and the section key does not include the RAG
-wrapper template or the `--retriever-*` settings.
+Known gap: the section key does not include the RAG wrapper template or the `--retriever-*`
+settings.
 
 ## Cost and latency
 
