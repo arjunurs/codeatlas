@@ -17,6 +17,23 @@ from pathlib import PurePath
 STDLIB_MODULES = frozenset(sys.stdlib_module_names)
 
 
+def module_root(source_dir: str) -> str:
+    """The directory module names start from, for a source directory.
+
+    That is the source directory itself, unless it is a package (it holds an
+    __init__.py): then module names start above it, and above any package it
+    sits in, so --source src/pkg names its modules pkg.x, as its own imports
+    do.
+    """
+    root = os.path.abspath(source_dir)
+    while os.path.isfile(os.path.join(root, "__init__.py")):
+        parent = os.path.dirname(root)
+        if parent == root:
+            break
+        root = parent
+    return root
+
+
 def module_name(file_path: str, root: str | None = None) -> str:
     """Name a file by its dotted module path from the source root.
 

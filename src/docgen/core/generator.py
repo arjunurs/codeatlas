@@ -33,7 +33,7 @@ from ..utils.usage_tracking import UsageTrackingEmbeddings
 from .analyzer import CodeAnalyzer
 from .cross_reference import cross_reference_preprocessor
 from .diagrams import DiagramGenerator, select_diagrams
-from .modules import module_name
+from .modules import module_name, module_root
 from .rag_pipeline import RAGPipelineFactory
 from .renderer import DocumentationRenderer
 from .section_orchestrator import SectionOrchestrator
@@ -322,25 +322,27 @@ class CodeDocumentationGenerator:
 
         Args:
             analyses: List of file analysis results
-            source_dir: The source root, which module names start from
+            source_dir: The source directory; module names start from it, or
+                from above it when it is a package
 
         Returns:
             Tuple of (diagrams dict, list of (diagram_name, error_message) pairs)
         """
         logger.debug("Generating diagrams...")
         build = self.diagram_generator
+        root = module_root(source_dir)
 
         # The sequence and call graph diagrams share one call analysis
         @functools.cache
         def function_calls() -> dict:
-            return self.analyzer.analyze_function_calls(analyses, root=source_dir)
+            return self.analyzer.analyze_function_calls(analyses, root=root)
 
         # Diagram type -> (output name, builder), in generation order
         builders = {
             "architecture": (
                 "architecture",
                 lambda: build.generate_architecture_diagram(
-                    self.analyzer.analyze_module_imports(analyses, root=source_dir)
+                    self.analyzer.analyze_module_imports(analyses, root=root)
                 ),
             ),
             "class": ("class_diagram", lambda: build.generate_class_diagram(analyses)),
@@ -352,15 +354,13 @@ class CodeDocumentationGenerator:
                 "function_calls",
                 lambda: build.generate_call_graph_diagram(
                     function_calls(),
-                    modules=[module_name(a.file_path, source_dir) for a in analyses],
+                    modules=[module_name(a.file_path, root) for a in analyses],
                 ),
             ),
             "dependency": (
                 "package_dependencies",
                 lambda: build.generate_dependency_diagram(
-                    self.analyzer.analyze_package_dependencies(
-                        analyses, root=source_dir
-                    )
+                    self.analyzer.analyze_package_dependencies(analyses, root=root)
                 ),
             ),
         }

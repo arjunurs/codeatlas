@@ -2,7 +2,7 @@
 
 import pytest
 
-from docgen.core.modules import ImportKind, ModuleIndex, PlacedImport
+from docgen.core.modules import ImportKind, ModuleIndex, PlacedImport, module_root
 
 SHOP = ModuleIndex(
     ["shop", "shop.cli", "shop.orders", "shop.payments", "shop.payments.gateway"]
@@ -67,3 +67,18 @@ def test_module_named_like_the_stdlib_does_not_capture_its_imports():
     assert index.place("logging", "app", True) == PlacedImport(
         ImportKind.STDLIB, "logging"
     )
+
+
+def test_module_root_is_the_source_directory(tmp_path):
+    """A plain directory is where module names start."""
+    assert module_root(str(tmp_path)) == str(tmp_path)
+
+
+def test_module_root_of_a_package_is_the_directory_above_it(tmp_path):
+    """--source pkg/sub, inside package pkg, names modules from the directory above pkg."""
+    package = tmp_path / "src" / "pkg" / "sub"
+    package.mkdir(parents=True)
+    for directory in (tmp_path / "src" / "pkg", package):
+        (directory / "__init__.py").write_text("")
+
+    assert module_root(str(package)) == str(tmp_path / "src")

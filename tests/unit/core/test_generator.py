@@ -460,3 +460,27 @@ def test_call_analysis_runs_once_for_both_diagrams_that_use_it():
     generator.analyzer.analyze_function_calls.assert_called_once_with(
         [], root="/project"
     )
+
+
+def test_package_given_as_source_is_named_in_its_diagrams(tmp_path):
+    """--source pkg/ names its modules pkg.x, so pkg's own imports stay internal."""
+    package = tmp_path / "shop"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    (package / "catalog.py").write_text("import yaml\n\n\nclass Item:\n    pass\n")
+    (package / "orders.py").write_text(
+        "from shop.catalog import Item\n\n\ndef order():\n    return Item()\n"
+    )
+    generator = CodeDocumentationGenerator(
+        generation_options=GenerationOptions(diagrams_only=True)
+    )
+    analyses = generator.analyzer.analyze_directory(str(package))
+
+    diagrams, _ = generator._generate_all_diagrams(analyses, str(package))
+
+    assert 'shop_orders["orders"]' in diagrams["architecture"]
+    assert "shop_orders --> shop_catalog" in diagrams["architecture"]
+    third_party = diagrams["package_dependencies"].split("subgraph")[1]
+    assert 'yaml["yaml"]' in third_party
+    assert '"shop"' not in third_party
+    assert "shop_orders_order --> shop_catalog_Item" in diagrams["function_calls"]
