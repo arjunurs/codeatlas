@@ -137,7 +137,7 @@ and the five core sections:
 
 | Run | Time | Cost | What was called |
 |---|---|---|---|
-| First run | 43 to 45 s | $0.37 to $0.39 | 5 Claude calls (30,349 input and about 19,000 output tokens) and 6 embedding calls (about 220,000 tokens, estimated) |
+| First run | 42 to 46 s | $0.37 to $0.39 | 5 Claude calls (31,522 input and 18,755 output tokens) and 6 embedding calls (about 222,000 tokens, estimated) |
 | Same run again | 1 s | $0.00 | Nothing: every section and the vector store came from the cache |
 | `--diagrams-only` | about 1 s | $0.00 | Nothing |
 
@@ -173,10 +173,13 @@ exits 0.
 ## Known limits
 
 - **Section quality.** Five agents fact-checked the FastAPI sections against the source: 87% of
-  checkable claims were correct and no API was invented, but sections describe only what the 10
-  retrieved chunks show. They over-weight whatever was retrieved and miss some central public
-  APIs. The [agent-enhanced design](design/agentic-architecture.md) proposes adaptive
-  retrieval and planning to address this.
+  checkable claims were correct and no API was invented. Since then the Dependencies section
+  reads the manifests: it named 2 of FastAPI's 6 runtime dependencies and no versions, and now
+  names all 6, with every version as `pyproject.toml` gives it. Remarks about what the context
+  leaves out fell from 25 to 2 across the five sections. Sections still describe only what the
+  10 retrieved chunks show, so each names 7 to 9 of 20 central public APIs (`APIRouter`,
+  `Depends`, `HTTPException`, ...). The [agent-enhanced design](design/agentic-architecture.md)
+  proposes adaptive retrieval and planning to address this.
 - **Diagrams.** The architecture, dependency, and call graph diagrams show only the project's
   own code and its third-party packages, and keep their 50 most connected nodes, so on a large
   codebase they show its busiest parts rather than all of it. The call graph draws only calls
