@@ -144,9 +144,9 @@ text length (about 4 characters per token) and labeled as estimates. Prices live
 |---|---|
 | A file does not parse | That file is skipped with a warning; analysis continues |
 | A diagram fails to generate or validate | It is left out and listed in a warning and on the index page |
-| One section fails (rate limit, timeout) | Its page shows the error; other sections are unaffected |
+| One section fails (rate limit, timeout) | Its page shows the error; other sections are unaffected. A provider error says what it means and what to do, then gives the SDK's message: "Anthropic rate limit reached; wait and run again (...)" |
 | A section reaches the output limit | It is marked as cut off, a warning is logged, and it is not cached |
-| Invalid OpenAI key | The run stops when building the vector store, after diagrams, with exit code 1 |
+| Invalid OpenAI key | The run stops when building the vector store, after diagrams, with exit code 1 and "OpenAI rejected the API key; check OPENAI_API_KEY" |
 | Invalid Anthropic key | Every section page shows the error, but the run currently exits 0 |
 | Transient API errors | The Anthropic and OpenAI clients retry twice; codeatlas adds no retry of its own |
 

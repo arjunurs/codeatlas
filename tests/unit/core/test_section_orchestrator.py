@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock
 
+import anthropic
+import httpx
 import pytest
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda
@@ -192,3 +194,29 @@ def test_failed_section_is_reported_once(parallel):
     assert [section["content"] for section in documentation["sections"]] == [
         "*Error generating this section: RuntimeError: boom*"
     ] * len(names)
+
+
+def test_rejected_api_key_is_reported_with_what_to_do():
+    """A provider error on a section names the provider and the fix."""
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    body = {"type": "error", "error": {"type": "authentication_error"}}
+    rejected = anthropic.AuthenticationError(
+        f"Error code: 401 - {body}",
+        response=httpx.Response(401, request=request),
+        body=body,
+    )
+
+    def generate(prompt: str) -> str:
+        raise rejected
+
+    orchestrator = SectionOrchestrator(
+        DEFAULT_CONFIG, model_name="claude-sonnet-5", selected_sections=["overview"]
+    )
+    _, errors = orchestrator.generate_documentation_sections(RunnableLambda(generate))
+
+    assert errors == [
+        (
+            "Overview",
+            f"Anthropic rejected the API key; check ANTHROPIC_API_KEY ({rejected})",
+        )
+    ]
