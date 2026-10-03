@@ -247,6 +247,50 @@ def test_analyze_dependencies_empty_file(analyzer):
         mock_file.assert_called_once_with("requirements.txt", encoding="utf-8")
 
 
+ASYNC_CODE = """async def fetch():
+    return await load()
+
+
+class Client:
+    async def get(self):
+        return await fetch()
+
+    def close(self):
+        pass
+"""
+
+
+def test_async_functions_are_entities(analyzer, tmp_path):
+    """async def functions and methods are found like plain ones."""
+    path = tmp_path / "net.py"
+    path.write_text(ASYNC_CODE)
+
+    entities = analyzer.analyze_file(str(path)).entities
+
+    assert [(e.name, e.type) for e in entities] == [
+        ("fetch", EntityType.FUNCTION),
+        ("Client", EntityType.CLASS),
+    ]
+    assert entities[0].source.startswith("async def fetch():")
+    assert entities[1].methods == ["get", "close"]
+
+
+def test_async_function_calls_are_recorded(analyzer):
+    """Calls made inside async functions and methods reach the call graph."""
+    analysis = FileAnalysis(
+        file_path="net.py",
+        entities=[],
+        imports=[],
+        content=ASYNC_CODE,
+        _skip_validation=True,
+    )
+
+    call_graph = analyzer.analyze_function_calls([analysis])
+
+    assert call_graph["fetch"] == {"load"}
+    assert call_graph["get"] == {"fetch"}
+
+
 def test_analyze_function_calls(analyzer, tmp_path):
     """Test function call analysis."""
     # Create a test file with function calls

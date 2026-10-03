@@ -346,6 +346,10 @@ class CodeAnalyzer:
                 # Restore previous function context
                 self.current_function = prev_function
 
+            def visit_AsyncFunctionDef(self, node):
+                """Visit an async function definition like a plain one."""
+                self.visit_FunctionDef(node)
+
             def visit_Call(self, node):
                 """Visit a function call node."""
                 if not self.current_function:
@@ -402,7 +406,7 @@ class CodeAnalyzer:
 
                 # Extract method names
                 for item in node.body:
-                    if isinstance(item, ast.FunctionDef):
+                    if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                         methods.append(item.name)
 
                 # Get source code
@@ -428,7 +432,7 @@ class CodeAnalyzer:
                     )
                 )
 
-            elif isinstance(node, ast.FunctionDef):
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 docstring = ast.get_docstring(node) or ""
                 source_lines = ast.get_source_segment(source, node)
                 if source_lines is None:
