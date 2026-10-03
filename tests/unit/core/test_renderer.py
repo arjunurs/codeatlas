@@ -64,6 +64,44 @@ def test_ordinary_markdown_html_survives(rendered):
     assert 'href="https://example.com"' in html
 
 
+def convert(markdown_text: str) -> str:
+    """Convert section Markdown the way the section orchestrator does."""
+    renderer = DocumentationRenderer(get_template_manager())
+    return renderer.convert_markdown_to_html(markdown_text)
+
+
+def test_markdown_tables_and_code_blocks_convert():
+    """Tables and fenced code blocks become HTML tables and code blocks."""
+    html = convert("| a | b |\n|---|---|\n| 1 | 2 |\n\n```python\nx = 1 < 2\n```\n")
+
+    assert "<td>1</td>" in html
+    assert re.search(r"<pre><code[^>]*>x = 1 &lt; 2\n</code></pre>", html)
+
+
+@pytest.mark.parametrize(
+    "markdown_text",
+    [
+        "- a\n  - b\n- c\n",  # two-space indent, as the model writes it
+        "1. a\n   - b\n2. c\n",  # under a numbered item
+        "- a\n    - b\n- c\n",  # four-space indent
+    ],
+    ids=["two-space", "numbered-parent", "four-space"],
+)
+def test_indented_list_item_renders_nested(markdown_text):
+    """A sub-item indented to its parent's text is nested, not a sibling."""
+    html = convert(markdown_text)
+
+    assert re.search(r"<li>a\s*<ul>\s*<li>b</li>\s*</ul>\s*</li>", html)
+
+
+def test_code_block_inside_a_list_item_stays_in_the_item():
+    """A fenced block indented under a numbered step belongs to that step."""
+    html = convert("1. Step\n\n   ```python\n   x = 1\n   ```\n2. Next\n")
+
+    assert re.search(r"<li>\s*<p>Step</p>\s*<pre><code[^>]*>x = 1\n</code></pre>", html)
+    assert re.search(r"<li>\s*<p>Next</p>\s*</li>", html)
+
+
 def test_diagram_code_is_escaped(rendered):
     """Names in diagram code cannot close the <pre> and inject markup."""
     html = (rendered / "diagrams/architecture.html").read_text()

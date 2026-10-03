@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from typing import Any
 
 import jinja2
-import markdown
 import nh3
+from markdown_it import MarkdownIt
 
 from ..exceptions.errors import DocumentationError
 
@@ -67,14 +67,16 @@ class DocumentationRenderer:
     def convert_markdown_to_html(self, content: str) -> str:
         """Convert markdown content to HTML.
 
+        Follows CommonMark, plus tables: a sub-item indented to its parent's
+        text is nested, which is how the model writes nested lists.
+
         Args:
             content: Markdown-formatted text content
 
         Returns:
             HTML-formatted content
         """
-        md = markdown.Markdown(extensions=["fenced_code", "tables", "toc"])
-        return md.convert(content)
+        return MarkdownIt("commonmark").enable("table").render(content)
 
     def render(
         self,
