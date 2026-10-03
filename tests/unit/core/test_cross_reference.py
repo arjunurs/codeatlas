@@ -7,7 +7,7 @@ from docgen.core.cross_reference import (
     CrossReferenceAnalyzer,
     cross_reference_preprocessor,
 )
-from docgen.models.code_entity import CodeEntity
+from docgen.models.code_entity import CodeEntity, EntityType
 from docgen.models.file_analysis import FileAnalysis
 
 
@@ -20,7 +20,7 @@ def test_cross_reference_analyzer_basic():
             entities=[
                 CodeEntity(
                     name="MainClass",
-                    type="class",
+                    type=EntityType.CLASS,
                     docstring="Main class",
                     start_line=1,
                     end_line=10,
@@ -37,7 +37,7 @@ def test_cross_reference_analyzer_basic():
             entities=[
                 CodeEntity(
                     name="HelperClass",
-                    type="class",
+                    type=EntityType.CLASS,
                     docstring="Helper class",
                     start_line=1,
                     end_line=5,
@@ -72,7 +72,7 @@ def test_cross_reference_top_components():
             entities=[
                 CodeEntity(
                     name="MainClass",
-                    type="class",
+                    type=EntityType.CLASS,
                     docstring="Main class",
                     start_line=1,
                     end_line=10,
@@ -89,7 +89,7 @@ def test_cross_reference_top_components():
             entities=[
                 CodeEntity(
                     name="UtilityClass",
-                    type="class",
+                    type=EntityType.CLASS,
                     docstring="Utility class",
                     start_line=1,
                     end_line=5,
@@ -128,7 +128,7 @@ def test_cross_reference_by_type():
             entities=[
                 CodeEntity(
                     name="MyClass",
-                    type="class",
+                    type=EntityType.CLASS,
                     docstring="A class",
                     start_line=1,
                     end_line=5,
@@ -137,7 +137,7 @@ def test_cross_reference_by_type():
                 ),
                 CodeEntity(
                     name="my_function",
-                    type="function",
+                    type=EntityType.FUNCTION,
                     docstring="A function",
                     start_line=7,
                     end_line=10,
@@ -170,7 +170,7 @@ def test_cross_reference_report_generation():
             entities=[
                 CodeEntity(
                     name="MainClass",
-                    type="class",
+                    type=EntityType.CLASS,
                     docstring="Main class",
                     start_line=1,
                     end_line=10,
@@ -223,7 +223,7 @@ def test_import_graph_generation():
             entities=[
                 CodeEntity(
                     name="HelperClass",
-                    type="class",
+                    type=EntityType.CLASS,
                     docstring="Helper",
                     start_line=1,
                     end_line=5,
@@ -249,7 +249,9 @@ def test_import_graph_generation():
 HELPER_AND_MAIN = [
     FileAnalysis(
         file_path="helper.py",
-        entities=[CodeEntity(name="HelperClass", type="class", docstring="A helper")],
+        entities=[
+            CodeEntity(name="HelperClass", type=EntityType.CLASS, docstring="A helper")
+        ],
         imports=[],
         content="class HelperClass: pass",
         _skip_validation=True,

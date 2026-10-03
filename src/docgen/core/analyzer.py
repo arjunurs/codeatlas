@@ -12,7 +12,7 @@ from collections.abc import Iterator
 
 from ..config import DEFAULT_CONFIG
 from ..exceptions.errors import CodeParseError, FileEncodingError
-from ..models.code_entity import CodeEntity
+from ..models.code_entity import CodeEntity, EntityType
 from ..models.file_analysis import FileAnalysis
 from ..utils.error_classification import describe_error
 
@@ -419,7 +419,7 @@ class CodeAnalyzer:
                 entities.append(
                     CodeEntity(
                         name=node.name,
-                        type="class",
+                        type=EntityType.CLASS,
                         docstring=docstring,
                         methods=methods,
                         start_line=node.lineno,
@@ -438,7 +438,7 @@ class CodeAnalyzer:
                 entities.append(
                     CodeEntity(
                         name=node.name,
-                        type="function",
+                        type=EntityType.FUNCTION,
                         docstring=docstring,
                         methods=None,
                         start_line=node.lineno,

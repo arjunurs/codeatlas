@@ -203,7 +203,7 @@ class TestValidationConfig:
     def test_custom_config(self):
         """Test custom configuration."""
         config = ValidationConfig(
-            mode="permissive",
+            mode=ValidationMode.PERMISSIVE,
             fail_on_warnings=True,
             enabled_rules={"rule1", "rule2"},
             validate_on_generation=False,
@@ -212,11 +212,6 @@ class TestValidationConfig:
         assert config.fail_on_warnings
         assert config.enabled_rules == {"rule1", "rule2"}
         assert not config.validate_on_generation
-
-    def test_invalid_mode_raises_error(self):
-        """Test that invalid mode raises ValueError."""
-        with pytest.raises(ValueError, match="Mode must be"):
-            ValidationConfig(mode="invalid")
 
     def test_overlapping_rules_raises_error(self):
         """Test that overlapping enabled/disabled rules raises error."""

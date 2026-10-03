@@ -267,7 +267,7 @@ def helper():
         entities=[
             CodeEntity(
                 name="test_method",
-                type="function",
+                type=EntityType.FUNCTION,
                 docstring="",
                 start_line=1,
                 end_line=3,
@@ -275,7 +275,7 @@ def helper():
             ),
             CodeEntity(
                 name="helper",
-                type="function",
+                type=EntityType.FUNCTION,
                 docstring="",
                 start_line=5,
                 end_line=6,

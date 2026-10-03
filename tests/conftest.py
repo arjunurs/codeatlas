@@ -15,7 +15,7 @@ from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from pydantic import Field
 
-from docgen.models.code_entity import CodeEntity
+from docgen.models.code_entity import CodeEntity, EntityType
 from docgen.models.file_analysis import FileAnalysis
 
 # =============================================================================
@@ -32,7 +32,7 @@ def sample_code_entity() -> CodeEntity:
     """
     return CodeEntity(
         name="TestClass",
-        type="class",
+        type=EntityType.CLASS,
         docstring="A test class for documentation testing.",
         methods=["test_method", "__init__"],
         start_line=1,

@@ -162,13 +162,6 @@ class ValidationConfig:
 
     def __post_init__(self):
         """Validate configuration values."""
-        # Auto-convert string to ValidationMode for backward compatibility
-        if isinstance(self.mode, str):
-            try:
-                self.mode = ValidationMode(self.mode)
-            except ValueError:
-                raise ValueError("Mode must be 'strict' or 'permissive'") from None
-
         if self.enabled_rules and self.disabled_rules:
             overlap = self.enabled_rules & self.disabled_rules
             if overlap:

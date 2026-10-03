@@ -10,7 +10,7 @@ def test_code_entity_creation():
     # Test function entity
     func_entity = CodeEntity(
         name="test_func",
-        type="function",
+        type=EntityType.FUNCTION,
         docstring="Test function",
         start_line=1,
         end_line=2,
@@ -27,7 +27,7 @@ def test_code_entity_creation():
     # Test class entity
     class_entity = CodeEntity(
         name="TestClass",
-        type="class",
+        type=EntityType.CLASS,
         docstring="Test class",
         methods=["method1", "method2"],
         start_line=1,
@@ -50,20 +50,7 @@ def test_code_entity_validation():
     with pytest.raises(ValueError, match="Entity name cannot be empty"):
         CodeEntity(
             name="",
-            type="function",
-            docstring="Test function",
-            start_line=1,
-            end_line=2,
-            source="def test_func():\n    pass",
-        )
-
-    # Test invalid type
-    with pytest.raises(
-        ValueError, match="Entity type must be either 'class' or 'function'"
-    ):
-        CodeEntity(
-            name="test_func",
-            type="invalid",
+            type=EntityType.FUNCTION,
             docstring="Test function",
             start_line=1,
             end_line=2,
@@ -74,7 +61,7 @@ def test_code_entity_validation():
     with pytest.raises(ValueError, match="Function entities cannot have methods"):
         CodeEntity(
             name="test_func",
-            type="function",
+            type=EntityType.FUNCTION,
             docstring="Test function",
             methods=["method1"],
             start_line=1,
@@ -88,7 +75,7 @@ def test_code_entity_validation():
     ):
         CodeEntity(
             name="test_func",
-            type="function",
+            type=EntityType.FUNCTION,
             docstring="Test function",
             start_line=0,
             end_line=2,
@@ -98,7 +85,7 @@ def test_code_entity_validation():
     with pytest.raises(ValueError, match="End line cannot be before start line"):
         CodeEntity(
             name="test_func",
-            type="function",
+            type=EntityType.FUNCTION,
             docstring="Test function",
             start_line=2,
             end_line=1,
@@ -110,7 +97,7 @@ def test_code_entity_function():
     """Test creating a function entity."""
     entity = CodeEntity(
         name="test_function",
-        type="function",
+        type=EntityType.FUNCTION,
         docstring="A test function",
         start_line=5,
         end_line=6,

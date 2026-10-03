@@ -46,15 +46,6 @@ class CodeEntity:
         if not self.name:
             raise ValueError("Entity name cannot be empty")
 
-        # Auto-convert string to EntityType for backward compatibility
-        if isinstance(self.type, str):
-            try:
-                self.type = EntityType(self.type)
-            except ValueError:
-                raise ValueError(
-                    "Entity type must be either 'class' or 'function'"
-                ) from None
-
         if not isinstance(self.start_line, int) or self.start_line <= 0:
             raise ValueError("Start line number must be a positive integer")
 

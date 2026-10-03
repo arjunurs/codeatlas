@@ -3,7 +3,7 @@
 import pytest
 
 from docgen.cache.content_cache import SectionCacheEntry, SectionContentCache
-from docgen.models.code_entity import CodeEntity
+from docgen.models.code_entity import CodeEntity, EntityType
 from docgen.models.file_analysis import FileAnalysis
 
 
@@ -16,7 +16,7 @@ def sample_analyses():
             entities=[
                 CodeEntity(
                     name="hello",
-                    type="function",
+                    type=EntityType.FUNCTION,
                     docstring="Say hello",
                     start_line=1,
                     end_line=3,
@@ -30,7 +30,7 @@ def sample_analyses():
             entities=[
                 CodeEntity(
                     name="Calculator",
-                    type="class",
+                    type=EntityType.CLASS,
                     docstring="Simple calculator",
                     start_line=1,
                     end_line=5,
@@ -119,7 +119,7 @@ def test_section_cache_invalidation_on_change(tmp_path, sample_analyses):
         entities=[
             CodeEntity(
                 name="goodbye",  # Changed
-                type="function",
+                type=EntityType.FUNCTION,
                 docstring="Say goodbye",
                 start_line=1,
                 end_line=3,

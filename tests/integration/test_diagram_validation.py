@@ -9,8 +9,12 @@ import pytest
 
 from docgen.core.diagrams import DiagramGenerator
 from docgen.exceptions.errors import DiagramGenerationError
-from docgen.models.code_entity import CodeEntity
-from docgen.models.diagram_validation import DiagramType, ValidationConfig
+from docgen.models.code_entity import CodeEntity, EntityType
+from docgen.models.diagram_validation import (
+    DiagramType,
+    ValidationConfig,
+    ValidationMode,
+)
 from docgen.models.file_analysis import FileAnalysis
 
 
@@ -25,13 +29,13 @@ class TestDiagramValidationIntegration:
         entities = [
             CodeEntity(
                 name="MyClass",
-                type="class",
+                type=EntityType.CLASS,
                 docstring="Test class",
                 parent_class="BaseClass",
             ),
             CodeEntity(
                 name="method1",
-                type="function",
+                type=EntityType.FUNCTION,
                 docstring="Test method",
             ),
         ]
@@ -53,7 +57,9 @@ class TestDiagramValidationIntegration:
 
         # Create test data
         entities = [
-            CodeEntity(name="func1", type="function", docstring="Test function"),
+            CodeEntity(
+                name="func1", type=EntityType.FUNCTION, docstring="Test function"
+            ),
         ]
         analysis = FileAnalysis(
             file_path="module1.py",
@@ -72,7 +78,7 @@ class TestDiagramValidationIntegration:
         generator = DiagramGenerator(validate_diagrams=False)
 
         # Generate with minimal data
-        entities = [CodeEntity(name="C", type="class", docstring="")]
+        entities = [CodeEntity(name="C", type=EntityType.CLASS, docstring="")]
         analysis = FileAnalysis(
             file_path="test.py",
             entities=entities,
@@ -87,13 +93,13 @@ class TestDiagramValidationIntegration:
 
     def test_validation_with_permissive_config(self):
         """Test validation in permissive mode."""
-        config = ValidationConfig(mode="permissive")
+        config = ValidationConfig(mode=ValidationMode.PERMISSIVE)
         generator = DiagramGenerator(
             validate_diagrams=True,
             validation_config=config,
         )
 
-        entities = [CodeEntity(name="MyClass", type="class", docstring="Test")]
+        entities = [CodeEntity(name="MyClass", type=EntityType.CLASS, docstring="Test")]
         analysis = FileAnalysis(
             file_path="test.py",
             entities=entities,
@@ -172,7 +178,7 @@ class TestDiagramValidationIntegration:
 
         # Even with disabled rule, the generator's own checks
         # will catch empty diagrams before validation
-        entities = [CodeEntity(name="MyClass", type="class", docstring="Test")]
+        entities = [CodeEntity(name="MyClass", type=EntityType.CLASS, docstring="Test")]
         analysis = FileAnalysis(
             file_path="test.py",
             entities=entities,
@@ -194,7 +200,7 @@ class TestDiagramValidationEdgeCases:
 
         # Create more entities than max_nodes
         entities = [
-            CodeEntity(name=f"Class{i}", type="class", docstring=f"Class {i}")
+            CodeEntity(name=f"Class{i}", type=EntityType.CLASS, docstring=f"Class {i}")
             for i in range(10)
         ]
         analysis = FileAnalysis(
@@ -221,8 +227,8 @@ class TestDiagramValidationEdgeCases:
 
         # Names with special characters that need cleaning
         entities = [
-            CodeEntity(name="My-Class", type="class", docstring="Test"),
-            CodeEntity(name="my.method", type="function", docstring="Method"),
+            CodeEntity(name="My-Class", type=EntityType.CLASS, docstring="Test"),
+            CodeEntity(name="my.method", type=EntityType.FUNCTION, docstring="Method"),
         ]
         analysis = FileAnalysis(
             file_path="test.py",
@@ -243,13 +249,13 @@ class TestDiagramValidationEdgeCases:
         entities = [
             CodeEntity(
                 name="ChildClass",
-                type="class",
+                type=EntityType.CLASS,
                 docstring="Child",
                 parent_class="ParentClass",
             ),
             CodeEntity(
                 name="ParentClass",
-                type="class",
+                type=EntityType.CLASS,
                 docstring="Parent",
             ),
         ]

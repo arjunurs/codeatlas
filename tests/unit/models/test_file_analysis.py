@@ -2,7 +2,7 @@
 
 import pytest
 
-from docgen.models.code_entity import CodeEntity
+from docgen.models.code_entity import CodeEntity, EntityType
 from docgen.models.file_analysis import FileAnalysis
 
 
@@ -12,7 +12,7 @@ def sample_code_entity():
     return CodeEntity(
         name="TestClass",
         docstring="A test class",
-        type="class",
+        type=EntityType.CLASS,
         methods=["test_method"],
         start_line=1,
         end_line=3,

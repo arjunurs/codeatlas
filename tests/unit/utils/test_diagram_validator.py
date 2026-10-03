@@ -22,7 +22,7 @@ class TestDiagramValidator:
 
     def test_init_with_custom_config(self):
         """Test initialization with custom config."""
-        config = ValidationConfig(mode="permissive")
+        config = ValidationConfig(mode=ValidationMode.PERMISSIVE)
         validator = DiagramValidator(config)
         assert validator.config.mode == ValidationMode.PERMISSIVE
 
@@ -98,7 +98,7 @@ class TestDiagramValidator:
 
     def test_validation_config_strict_mode(self):
         """Test validation in strict mode."""
-        config = ValidationConfig(mode="strict")
+        config = ValidationConfig(mode=ValidationMode.STRICT)
         validator = DiagramValidator(config)
         diagram = "graph TD\nA --> B"
         result = validator.validate(diagram, DiagramType.ARCHITECTURE)

@@ -14,7 +14,7 @@ import pytest
 from docgen.config import DEFAULT_CONFIG, GenerationOptions
 from docgen.core.generator import CodeDocumentationGenerator
 from docgen.exceptions.errors import CodeParseError, DocumentationError
-from docgen.models.code_entity import CodeEntity
+from docgen.models.code_entity import CodeEntity, EntityType
 from docgen.models.file_analysis import FileAnalysis
 
 
@@ -44,7 +44,7 @@ def mock_analyzer():
                     name="TestClass",
                     docstring="Test class docstring",
                     lineno=1,
-                    type="class",
+                    type=EntityType.CLASS,
                     methods=["test_method"],
                     file_path="/path/to/test.py",
                 )
@@ -107,7 +107,7 @@ def generator(mock_template_manager):
     # Create a sample FileAnalysis for testing
     sample_entity = CodeEntity(
         name="TestClass",
-        type="class",
+        type=EntityType.CLASS,
         docstring="Test class",
         start_line=1,
         end_line=5,
@@ -157,7 +157,7 @@ def mock_generator():
     # Create sample test data
     sample_entity = CodeEntity(
         name="TestClass",
-        type="class",
+        type=EntityType.CLASS,
         docstring="Test class docstring",
         methods=["test_method"],
         start_line=1,

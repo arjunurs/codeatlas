@@ -10,7 +10,7 @@ import pytest
 
 from docgen.core.diagrams import DiagramGenerator, select_diagrams
 from docgen.exceptions.errors import DiagramGenerationError, DiagramValidationError
-from docgen.models.code_entity import CodeEntity
+from docgen.models.code_entity import CodeEntity, EntityType
 from docgen.models.diagram_validation import DiagramType
 from docgen.models.file_analysis import FileAnalysis
 from docgen.utils.diagram_validator import DiagramValidator
@@ -33,7 +33,7 @@ def sample_analyses():
                 CodeEntity(
                     name="Class1",
                     docstring="First test class",
-                    type="class",
+                    type=EntityType.CLASS,
                     methods=["method1", "method2"],
                     start_line=1,
                     end_line=5,
@@ -43,7 +43,7 @@ def sample_analyses():
                 CodeEntity(
                     name="function1",
                     docstring="First test function",
-                    type="function",
+                    type=EntityType.FUNCTION,
                     start_line=10,
                     end_line=12,
                     source="def function1():\n    pass",
@@ -59,7 +59,7 @@ def sample_analyses():
                 CodeEntity(
                     name="Class2",
                     docstring="Second test class",
-                    type="class",
+                    type=EntityType.CLASS,
                     methods=["method3"],
                     start_line=1,
                     end_line=3,
@@ -311,13 +311,13 @@ def test_class_diagram_handles_generic_base_classes(diagram_generator):
                 CodeEntity(
                     name="AsyncLiftContextManager",
                     docstring=None,
-                    type="class",
+                    type=EntityType.CLASS,
                     parent_class="AbstractAsyncContextManager[_T]",
                 ),
                 CodeEntity(
                     name="HeadersGetter",
                     docstring=None,
-                    type="class",
+                    type=EntityType.CLASS,
                     parent_class="Getter[Headers]",
                 ),
             ],
