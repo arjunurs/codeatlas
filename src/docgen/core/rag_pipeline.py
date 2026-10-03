@@ -7,6 +7,7 @@ encapsulating all LangChain/ChromaDB-specific logic.
 from __future__ import annotations
 
 import logging
+import uuid
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -177,7 +178,13 @@ class RAGPipelineFactory:
                 )
             else:
                 logger.debug("Cache disabled: creating ephemeral vector store")
-                self._vector_store = Chroma.from_documents(texts, self.embeddings)
+                # Chroma has one in-memory client per process, so each store
+                # needs its own collection or it sees chunks from earlier runs
+                self._vector_store = Chroma.from_documents(
+                    texts,
+                    self.embeddings,
+                    collection_name=f"codeatlas-{uuid.uuid4().hex}",
+                )
 
             retriever = self._create_retriever()
 
