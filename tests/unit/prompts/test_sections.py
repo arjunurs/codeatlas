@@ -3,7 +3,9 @@
 import pytest
 
 from docgen.prompts.sections import (
+    OPTIONAL_SECTION_PROMPTS,
     SECTION_ORDER,
+    SECTION_PROMPTS,
     get_section_prompt,
     get_section_query,
     select_sections,
@@ -75,3 +77,40 @@ def test_each_section_retrieves_with_a_short_query(section):
 
     assert 3 <= len(query.split()) <= 15
     assert query not in get_section_prompt(section)
+
+
+# Names from codeatlas itself, which an example must not teach the model
+CODEATLAS_NAMES = [
+    "codeatlas",
+    "docgen",
+    "CodeDocumentationGenerator",
+    "CodeAnalyzer",
+    "DiagramGenerator",
+    "TemplateManager",
+    "ContentCache",
+    "VectorCache",
+    "langchain",
+    "chromadb",
+]
+
+
+@pytest.mark.parametrize("section", ALL_SECTIONS)
+def test_no_prompt_describes_codeatlas_itself(section):
+    """Examples describe a made-up project, so they cannot bias other codebases."""
+    prompt = get_section_prompt(section).lower()
+
+    assert [name for name in CODEATLAS_NAMES if name.lower() in prompt] == []
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        template
+        for template in {**SECTION_PROMPTS, **OPTIONAL_SECTION_PROMPTS}.values()
+        if template.few_shot_examples
+    ],
+    ids=lambda template: template.title,
+)
+def test_examples_are_labeled_as_another_project(template):
+    """The prompt says the example is a different project, shown for its format."""
+    assert "made-up project" in template.render()

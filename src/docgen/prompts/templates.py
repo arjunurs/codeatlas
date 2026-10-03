@@ -55,6 +55,11 @@ class PromptTemplate:
         # Add few-shot examples FIRST (before instructions)
         if self.few_shot_examples:
             parts.append("\n## Examples of Good Output\n")
+            parts.append(
+                "These examples describe a different, made-up project. They show "
+                "the format and depth wanted; describe the code in the context, "
+                "not the examples.\n"
+            )
             for i, example in enumerate(self.few_shot_examples, 1):
                 parts.append(f"### Example {i}:")
                 parts.append(example)

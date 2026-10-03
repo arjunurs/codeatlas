@@ -31,19 +31,19 @@ SECTION_PROMPTS: dict[str, PromptTemplate] = {
         additional_context="Identify design patterns (Factory, Strategy, Observer, etc.), architectural style (library/CLI/service/framework), and key abstractions. Focus on the big picture and how components collaborate.",
         few_shot_examples=[
             """## Main Purpose and Functionality
-This is a Python documentation generator that uses LLMs to create comprehensive docs. The `CodeDocumentationGenerator` class orchestrates the entire pipeline, from AST parsing to HTML generation.
+`ledgerline` is a command-line tool that imports bank statements and reconciles them against a ledger. `cli.main()` parses the arguments and hands a `ReconcileJob` to the `Reconciler`, which matches each statement line to a ledger entry and writes a report.
 
 ## Key Components and Responsibilities
-- `CodeAnalyzer` - Parses Python files using AST to extract classes, functions, and imports
-- `DiagramGenerator` - Creates Mermaid diagrams (architecture, class, sequence, call graph)
-- `TemplateManager` - Renders HTML templates with Jinja2
-- `ContentCache` - Caches generated sections for incremental updates
+- `StatementParser` - Reads CSV and OFX statements into `Transaction` records
+- `Reconciler` - Matches transactions to ledger entries by amount and date, within a tolerance
+- `LedgerStore` - Loads and saves the ledger as a SQLite database
+- `ReportWriter` - Renders matched, missing, and unexpected entries as Markdown
 
 ## How Different Parts Work Together
-The generator follows a pipeline pattern: analyze → vectorize → generate → render. Code is analyzed once, embedded into ChromaDB for RAG, then sections are generated in parallel using LCEL chains.
+The run is a pipeline: parse, then match, then report. `Reconciler.run()` takes the parsed transactions and the open `LedgerStore`, and returns a `ReconcileResult` that `ReportWriter` renders; nothing is written to the ledger unless `--apply` is set.
 
 ## Overall Architecture and Design Patterns
-Uses RAG (Retrieval-Augmented Generation) with LangChain for context-aware documentation. Factory pattern for provider abstraction (Anthropic/OpenAI). Template Method for section generation."""
+A small layered CLI: parsing and storage sit behind the `Reconciler`. Parsers are chosen by file extension from a registry (`PARSERS`), so a new statement format is one new class."""
         ],
     ),
     "Dependencies": PromptTemplate(
@@ -62,21 +62,18 @@ Uses RAG (Retrieval-Augmented Generation) with LangChain for context-aware docum
         additional_context="Group dependencies by purpose (web framework, testing, CLI, data processing, ML/AI). Explain WHY each dependency is needed with specific use cases. Note any version constraints, security considerations, or alternatives that were considered.",
         few_shot_examples=[
             """## Core Dependencies
-- `langchain-anthropic` and `langchain-openai` - LLM providers for content generation
-- `chromadb` - Vector store for semantic code search in RAG pipeline
-- `jinja2` - HTML template rendering for documentation output
-- `click` - Command-line interface with rich help formatting
+- `tabular-io>=2.1` - Reads CSV statements in `StatementParser` (`tabular_io.read_rows()`)
+- `ofxkit>=0.9` - Parses OFX statements; `OfxParser` wraps its `load()`
 
 ## Optional Dependencies
-- `python-dotenv` - Environment variable management for API keys (dev convenience)
+- `rich` (extra `pretty`) - Colored terminal reports; `ReportWriter` imports it only when `--color` is set, and falls back to plain text when it is missing
 
 ## Version Requirements
-- Python 3.11+ required for modern type hints (`list[str]` syntax)
-- `chromadb>=0.4.0` for stable vector store API
-- `langchain-core>=0.3.0` for LCEL (LangChain Expression Language)
+- Python >= 3.10 (`requires-python` in `pyproject.toml`)
+- `tabular-io>=2.1`: earlier versions lack the `dialect=` argument that `StatementParser` passes
 
 ## Integration Points
-Dependencies interact through well-defined interfaces: `LLMProvider` protocol abstracts Anthropic/OpenAI, allowing swappable backends. ChromaDB is isolated in `VectorCache` for testability."""
+`StatementParser` hides both parsing libraries behind one `parse(path)` method, so the rest of the code never imports them."""
         ],
     ),
     "Key Classes and Functions": PromptTemplate(
