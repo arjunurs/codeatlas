@@ -125,29 +125,53 @@ class DiagramGenerator:
                 f"Generated {diagram_type.value} diagram failed validation: {e}"
             ) from e
 
-    # Mermaid reserved keywords that cannot be used as node IDs
+    # Words Mermaid 10.9 reads as keywords where a node, class, or participant
+    # ID goes, so an ID equal to one breaks the diagram (each checked in a
+    # browser). Flowchart and class diagram keywords are case-sensitive and
+    # sequence keywords are not; IDs are compared lowercased, which covers all.
     MERMAID_RESERVED_WORDS = frozenset(
         {
-            "click",
+            # Flowchart
             "call",
-            "graph",
-            "subgraph",
-            "end",
-            "style",
-            "linkStyle",
-            "classDef",
             "class",
-            "direction",
-            "participant",
-            "actor",
+            "classdef",
+            "end",
+            "flowchart",
+            "graph",
+            "href",
+            "linkstyle",
+            "style",
+            "subgraph",
+            # Class diagram, beyond the above
+            "callback",
+            "click",
+            "cssclass",
+            "link",
+            "namespace",
             "note",
-            "loop",
+            # Sequence diagram, beyond the above
+            "activate",
+            "actor",
             "alt",
-            "else",
-            "opt",
-            "par",
-            "critical",
+            "and",
+            "autonumber",
+            "box",
             "break",
+            "create",
+            "critical",
+            "deactivate",
+            "destroy",
+            "details",
+            "else",
+            "links",
+            "loop",
+            "opt",
+            "over",
+            "par",
+            "participant",
+            "properties",
+            "rect",
+            "title",
         }
     )
 

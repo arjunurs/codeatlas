@@ -492,6 +492,51 @@ def test_clean_name_produces_identifier(name, expected):
     assert DiagramGenerator._clean_name(name) == expected
 
 
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        # Flowchart keywords
+        ("linkStyle", "linkStyle_node"),
+        ("classDef", "classDef_node"),
+        ("flowchart", "flowchart_node"),
+        ("href", "href_node"),
+        # Class diagram keywords
+        ("namespace", "namespace_node"),
+        ("cssClass", "cssClass_node"),
+        ("link", "link_node"),
+        # Sequence keywords, which Mermaid matches in any case
+        ("create", "create_node"),
+        ("Note", "Note_node"),
+        ("box", "box_node"),
+        ("title", "title_node"),
+        ("deactivate", "deactivate_node"),
+        # Not keywords
+        ("created", "created"),
+        ("as", "as"),
+    ],
+)
+def test_mermaid_keywords_are_not_used_as_ids(name, expected):
+    """An ID Mermaid would read as a keyword gets a suffix, so the diagram parses."""
+    assert DiagramGenerator._clean_name(name) == expected
+
+
+def test_sequence_participant_named_like_a_keyword(diagram_generator):
+    """A module named box takes part as box_node, still labeled box."""
+    call_graph = CallGraph(
+        calls={"app.main": ["box.pack"], "box.pack": []},
+        modules=frozenset({"app", "box"}),
+    )
+
+    diagram = diagram_generator.generate_sequence_diagram(call_graph)
+
+    assert diagram.splitlines() == [
+        "sequenceDiagram",
+        "    participant app as app",
+        "    participant box_node as box",
+        "    app->>box_node: pack()",
+    ]
+
+
 def test_class_diagram_handles_generic_base_classes(diagram_generator):
     """Generic base classes do not leak brackets into the class diagram."""
     analyses = [
