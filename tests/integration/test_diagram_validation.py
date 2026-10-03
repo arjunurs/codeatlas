@@ -9,6 +9,7 @@ import pytest
 
 from docgen.core.diagrams import DiagramGenerator
 from docgen.exceptions.errors import DiagramGenerationError
+from docgen.models.call_graph import CallGraph
 from docgen.models.code_entity import CodeEntity, EntityType
 from docgen.models.diagram_validation import (
     DiagramType,
@@ -130,10 +131,12 @@ class TestDiagramValidationIntegration:
         """Test call graph diagram validation."""
         generator = DiagramGenerator(validate_diagrams=True)
 
-        call_graph = {
-            "app.func1": {"app.func2", "app.func3"},
-            "app.func2": {"app.func4"},
-        }
+        call_graph = CallGraph(
+            calls={
+                "app.func1": ["app.func2", "app.func3"],
+                "app.func2": ["app.func4"],
+            }
+        )
 
         # Should not raise
         diagram = generator.generate_call_graph_diagram(call_graph)

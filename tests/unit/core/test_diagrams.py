@@ -10,6 +10,7 @@ import pytest
 
 from docgen.core.diagrams import DiagramGenerator, select_diagrams
 from docgen.exceptions.errors import DiagramGenerationError, DiagramValidationError
+from docgen.models.call_graph import CallGraph
 from docgen.models.code_entity import CodeEntity, EntityType
 from docgen.models.diagram_validation import DiagramType
 from docgen.models.file_analysis import FileAnalysis
@@ -141,36 +142,100 @@ def test_generate_class_diagram(diagram_generator, sample_analyses):
     assert "+method3()" in diagram
 
 
-def test_generate_sequence_diagram(diagram_generator):
-    """Test sequence diagram generation."""
-    call_graph = {"func1": {"func2", "func3"}, "func2": {"func4"}}
+SHOP_CALLS = CallGraph(
+    calls={
+        "shop.cli.main": [
+            "shop.cli.parse",
+            "shop.store.Store",
+            "shop.store.Store.load",
+            "print",
+        ],
+        "shop.cli.parse": ["shop.store.Store.check"],
+        "shop.store.Store.__init__": [],
+        "shop.store.Store.load": ["shop.store.Store.read", "shop.db.Db.query"],
+        "shop.store.Store.read": [],
+        "shop.store.Store.check": [],
+        "shop.db.Db.query": [],
+    },
+    classes={"shop.store.Store": [], "shop.db.Db": []},
+    modules=frozenset({"shop", "shop.cli", "shop.store", "shop.db"}),
+)
 
-    diagram = diagram_generator.generate_sequence_diagram(call_graph)
 
-    # Verify diagram structure
-    assert diagram.startswith("sequenceDiagram")
-    assert "func1->>+func2: call()" in diagram
-    assert "func2-->>-func1: return" in diagram
-    assert "func1->>+func3: call()" in diagram
-    assert "func3-->>-func1: return" in diagram
-    assert "func2->>+func4: call()" in diagram
-    assert "func4-->>-func2: return" in diagram
+def test_sequence_diagram_draws_calls_between_classes_from_the_entry():
+    """Participants are declared by short name; nested calls are activations."""
+    diagram = diagram_generator_with_validation().generate_sequence_diagram(SHOP_CALLS)
+
+    assert diagram == "\n".join(
+        [
+            "sequenceDiagram",
+            "    participant shop_cli as cli",
+            "    participant shop_store_Store as Store",
+            "    participant shop_db_Db as Db",
+            "    shop_cli->>shop_store_Store: check()",
+            "    shop_cli->>shop_store_Store: Store()",
+            "    shop_cli->>+shop_store_Store: load()",
+            "    shop_store_Store->>shop_db_Db: query()",
+            "    deactivate shop_store_Store",
+        ]
+    )
+    result = DiagramValidator().validate(diagram, DiagramType.SEQUENCE)
+    assert result.is_valid
+    assert result.warnings == []
 
 
-def test_sequence_diagram_declares_participants(diagram_generator):
-    """Participants are declared in first-use order, so validation is clean."""
-    call_graph = {"cli.main": {"load"}, "load": {"parse"}}
+def diagram_generator_with_validation(max_nodes: int = 50) -> DiagramGenerator:
+    """A diagram generator that validates what it generates."""
+    return DiagramGenerator(max_nodes=max_nodes, validate_diagrams=True)
+
+
+def test_sequence_diagram_notes_when_calls_are_left_out():
+    """Past max_nodes calls, a note on the entry's participant says so."""
+    diagram = diagram_generator_with_validation(2).generate_sequence_diagram(SHOP_CALLS)
+
+    assert diagram.splitlines()[-3:] == [
+        "    shop_cli->>shop_store_Store: check()",
+        "    shop_cli->>shop_store_Store: Store()",
+        "    Note over shop_cli: Diagram truncated: showing the first 2 calls",
+    ]
+
+
+def test_sequence_diagram_names_clashing_participants_in_full(diagram_generator):
+    """Two classes with the same name are told apart by their full names."""
+    call_graph = CallGraph(
+        calls={
+            "app.main": ["a.Store.save", "b.Store.save"],
+            "a.Store.save": [],
+            "b.Store.save": [],
+        },
+        classes={"a.Store": [], "b.Store": []},
+        modules=frozenset({"app", "a", "b"}),
+    )
 
     diagram = diagram_generator.generate_sequence_diagram(call_graph)
 
     assert diagram.splitlines()[1:4] == [
-        "    participant cli_main",
-        "    participant load",
-        "    participant parse",
+        "    participant app as app",
+        "    participant a_Store as a.Store",
+        "    participant b_Store as b.Store",
     ]
-    result = DiagramValidator().validate(diagram, DiagramType.SEQUENCE)
-    assert result.is_valid
-    assert result.warnings == []
+
+
+def test_sequence_diagram_names_functions_within_their_module(diagram_generator):
+    """When functions take part, each is named within its module."""
+    call_graph = CallGraph(
+        calls={"app.cli.main": ["app.cli.load"], "app.cli.load": []},
+        modules=frozenset({"app", "app.cli"}),
+    )
+
+    diagram = diagram_generator.generate_sequence_diagram(call_graph)
+
+    assert diagram.splitlines() == [
+        "sequenceDiagram",
+        "    participant app_cli_main as main",
+        "    participant app_cli_load as load",
+        "    app_cli_main->>app_cli_load: load()",
+    ]
 
 
 def test_generate_dependency_diagram(diagram_generator):
@@ -188,16 +253,17 @@ def test_generate_dependency_diagram(diagram_generator):
 
 def test_call_graph_shows_calls_between_project_functions(diagram_generator):
     """Calls the analyzer traced are drawn, grouped by module; the rest are left out."""
-    call_graph = {
-        "app.cli.main": {"app.core.run", "print", "app.core.Config"},
-        "app.core.run": {"app.core.Config.load", "len"},
-        "app.core.Config.load": set(),
-        "app.core.unused": {"print"},
-    }
-
-    diagram = diagram_generator.generate_call_graph_diagram(
-        call_graph, modules=["app", "app.cli", "app.core"]
+    call_graph = CallGraph(
+        calls={
+            "app.cli.main": ["app.core.run", "print", "app.core.Config"],
+            "app.core.run": ["app.core.Config.load", "len"],
+            "app.core.Config.load": [],
+            "app.core.unused": ["print"],
+        },
+        modules=frozenset({"app", "app.cli", "app.core"}),
     )
+
+    diagram = diagram_generator.generate_call_graph_diagram(call_graph)
 
     assert diagram == "\n".join(
         [
@@ -219,14 +285,18 @@ def test_call_graph_shows_calls_between_project_functions(diagram_generator):
 
 def test_call_graph_without_modules_uses_full_names(diagram_generator):
     """Without module names to group by, each function keeps its full name."""
-    diagram = diagram_generator.generate_call_graph_diagram({"a.f": {"a.g"}})
+    diagram = diagram_generator.generate_call_graph_diagram(
+        CallGraph(calls={"a.f": ["a.g"]})
+    )
 
     assert diagram == 'graph TD\n    a_f["a.f"]\n    a_g["a.g"]\n    a_f --> a_g'
 
 
 def test_call_graph_without_project_calls_says_so(diagram_generator):
     """Only calls to built-ins and libraries gives a one-note diagram."""
-    diagram = diagram_generator.generate_call_graph_diagram({"app.main": {"print"}})
+    diagram = diagram_generator.generate_call_graph_diagram(
+        CallGraph(calls={"app.main": ["print"]})
+    )
 
     assert diagram == 'graph TD\n    note["No calls found between project functions"]'
 
@@ -234,7 +304,7 @@ def test_call_graph_without_project_calls_says_so(diagram_generator):
 def test_generate_call_graph_diagram_with_limit(diagram_generator):
     """Test function call graph diagram with node limit."""
     # Create more than MAX_NODES functions
-    call_graph = {f"m.func{i}": {f"m.func{i + 1}"} for i in range(100)}
+    call_graph = CallGraph(calls={f"m.func{i}": [f"m.func{i + 1}"] for i in range(100)})
 
     diagram = diagram_generator.generate_call_graph_diagram(call_graph)
 
@@ -310,8 +380,10 @@ def test_empty_inputs(diagram_generator):
         diagram_generator.generate_dependency_diagram({})
 
     # Empty call graph
-    with pytest.raises(DiagramGenerationError, match="Empty call graph"):
-        diagram_generator.generate_sequence_diagram({})
+    with pytest.raises(
+        DiagramGenerationError, match="No calls found between project functions"
+    ):
+        diagram_generator.generate_sequence_diagram(CallGraph(calls={}))
 
 
 def test_diagram_generation_error_handling(diagram_generator):
@@ -320,9 +392,11 @@ def test_diagram_generation_error_handling(diagram_generator):
     with pytest.raises(DiagramGenerationError):
         diagram_generator.generate_dependency_diagram(None)
 
-    # Test with invalid call graph
+    # Test with a call graph whose calls reach no project function
     with pytest.raises(DiagramGenerationError):
-        diagram_generator.generate_sequence_diagram(None)
+        diagram_generator.generate_sequence_diagram(
+            CallGraph(calls={"app.main": ["app.missing"]})
+        )
 
 
 @pytest.mark.parametrize(
@@ -337,8 +411,9 @@ def test_diagram_generation_error_handling(diagram_generator):
         (
             "generate_call_graph_diagram",
             "callgraph",
-            lambda _: {"app.main": {"app.helper"}},
+            lambda _: CallGraph(calls={"app.main": ["app.helper"]}),
         ),
+        ("generate_sequence_diagram", "sequence", lambda _: SHOP_CALLS),
     ],
 )
 def test_validation_failure_is_reported_once(
@@ -357,11 +432,11 @@ def test_validation_failure_is_reported_once(
 
 
 def test_sequence_diagram_no_interactions(diagram_generator):
-    """Test sequence diagram generation with no clear interactions."""
-    call_graph = {"func1": set()}
+    """Calls only to built-ins and libraries leave no sequence to draw."""
+    call_graph = CallGraph(calls={"app.main": ["print"], "app.run": []})
 
     with pytest.raises(
-        DiagramGenerationError, match="No function calls found in call graph"
+        DiagramGenerationError, match="No calls found between project functions"
     ):
         diagram_generator.generate_sequence_diagram(call_graph)
 

@@ -43,7 +43,7 @@ uv run codeatlas --source <path> --api-key-env .env -o <dir>
 | Stage | Module | What it does |
 |---|---|---|
 | Analyze | `core/analyzer.py`, `core/calls.py` | Parses each file's AST into classes, functions, imports, and calls |
-| Diagram | `core/diagrams.py`, `utils/diagram_*.py` | Builds five Mermaid diagram types, then validates them |
+| Diagram | `core/diagrams.py`, `core/sequence.py`, `utils/diagram_*.py` | Builds five Mermaid diagram types, then validates them |
 | Index | `core/rag_pipeline.py`, `cache/vector_cache.py` | Chunks and embeds the code (OpenAI), stores it in Chroma |
 | Write | `core/section_orchestrator.py`, `prompts/` | One Claude call per section, in parallel threads |
 | Render | `core/renderer.py`, `templates/` | Markdown to HTML, sanitized with nh3, rendered with Jinja2 |

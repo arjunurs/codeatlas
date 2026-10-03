@@ -12,24 +12,22 @@ import logging
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass, field
 
+from ..models.call_graph import CallGraph
 from .modules import STDLIB_MODULES, import_base, unique_suffixes
 
 logger = logging.getLogger(__name__)
 
 
-def trace_calls(
-    modules: Sequence[tuple[str, bool, ast.Module]],
-) -> dict[str, list[str]]:
-    """Map each function and method in the modules to the calls it makes.
+def trace_calls(modules: Sequence[tuple[str, bool, ast.Module]]) -> CallGraph:
+    """Trace the calls each function and method in the modules makes.
 
     Args:
         modules: Each module's dotted name, whether it is a package
             __init__, and its AST
 
     Returns:
-        Each qualified function name, mapped to the calls it makes, in order.
-        A module nested too deeply to walk, such as a generated table of long
-        expressions, is skipped with a warning.
+        The call graph. A module nested too deeply to walk, such as a
+        generated table of long expressions, adds no calls, with a warning.
     """
     definitions = [
         (_ModuleDefinitions.from_tree(name, is_package, tree), tree)
@@ -48,7 +46,11 @@ def trace_calls(
             )
             continue
         call_graph.update(visitor.calls)
-    return call_graph
+    return CallGraph(
+        calls=call_graph,
+        classes=resolver.class_bases(),
+        modules=frozenset(module.name for module, _ in definitions),
+    )
 
 
 _FUNCTION_NODES = (ast.FunctionDef, ast.AsyncFunctionDef)
@@ -167,6 +169,10 @@ class _CallResolver:
             info.bases = [base for base in bases if base]
         for name, info in self._classes.items():
             info.attributes = self._attribute_classes(name, info)
+
+    def class_bases(self) -> dict[str, list[str]]:
+        """Each analyzed class, mapped to its analyzed bases in lookup order."""
+        return {name: self._bases(name) for name in self._classes}
 
     def resolve(
         self,

@@ -1,5 +1,6 @@
 graph TD
     subgraph shop_catalog__group["shop.catalog"]
+        shop_catalog_Catalog_find["Catalog.find"]
         shop_catalog_Catalog_load["Catalog.load"]
         shop_catalog_Catalog_parse["Catalog.parse"]
         shop_catalog_Item["Item"]
@@ -20,6 +21,7 @@ graph TD
     shop_catalog_Catalog_parse --> shop_catalog_Item
     shop_cli_main --> shop_catalog_Catalog_load
     shop_cli_main --> shop_orders_place_order
+    shop_orders_place_order --> shop_catalog_Catalog_find
     shop_orders_place_order --> shop_orders_Order
     shop_orders_place_order --> shop_orders_Order_total
     shop_orders_place_order --> shop_payments_gateway_charge

@@ -1,0 +1,8 @@
+sequenceDiagram
+    participant shop_cli as cli
+    participant shop_catalog_Catalog as Catalog
+    participant shop_orders_Order as Order
+    shop_cli->>shop_catalog_Catalog: load()
+    shop_cli->>shop_catalog_Catalog: find()
+    shop_cli->>shop_orders_Order: Order()
+    shop_cli->>shop_orders_Order: total()

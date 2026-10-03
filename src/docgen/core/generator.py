@@ -23,6 +23,7 @@ from ..config import (
     GeneratorConfig,
 )
 from ..exceptions.errors import DocumentationError
+from ..models.call_graph import CallGraph
 from ..models.file_analysis import FileAnalysis
 from ..prompts.sections import select_sections
 from ..providers.base import EmbeddingProvider, LLMProvider
@@ -33,7 +34,7 @@ from ..utils.usage_tracking import UsageTrackingEmbeddings
 from .analyzer import CodeAnalyzer
 from .cross_reference import cross_reference_preprocessor
 from .diagrams import DiagramGenerator, select_diagrams
-from .modules import module_name, module_root
+from .modules import module_root
 from .rag_pipeline import RAGPipelineFactory
 from .renderer import DocumentationRenderer
 from .section_orchestrator import SectionOrchestrator
@@ -334,7 +335,7 @@ class CodeDocumentationGenerator:
 
         # The sequence and call graph diagrams share one call analysis
         @functools.cache
-        def function_calls() -> dict:
+        def function_calls() -> CallGraph:
             return self.analyzer.analyze_function_calls(analyses, root=root)
 
         # Diagram type -> (output name, builder), in generation order
@@ -352,10 +353,7 @@ class CodeDocumentationGenerator:
             ),
             "callgraph": (
                 "function_calls",
-                lambda: build.generate_call_graph_diagram(
-                    function_calls(),
-                    modules=[module_name(a.file_path, root) for a in analyses],
-                ),
+                lambda: build.generate_call_graph_diagram(function_calls()),
             ),
             "dependency": (
                 "package_dependencies",

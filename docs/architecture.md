@@ -24,7 +24,7 @@ flowchart LR
 | Stage | Module | What it does |
 |---|---|---|
 | Analyze | `core/analyzer.py`, `core/calls.py` | Walks the tree (skipping virtualenvs, `.git`, build and tool directories), parses each file's AST into classes, functions, imports, and calls |
-| Diagram | `core/diagrams.py` | Builds Mermaid source for five diagram types from the analysis, then validates it |
+| Diagram | `core/diagrams.py`, `core/sequence.py` | Builds Mermaid source for five diagram types from the analysis, then validates it |
 | Index | `core/rag_pipeline.py`, `cache/vector_cache.py` | Splits the code into chunks, embeds them with OpenAI, and stores them in Chroma |
 | Write | `core/section_orchestrator.py`, `prompts/` | For each section, retrieves relevant chunks and asks Claude to write it; sections run in parallel |
 | Render | `core/renderer.py`, `templates/` | Converts Markdown to HTML, sanitizes it with nh3, and renders the site with Jinja2 |
@@ -171,8 +171,10 @@ exits 0.
   it can trace: to a function or class, an imported name, or a method of an object whose class
   is known from an annotation or an assignment (`self.store = Store()`), including methods
   inherited from the project's own classes. Calls on objects of unknown class are left out.
-  The sequence diagram lists calls from the call graph, in the order each function makes them,
-  rather than following a workflow.
+  The sequence diagram starts at the function, outside tests, that reaches the most of the
+  project, and draws the calls between classes two levels deep; calls to plain functions and
+  to an object's own methods are folded into the caller. It is a static view: the calls on
+  every branch are drawn, in source order, whether or not one run makes them all.
 - **Scale.** All analyses are held in memory, and analysis is single-threaded: analyzing and
   diagramming 7,819 files took 144 s. `--max-files` and `--exclude` bound a run on very large
   trees.

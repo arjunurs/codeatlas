@@ -6,14 +6,16 @@ for code documentation.
 
 import logging
 import re
-from collections import defaultdict
-from collections.abc import Collection, Mapping, Sequence
+from collections import Counter, defaultdict
+from collections.abc import Sequence
 
 from ..exceptions.errors import DiagramGenerationError, DiagramValidationError
+from ..models.call_graph import CallGraph
 from ..models.code_entity import EntityType
 from ..models.diagram_validation import DiagramType, ValidationConfig
 from ..models.file_analysis import FileAnalysis
 from .modules import longest_prefix
+from .sequence import Message, plan_sequence
 
 logger = logging.getLogger(__name__)
 
@@ -193,16 +195,12 @@ class DiagramGenerator:
             diagram: List of diagram lines
             nodes_added: Number of nodes added
             entity_type: Type of entities (nodes, classes, etc.)
-            diagram_type: Type of diagram (flowchart, sequence, class)
+            diagram_type: Type of diagram (flowchart or class)
         """
         if nodes_added >= self.max_nodes:
             diagram.append("")
             note_text = f"Diagram truncated: showing top {self.max_nodes} {entity_type}"
-            if diagram_type == "sequence":
-                # Sequence diagrams don't support arbitrary nodes, skip truncation note
-                # (the note syntax requires a participant reference)
-                pass
-            elif diagram_type == "class":
+            if diagram_type == "class":
                 # Class diagrams have no free-standing nodes, but do support
                 # a diagram-level note
                 diagram.append(f'    note "{note_text}"')
@@ -286,57 +284,59 @@ class DiagramGenerator:
 
         return diagram
 
-    def generate_sequence_diagram(
-        self, call_graph: Mapping[str, Collection[str]]
-    ) -> str:
-        """Generate a sequence diagram from function call graph.
+    def generate_sequence_diagram(self, call_graph: CallGraph) -> str:
+        """Generate a sequence diagram of the calls from the project's entry point.
+
+        It starts at the function, outside test code, that reaches the most
+        of the project, and draws the calls between classes, two levels deep,
+        in the order they are made, each once, up to max_nodes calls. Calls to
+        plain functions, and to the caller's own or inherited methods, are
+        followed but not drawn; creating an instance is drawn but not
+        followed. See sequence.py for the rules.
 
         Args:
-            call_graph: Dictionary mapping functions to their called functions
+            call_graph: The traced calls
 
         Returns:
             Mermaid sequence diagram source
 
         Raises:
-            DiagramGenerationError: If no function calls found or generation
-                fails
+            DiagramGenerationError: If no function calls another in the
+                project, or the diagram fails validation
         """
-        if not call_graph:
-            raise DiagramGenerationError("Empty call graph")
+        plan = plan_sequence(call_graph, self.max_nodes)
+        if plan is None:
+            raise DiagramGenerationError("No calls found between project functions")
 
-        messages = []
-        # Insertion-ordered set of participants, in order of first use
-        participants: dict[str, None] = {}
-        nodes_added = 0
+        participants = [plan.start]
+        lines: list[str] = []
 
-        for caller, callees in call_graph.items():
-            if not callees:
-                continue
+        def add(messages: tuple[Message, ...]) -> None:
+            for message in messages:
+                if message.receiver not in participants:
+                    participants.append(message.receiver)
+                sender = self._clean_name(message.sender)
+                receiver = self._clean_name(message.receiver)
+                if not message.nested:
+                    lines.append(f"    {sender}->>{receiver}: {message.label}")
+                    continue
+                lines.append(f"    {sender}->>+{receiver}: {message.label}")
+                add(message.nested)
+                lines.append(f"    deactivate {receiver}")
 
-            if nodes_added >= self.max_nodes:
-                break
-
-            for callee in callees:
-                clean_caller = self._clean_name(caller)
-                clean_callee = self._clean_name(callee)
-                participants.update({clean_caller: None, clean_callee: None})
-                messages.append(f"    {clean_caller}->>+{clean_callee}: call()")
-                messages.append(f"    {clean_callee}-->>-{clean_caller}: return")
-                nodes_added += 1
-
-        # Declare participants explicitly so the diagram passes the
-        # participant_references rule
+        add(plan.messages)
+        labels = self._participant_labels(participants, call_graph)
         diagram = ["sequenceDiagram"]
-        diagram.extend(f"    participant {name}" for name in participants)
-        diagram.extend(messages)
-
-        # Add truncation note if diagram was truncated (skipped for sequence diagrams)
-        self._append_truncation_note(
-            diagram, nodes_added, "interactions", diagram_type="sequence"
+        diagram.extend(
+            f"    participant {self._clean_name(name)} as {labels[name]}"
+            for name in participants
         )
-
-        if nodes_added == 0:
-            raise DiagramGenerationError("No function calls found in call graph")
+        diagram.extend(lines)
+        if plan.truncated:
+            diagram.append(
+                f"    Note over {self._clean_name(plan.start)}: Diagram truncated: "
+                f"showing the first {self.max_nodes} calls"
+            )
 
         diagram_content = "\n".join(diagram)
 
@@ -344,6 +344,29 @@ class DiagramGenerator:
         self._validate_diagram(diagram_content, DiagramType.SEQUENCE)
 
         return diagram_content
+
+    @staticmethod
+    def _participant_labels(
+        participants: list[str], call_graph: CallGraph
+    ) -> dict[str, str]:
+        """Short names for participants, full ones where short ones clash.
+
+        A class or module is named by its last part, and a function by its
+        name within its module.
+        """
+
+        def short(name: str) -> str:
+            if name in call_graph.classes or name in call_graph.modules:
+                return name.rpartition(".")[2]
+            module = longest_prefix(name, call_graph.modules.__contains__)
+            return name[len(module) + 1 :] if module else name
+
+        labels = {name: short(name) for name in participants}
+        counts = Counter(labels.values())
+        return {
+            name: label if counts[label] == 1 else name
+            for name, label in labels.items()
+        }
 
     def generate_dependency_diagram(self, dependencies: dict[str, set[str]]) -> str:
         """Generate a dependency diagram between packages.
@@ -415,9 +438,7 @@ class DiagramGenerator:
         text = (name if label is None else label).replace('"', "'")
         return f'    {self._clean_name(name)}["{text}"]'
 
-    def generate_call_graph_diagram(
-        self, call_graph: Mapping[str, Collection[str]], modules: Collection[str] = ()
-    ) -> str:
+    def generate_call_graph_diagram(self, call_graph: CallGraph) -> str:
         """Generate a call graph of the calls between the project's functions.
 
         Only calls the analyzer traced to the analyzed code are drawn. Those
@@ -427,8 +448,7 @@ class DiagramGenerator:
         more than max_nodes, the most connected are kept.
 
         Args:
-            call_graph: Each function, mapped to the calls it makes
-            modules: Module names to group the functions by
+            call_graph: The traced calls, and the modules to group them by
 
         Returns:
             Mermaid graph diagram markup
@@ -438,7 +458,7 @@ class DiagramGenerator:
         """
         edges = {
             (caller, callee)
-            for caller, callees in call_graph.items()
+            for caller, callees in call_graph.calls.items()
             for callee in callees
             if "." in callee
         }
@@ -448,10 +468,9 @@ class DiagramGenerator:
         functions = {name for edge in edges for name in edge}
         shown = self._most_connected(functions, edges)
 
-        module_names = set(modules)
         groups: dict[str, list[str]] = defaultdict(list)
         for function in sorted(shown):
-            module = longest_prefix(function, module_names.__contains__)
+            module = longest_prefix(function, call_graph.modules.__contains__)
             groups[module or ""].append(function)
 
         diagram = ["graph TD"]

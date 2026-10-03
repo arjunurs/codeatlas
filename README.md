@@ -35,12 +35,14 @@ Virtualenvs, `.git`, and build and tool directories are skipped automatically.
   packages they use (the standard library is left out)
 - **Call graph**: calls between the project's own functions, grouped by module (calls to
   built-ins and libraries are left out)
-- **Sequence**: calls between functions, taken from the call graph (not yet grouped into
-  workflows)
+- **Sequence**: the calls between the project's classes, two levels deep, starting from the
+  function that reaches the most of its code (for codeatlas, `cli.main`; for Flask,
+  `Flask.__call__`, which handles each request)
 
 Each diagram is checked against 10 validation rules (syntax header, quoting, node IDs, edge
 syntax, and so on) before it is written. The architecture, dependency, and call graph diagrams
-keep their 50 most connected nodes when there are more, and are the same from run to run.
+keep their 50 most connected nodes when there are more, and the sequence diagram its first 50
+calls. Every diagram is the same from run to run.
 
 **Sections** (written by Claude, using code retrieved from a vector store)
 

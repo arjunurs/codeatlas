@@ -16,11 +16,10 @@ import pytest
 
 from docgen.core.analyzer import CodeAnalyzer
 from docgen.core.diagrams import DiagramGenerator
-from docgen.core.modules import module_name
 
 GOLDEN_DIR = Path(__file__).parent.parent / "golden"
 HASH_SEEDS = ("1", "2")
-DIAGRAMS = ["architecture", "call_graph", "dependency"]
+DIAGRAMS = ["architecture", "call_graph", "dependency", "sequence"]
 
 PROJECT = {
     "shop/__init__.py": '"""A small shop: the fixture for the golden diagrams."""\n',
@@ -67,6 +66,7 @@ import logging
 
 import requests
 
+from .catalog import Catalog
 from .payments.gateway import charge
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class Order:
         return self.item.price
 
 
-def place_order(catalog, name):
+def place_order(catalog: Catalog, name):
     order = Order(catalog.find(name))
     receipt = charge(order.total())
     logger.info("placed %s", json.dumps(receipt))
@@ -107,18 +107,17 @@ def render_diagrams(root: str) -> dict[str, str]:
     """Generate the fixture project's diagrams, by name."""
     analyzer = CodeAnalyzer()
     analyses = analyzer.analyze_directory(root)
+    calls = analyzer.analyze_function_calls(analyses, root=root)
     generator = DiagramGenerator()
     return {
         "architecture": generator.generate_architecture_diagram(
             analyzer.analyze_module_imports(analyses, root=root)
         ),
-        "call_graph": generator.generate_call_graph_diagram(
-            analyzer.analyze_function_calls(analyses, root=root),
-            modules=[module_name(a.file_path, root) for a in analyses],
-        ),
+        "call_graph": generator.generate_call_graph_diagram(calls),
         "dependency": generator.generate_dependency_diagram(
             analyzer.analyze_package_dependencies(analyses, root=root)
         ),
+        "sequence": generator.generate_sequence_diagram(calls),
     }
 
 

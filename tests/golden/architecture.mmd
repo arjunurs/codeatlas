@@ -11,5 +11,6 @@ graph TD
     end
     shop_cli --> shop_catalog
     shop_cli --> shop_orders
+    shop_orders --> shop_catalog
     shop_orders --> shop_payments_gateway
     shop_payments_gateway --> shop_catalog

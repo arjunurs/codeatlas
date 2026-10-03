@@ -252,7 +252,7 @@ def test_async_function_calls_are_recorded(analyzer):
         _skip_validation=True,
     )
 
-    call_graph = analyzer.analyze_function_calls([analysis])
+    call_graph = analyzer.analyze_function_calls([analysis]).calls
 
     assert call_graph["net.fetch"] == ["load"]
     assert call_graph["net.Client.get"] == ["net.fetch"]
@@ -297,7 +297,7 @@ def helper():
         _skip_validation=True,
     )
 
-    call_graph = analyzer.analyze_function_calls([analysis], root=str(tmp_path))
+    call_graph = analyzer.analyze_function_calls([analysis], root=str(tmp_path)).calls
 
     assert isinstance(call_graph, dict)
     assert "test.test_method" in call_graph
@@ -324,7 +324,7 @@ def test_analyze_function_calls_skips_a_file_that_does_not_parse(analyzer, caplo
         _skip_validation=True,
     )
 
-    call_graph = analyzer.analyze_function_calls([broken, working])
+    call_graph = analyzer.analyze_function_calls([broken, working]).calls
 
     assert call_graph == {"working.caller": ["callee"]}
     assert "broken.py" in caplog.text
@@ -348,7 +348,7 @@ def test_analyze_function_calls_skips_a_module_nested_too_deeply(analyzer, caplo
         _skip_validation=True,
     )
 
-    call_graph = analyzer.analyze_function_calls([deep, working])
+    call_graph = analyzer.analyze_function_calls([deep, working]).calls
 
     assert call_graph == {"working.caller": ["callee"]}
     assert "table" in caplog.text
@@ -379,7 +379,7 @@ def call_graph_of(analyzer, root, files: dict[str, str]) -> dict[str, list[str]]
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(code)
     analyses = analyzer.analyze_directory(str(root))
-    return analyzer.analyze_function_calls(analyses, root=str(root))
+    return analyzer.analyze_function_calls(analyses, root=str(root)).calls
 
 
 def test_same_name_in_two_modules_is_kept_apart(analyzer, tmp_path):
@@ -931,6 +931,43 @@ def conflict(z: Z):
     ]
     # C3 cannot order Z's bases, so they are searched depth first
     assert call_graph["shapes.conflict"] == ["shapes.Base.ping"]
+
+
+def test_call_graph_lists_classes_with_their_bases_and_the_modules(analyzer, tmp_path):
+    """Each class lists its analyzed bases in lookup order; others are left out."""
+    code = """import json
+
+
+class Base:
+    pass
+
+
+class Left(Base):
+    pass
+
+
+class Right(Base):
+    pass
+
+
+class Both(Left, Right, json.JSONEncoder):
+    pass
+"""
+    files = {"pkg/__init__.py": "", "pkg/shapes.py": code}
+    for name, text in files.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text(text)
+    analyses = analyzer.analyze_directory(str(tmp_path))
+
+    graph = analyzer.analyze_function_calls(analyses, root=str(tmp_path))
+
+    assert graph.classes == {
+        "pkg.shapes.Base": [],
+        "pkg.shapes.Left": ["pkg.shapes.Base"],
+        "pkg.shapes.Right": ["pkg.shapes.Base"],
+        "pkg.shapes.Both": ["pkg.shapes.Left", "pkg.shapes.Right", "pkg.shapes.Base"],
+    }
+    assert graph.modules == {"pkg", "pkg.shapes"}
 
 
 def test_calls_the_analyzer_cannot_place_stay_bare(analyzer, tmp_path):

@@ -14,6 +14,7 @@ from collections.abc import Iterator, Sequence
 
 from ..config import DEFAULT_CONFIG
 from ..exceptions.errors import CodeParseError, FileEncodingError
+from ..models.call_graph import CallGraph
 from ..models.code_entity import CodeEntity, EntityType
 from ..models.file_analysis import FileAnalysis
 from ..utils.error_classification import describe_error
@@ -294,7 +295,7 @@ class CodeAnalyzer:
 
     def analyze_function_calls(
         self, analyses: Sequence[FileAnalysis], root: str | None = None
-    ) -> dict[str, list[str]]:
+    ) -> CallGraph:
         """Map each function and method to the calls it makes, in order.
 
         Functions are named by module path from the source root, as in
@@ -315,7 +316,8 @@ class CodeAnalyzer:
                 its file name
 
         Returns:
-            Dictionary mapping qualified function names to the calls they make
+            The call graph: each function's calls, and the analyzed classes'
+            base classes and the modules, for following calls through them
         """
         parsed = []
         for analysis in analyses:
