@@ -4,40 +4,9 @@ import pytest
 
 from docgen.templates.html import (
     DEFAULT_TEMPLATES_DIR,
-    StringTemplateLoader,
     TemplateManager,
     get_template_manager,
 )
-
-
-class TestStringTemplateLoader:
-    """Test cases for StringTemplateLoader."""
-
-    def test_load_existing_template(self):
-        """Test loading an existing template."""
-        templates = {"test": "<p>{{ content }}</p>"}
-        loader = StringTemplateLoader(templates)
-
-        source, _, _ = loader.get_source(None, "test")
-        assert source == "<p>{{ content }}</p>"
-
-    def test_load_template_with_html_extension(self):
-        """Test loading template with .html extension stripped."""
-        templates = {"test": "<p>{{ content }}</p>"}
-        loader = StringTemplateLoader(templates)
-
-        source, _, _ = loader.get_source(None, "test.html")
-        assert source == "<p>{{ content }}</p>"
-
-    def test_load_nonexistent_template(self):
-        """Test loading a nonexistent template raises TemplateNotFound."""
-        from jinja2 import TemplateNotFound
-
-        templates = {"test": "<p>Test</p>"}
-        loader = StringTemplateLoader(templates)
-
-        with pytest.raises(TemplateNotFound):
-            loader.get_source(None, "nonexistent")
 
 
 class TestTemplateManager:
@@ -69,6 +38,19 @@ class TestTemplateManager:
 
         # Should load custom templates
         assert "base" in manager.templates
+
+    def test_custom_directory_falls_back_to_bundled_templates(self, tmp_path):
+        """A template the custom directory lacks comes from the bundled ones."""
+        (tmp_path / "section.html").write_text("custom {{ title }}")
+
+        manager = TemplateManager(template_dir=str(tmp_path))
+
+        assert manager.render_to_string("section", {"title": "Overview"}) == (
+            "custom Overview"
+        )
+        assert "Search Documentation" in manager.render_to_string(
+            "search", {"title": "Search"}
+        )
 
     def test_render_template_creates_file(self, tmp_path):
         """Test that render_template creates output file."""
