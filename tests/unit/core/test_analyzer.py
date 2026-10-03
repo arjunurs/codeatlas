@@ -195,6 +195,9 @@ import os
 import sys as system
 from typing import List, Optional
 from .utils import helper
+from . import config
+from ..models.entity import Entity
+from .. import shared
 """
     tree = ast.parse(code)
     imports = analyzer._extract_imports(tree)
@@ -204,7 +207,10 @@ from .utils import helper
         "sys",
         "typing.List",
         "typing.Optional",
-        "utils.helper",
+        ".utils.helper",
+        ".config",
+        "..models.entity.Entity",
+        "..shared",
     }
 
 
@@ -646,10 +652,12 @@ def test_package_dependencies_ignore_the_current_directory(
 
 
 def test_relative_import_adds_no_unnamed_dependency(analyzer, tmp_path):
-    """from . import x names no package, so it adds no dependency."""
+    """A relative import names no top-level package, so it adds none."""
     (tmp_path / "pkg").mkdir()
     (tmp_path / "pkg" / "__init__.py").write_text("")
-    (tmp_path / "pkg" / "main.py").write_text("from . import util\nimport json\n")
+    (tmp_path / "pkg" / "main.py").write_text(
+        "from . import util\nfrom ..models import entity\nimport json\n"
+    )
     analyses = analyzer.analyze_directory(str(tmp_path))
 
     dependencies = analyzer.analyze_package_dependencies(analyses, root=str(tmp_path))

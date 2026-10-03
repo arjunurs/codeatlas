@@ -361,21 +361,25 @@ class CodeAnalyzer:
         return entities
 
     def _extract_imports(self, tree: ast.AST) -> list[str]:
-        """Extract import statements from an AST.
+        """Extract the names a module imports from its AST.
+
+        A relative import keeps its leading dots, as written:
+        from ..models import entity is recorded as ..models.entity.
 
         Args:
             tree: AST to extract imports from
 
         Returns:
-            List of import statements
+            Dotted names of the imported modules and objects
         """
         imports = []
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 imports.extend(alias.name for alias in node.names)
             elif isinstance(node, ast.ImportFrom):
-                module = node.module or ""
-                imports.extend(f"{module}.{alias.name}" for alias in node.names)
+                dots = "." * node.level
+                module = f"{node.module}." if node.module else ""
+                imports.extend(f"{dots}{module}{alias.name}" for alias in node.names)
         return imports
 
 
