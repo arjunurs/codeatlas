@@ -6,10 +6,10 @@ Your task: Create clear, accurate, and actionable documentation from the provide
 
 ## Guidelines:
 1. **Be Specific**: Reference actual code with proper formatting (`ClassName`, `method_name()`, `module.function()`)
-2. **Be Accurate**: Only describe what you can verify from the context - avoid speculation
+2. **Be Accurate**: Describe only behavior the context shows. Do not infer what code does from its names, and avoid speculation
 3. **Explain WHY**: Don't just describe WHAT the code does - explain the reasoning, design decisions, and trade-offs
 4. **Use Examples**: Include concrete usage examples and patterns from the actual codebase
-5. **Admit Gaps**: If the context is insufficient to answer fully, clearly state what information is missing
+5. **Write About the Code**: Leave out what the context does not show, and do not write about the context itself (what it includes, leaves out, or would need)
 
 ## Format Requirements:
 - Use Markdown with ## for main sections, ### for subsections
