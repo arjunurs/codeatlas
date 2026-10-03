@@ -229,7 +229,9 @@ class CodeDocumentationGenerator:
         diagrams: dict[str, str] = {}
         diagram_errors: list[tuple[str, str]] = []
         if not self.skip_diagrams:
-            diagrams, diagram_errors = self._generate_all_diagrams(analyses)
+            diagrams, diagram_errors = self._generate_all_diagrams(
+                analyses, abs_directory_path
+            )
             logger.info(f"Generated {len(diagrams)} diagrams")
         else:
             logger.debug("Skipping diagram generation (--no-diagrams)")
@@ -313,12 +315,13 @@ class CodeDocumentationGenerator:
             raise failure
 
     def _generate_all_diagrams(
-        self, analyses: Sequence[FileAnalysis]
+        self, analyses: Sequence[FileAnalysis], source_dir: str
     ) -> tuple[dict[str, str], list[tuple[str, str]]]:
         """Generate the selected diagrams, recording each failure.
 
         Args:
             analyses: List of file analysis results
+            source_dir: The source root, which module names start from
 
         Returns:
             Tuple of (diagrams dict, list of (diagram_name, error_message) pairs)
@@ -329,7 +332,7 @@ class CodeDocumentationGenerator:
         # The sequence and call graph diagrams share one call analysis
         @functools.cache
         def function_calls() -> dict:
-            return self.analyzer.analyze_function_calls(analyses)
+            return self.analyzer.analyze_function_calls(analyses, root=source_dir)
 
         # Diagram type -> (output name, builder), in generation order
         builders = {

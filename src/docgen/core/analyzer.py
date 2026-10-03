@@ -4,11 +4,16 @@ This module provides functionality for analyzing Python source code and extracti
 information about code structure, dependencies, and relationships.
 """
 
+from __future__ import annotations
+
 import ast
 import fnmatch
 import logging
 import os
+from collections import defaultdict
 from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
+from pathlib import PurePath
 
 from ..config import DEFAULT_CONFIG
 from ..exceptions.errors import CodeParseError, FileEncodingError
@@ -313,77 +318,50 @@ class CodeAnalyzer:
         return dependencies
 
     def analyze_function_calls(
-        self, analyses: Sequence[FileAnalysis]
+        self, analyses: Sequence[FileAnalysis], root: str | None = None
     ) -> dict[str, set[str]]:
-        """Analyze function call relationships between entities.
+        """Map each function and method to the calls it makes.
+
+        Functions are named by module path from the source root, as in
+        pkg.module.func and pkg.module.Class.method. A call is named the same
+        way when it can be traced to a function or class in the analyzed code:
+        one in the same module, a method called through self or cls, or a name
+        imported from an analyzed module. Any other call keeps its bare name.
 
         Args:
-            analyses: List of file analysis results
+            analyses: File analysis results
+            root: The source root module paths start from; without it, a
+                relative file path is used as given and an absolute one by
+                its file name
 
         Returns:
-            Dictionary mapping function names to called functions
+            Dictionary mapping qualified function names to the calls they make
         """
-        call_graph = {}
-
-        class FunctionCallVisitor(ast.NodeVisitor):
-            def __init__(self):
-                self.current_function = None
-                self.calls = {}
-
-            def visit_FunctionDef(self, node):
-                """Visit a function definition node."""
-                # Store the current function name
-                prev_function = self.current_function
-                self.current_function = node.name
-
-                # Initialize empty set for this function's calls
-                self.calls[self.current_function] = set()
-
-                # Visit all the nodes in the function body
-                for child in node.body:
-                    self.visit(child)
-
-                # Restore previous function context
-                self.current_function = prev_function
-
-            def visit_AsyncFunctionDef(self, node):
-                """Visit an async function definition like a plain one."""
-                self.visit_FunctionDef(node)
-
-            def visit_Call(self, node):
-                """Visit a function call node."""
-                if not self.current_function:
-                    return
-
-                # Handle direct function calls
-                if isinstance(node.func, ast.Name):
-                    self.calls[self.current_function].add(node.func.id)
-                # Handle method calls
-                elif isinstance(node.func, ast.Attribute):
-                    self.calls[self.current_function].add(node.func.attr)
-
-                # Visit any nested calls
-                self.generic_visit(node)
-
+        parsed = []
         for analysis in analyses:
+            # Clean up the code by removing leading/trailing whitespace
+            cleaned_code = analysis.content.strip()
+            if not cleaned_code:
+                continue
             try:
-                # Clean up the code by removing leading/trailing whitespace
-                cleaned_code = analysis.content.strip()
-                if not cleaned_code:
-                    continue
-
                 tree = ast.parse(cleaned_code)
-                visitor = FunctionCallVisitor()
-                visitor.visit(tree)
-
-                # Update call graph with all functions and their calls
-                call_graph.update(visitor.calls)
-
             except SyntaxError as e:
                 logger.warning(
                     f"Syntax error analyzing function calls in {analysis.file_path}: {e}"
                 )
+                continue
+            is_package = os.path.basename(analysis.file_path) == "__init__.py"
+            module = _ModuleDefinitions.from_tree(
+                module_name(analysis.file_path, root), is_package, tree
+            )
+            parsed.append((module, tree))
 
+        resolver = _CallResolver([module for module, _ in parsed])
+        call_graph: dict[str, set[str]] = {}
+        for module, tree in parsed:
+            visitor = _CallVisitor(module, resolver)
+            visitor.visit(tree)
+            call_graph.update(visitor.calls)
         return call_graph
 
     def _extract_entities(self, tree: ast.AST, source: str) -> list[CodeEntity]:
@@ -469,3 +447,200 @@ class CodeAnalyzer:
                 module = node.module or ""
                 imports.extend(f"{module}.{alias.name}" for alias in node.names)
         return imports
+
+
+def module_name(file_path: str, root: str | None = None) -> str:
+    """Name a file by its dotted module path from the source root.
+
+    pkg/mod.py is pkg.mod, and pkg/__init__.py is pkg. Without a root, a
+    relative path is used as given and an absolute one by its file name.
+    """
+    if root is not None:
+        file_path = os.path.relpath(file_path, root)
+    elif os.path.isabs(file_path):
+        file_path = os.path.basename(file_path)
+    parts = list(PurePath(file_path).with_suffix("").parts)
+    if len(parts) > 1 and parts[-1] == "__init__":
+        parts.pop()
+    return ".".join(parts)
+
+
+_FUNCTION_NODES = (ast.FunctionDef, ast.AsyncFunctionDef)
+
+
+@dataclass
+class _ModuleDefinitions:
+    """What a module defines and imports, for resolving the calls made in it.
+
+    Attributes:
+        name: Dotted module name
+        functions: Names of the module's top-level functions
+        classes: Each top-level class's name, mapped to its method names
+        imports: Each imported name, mapped to the qualified name it refers to
+    """
+
+    name: str
+    functions: set[str]
+    classes: dict[str, set[str]]
+    imports: dict[str, str]
+
+    @classmethod
+    def from_tree(
+        cls, name: str, is_package: bool, tree: ast.Module
+    ) -> _ModuleDefinitions:
+        """Collect a module's definitions and imports from its AST."""
+        functions = {
+            node.name for node in tree.body if isinstance(node, _FUNCTION_NODES)
+        }
+        classes = {
+            node.name: {
+                item.name for item in node.body if isinstance(item, _FUNCTION_NODES)
+            }
+            for node in tree.body
+            if isinstance(node, ast.ClassDef)
+        }
+        imports: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.asname:
+                        imports[alias.asname] = alias.name
+                    else:
+                        top_level = alias.name.split(".")[0]
+                        imports[top_level] = top_level
+            elif isinstance(node, ast.ImportFrom):
+                base = _import_base(name, is_package, node.module, node.level)
+                if base is None:
+                    continue
+                for alias in node.names:
+                    if alias.name != "*":
+                        target = f"{base}.{alias.name}" if base else alias.name
+                        imports[alias.asname or alias.name] = target
+        return cls(name, functions, classes, imports)
+
+
+def _import_base(
+    module: str, is_package: bool, imported: str | None, level: int
+) -> str | None:
+    """The absolute module a from-import reads from, or None if it is outside.
+
+    from .util import x, written in pkg/main.py, reads from pkg.util.
+    """
+    if level == 0:
+        return imported or ""
+    package = module.split(".") if is_package else module.split(".")[:-1]
+    if level - 1 > len(package):
+        return None
+    parts = package[: len(package) - (level - 1)]
+    if imported:
+        parts.append(imported)
+    return ".".join(parts)
+
+
+class _CallResolver:
+    """Traces a call to the function or class in the analyzed code it reaches."""
+
+    def __init__(self, modules: list[_ModuleDefinitions]) -> None:
+        self._known: set[str] = set()
+        for module in modules:
+            self._known.add(module.name)
+            self._known.update(f"{module.name}.{name}" for name in module.functions)
+            for class_name, methods in module.classes.items():
+                qualified = f"{module.name}.{class_name}"
+                self._known.add(qualified)
+                self._known.update(f"{qualified}.{method}" for method in methods)
+        # An absolute import names a module from its own package root, which
+        # may sit below the source root (src/pkg imported as pkg), so imported
+        # names also match a known name by its trailing parts
+        suffixes: dict[str, set[str]] = defaultdict(set)
+        for qualified in self._known:
+            parts = qualified.split(".")
+            for start in range(1, len(parts) - 1):
+                suffixes[".".join(parts[start:])].add(qualified)
+        self._by_suffix = {
+            suffix: names.pop() for suffix, names in suffixes.items() if len(names) == 1
+        }
+
+    def resolve(
+        self, module: _ModuleDefinitions, class_name: str | None, func: ast.expr
+    ) -> str | None:
+        """Name the callee of a call, qualified when it can be traced.
+
+        Args:
+            module: The module the call is made in
+            class_name: The class whose method makes the call, if any
+            func: The call's func expression
+
+        Returns:
+            The qualified or bare callee name, or None for a call through an
+            expression with no name, such as f()()
+        """
+        if isinstance(func, ast.Name):
+            return self._owner(module, func.id) or func.id
+        if not isinstance(func, ast.Attribute):
+            return None
+        if isinstance(func.value, ast.Name):
+            receiver = func.value.id
+            methods = module.classes.get(class_name, set()) if class_name else set()
+            if receiver in ("self", "cls") and func.attr in methods:
+                return f"{module.name}.{class_name}.{func.attr}"
+            owner = self._owner(module, receiver)
+            if owner and f"{owner}.{func.attr}" in self._known:
+                return f"{owner}.{func.attr}"
+        return func.attr
+
+    def _owner(self, module: _ModuleDefinitions, name: str) -> str | None:
+        """The known function, class, or module a name refers to in a module."""
+        if name in module.functions or name in module.classes:
+            return f"{module.name}.{name}"
+        target = module.imports.get(name)
+        if target is None:
+            return None
+        if target in self._known:
+            return target
+        return self._by_suffix.get(target)
+
+
+class _CallVisitor(ast.NodeVisitor):
+    """Records the calls each function in one module makes."""
+
+    def __init__(self, module: _ModuleDefinitions, resolver: _CallResolver) -> None:
+        self.calls: dict[str, set[str]] = {}
+        self._module = module
+        self._resolver = resolver
+        self._scope = [module.name]
+        self._class: str | None = None
+        self._function: str | None = None
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        """Visit a class, so its methods are named after it."""
+        previous_class = self._class
+        # Only top-level classes are indexed, so self.x() resolves only there
+        self._class = node.name if len(self._scope) == 1 else None
+        self._scope.append(node.name)
+        self.generic_visit(node)
+        self._scope.pop()
+        self._class = previous_class
+
+    def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        """Visit a function, recording the calls in its body under its name."""
+        previous_function = self._function
+        self._function = ".".join([*self._scope, node.name])
+        self.calls[self._function] = set()
+        self._scope.append(node.name)
+        for child in node.body:
+            self.visit(child)
+        self._scope.pop()
+        self._function = previous_function
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        """Visit an async function definition like a plain one."""
+        self.visit_FunctionDef(node)
+
+    def visit_Call(self, node: ast.Call) -> None:
+        """Record a call made inside a function."""
+        if self._function is not None:
+            callee = self._resolver.resolve(self._module, self._class, node.func)
+            if callee:
+                self.calls[self._function].add(callee)
+        self.generic_visit(node)

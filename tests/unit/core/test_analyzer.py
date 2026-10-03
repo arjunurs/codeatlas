@@ -287,8 +287,8 @@ def test_async_function_calls_are_recorded(analyzer):
 
     call_graph = analyzer.analyze_function_calls([analysis])
 
-    assert call_graph["fetch"] == {"load"}
-    assert call_graph["get"] == {"fetch"}
+    assert call_graph["net.fetch"] == {"load"}
+    assert call_graph["net.Client.get"] == {"net.fetch"}
 
 
 def test_analyze_function_calls(analyzer, tmp_path):
@@ -330,14 +330,14 @@ def helper():
         _skip_validation=True,
     )
 
-    call_graph = analyzer.analyze_function_calls([analysis])
+    call_graph = analyzer.analyze_function_calls([analysis], root=str(tmp_path))
 
     assert isinstance(call_graph, dict)
-    assert "test_method" in call_graph
-    assert "print" in call_graph["test_method"]
-    assert "helper" in call_graph["test_method"]
-    assert "helper" in call_graph
-    assert len(call_graph["helper"]) == 0
+    assert "test.test_method" in call_graph
+    assert "print" in call_graph["test.test_method"]
+    assert "test.helper" in call_graph["test.test_method"]
+    assert "test.helper" in call_graph
+    assert len(call_graph["test.helper"]) == 0
 
 
 def test_analyze_function_calls_skips_a_file_that_does_not_parse(analyzer, caplog):
@@ -359,7 +359,7 @@ def test_analyze_function_calls_skips_a_file_that_does_not_parse(analyzer, caplo
 
     call_graph = analyzer.analyze_function_calls([broken, working])
 
-    assert call_graph == {"caller": {"callee"}}
+    assert call_graph == {"working.caller": {"callee"}}
     assert "broken.py" in caplog.text
 
 
@@ -378,6 +378,166 @@ def test_analyze_function_calls_does_not_hide_bugs(analyzer):
         pytest.raises(RuntimeError, match=r"^bug$"),
     ):
         analyzer.analyze_function_calls([analysis])
+
+
+def call_graph_of(analyzer, root, files: dict[str, str]) -> dict[str, set[str]]:
+    """Write a small project, analyze it, and return its call graph."""
+    for name, code in files.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(code)
+    analyses = analyzer.analyze_directory(str(root))
+    return analyzer.analyze_function_calls(analyses, root=str(root))
+
+
+def test_same_name_in_two_modules_is_kept_apart(analyzer, tmp_path):
+    """Each module's run() keeps its own calls (they used to collide)."""
+    call_graph = call_graph_of(
+        analyzer,
+        tmp_path,
+        {
+            "a.py": "def run():\n    helper()\n\n\ndef helper():\n    pass\n",
+            "b.py": "def run():\n    other()\n\n\ndef other():\n    pass\n",
+        },
+    )
+
+    assert call_graph == {
+        "a.run": {"a.helper"},
+        "a.helper": set(),
+        "b.run": {"b.other"},
+        "b.other": set(),
+    }
+
+
+def test_methods_are_named_by_class_and_self_calls_resolved(analyzer, tmp_path):
+    """A method is Class.method, and self.method() leads to it."""
+    code = """def area(shape):
+    return shape.size()
+
+
+class Square:
+    def size(self):
+        return self.side() ** 2
+
+    def side(self):
+        return area(self)
+"""
+    call_graph = call_graph_of(analyzer, tmp_path, {"shapes.py": code})
+
+    assert call_graph == {
+        "shapes.area": {"size"},
+        "shapes.Square.size": {"shapes.Square.side"},
+        "shapes.Square.side": {"shapes.area"},
+    }
+
+
+def test_imported_names_resolve_to_the_analyzed_module(analyzer, tmp_path):
+    """Absolute, relative, aliased, and module imports all lead to the definition."""
+    main = """from . import util
+from .util import Store
+from pkg.util import tool as run_tool
+
+
+def run():
+    run_tool()
+    util.tool()
+    return Store()
+"""
+    call_graph = call_graph_of(
+        analyzer,
+        tmp_path,
+        {
+            "pkg/__init__.py": "",
+            "pkg/util.py": "def tool():\n    pass\n\n\nclass Store:\n    pass\n",
+            "pkg/main.py": main,
+        },
+    )
+
+    assert call_graph["pkg.main.run"] == {"pkg.util.tool", "pkg.util.Store"}
+    assert call_graph["pkg.util.tool"] == set()
+
+
+def test_absolute_import_resolves_below_the_source_root(analyzer, tmp_path):
+    """In a src layout analyzed from the project root, pkg imports still resolve."""
+    call_graph = call_graph_of(
+        analyzer,
+        tmp_path,
+        {
+            "src/pkg/__init__.py": "",
+            "src/pkg/core.py": "def work():\n    pass\n",
+            "src/pkg/cli.py": "from pkg.core import work\n\n\ndef main():\n    work()\n",
+        },
+    )
+
+    assert call_graph["src.pkg.cli.main"] == {"src.pkg.core.work"}
+
+
+def test_calls_through_the_class_resolve(analyzer, tmp_path):
+    """Class.method() and cls.method() lead to the method, Class() to the class."""
+    code = """class Config:
+    @classmethod
+    def load(cls):
+        return cls.parse()
+
+    @classmethod
+    def parse(cls):
+        pass
+
+
+def main():
+    Config.load()
+    return Config()
+"""
+    call_graph = call_graph_of(analyzer, tmp_path, {"config.py": code})
+
+    assert call_graph == {
+        "config.Config.load": {"config.Config.parse"},
+        "config.Config.parse": set(),
+        "config.main": {"config.Config.load", "config.Config"},
+    }
+
+
+def test_calls_the_analyzer_cannot_place_stay_bare(analyzer, tmp_path):
+    """Built-ins, other libraries, and methods on other objects keep their bare name."""
+    code = """import logging
+
+logger = logging.getLogger(__name__)
+
+
+def main(items):
+    print(len(items))
+    logger.info("done")
+    items.append(1)
+"""
+    call_graph = call_graph_of(analyzer, tmp_path, {"app.py": code})
+
+    assert call_graph == {"app.main": {"print", "len", "info", "append"}}
+
+
+def test_unusual_imports_and_calls_are_handled(analyzer, tmp_path):
+    """Aliased, star, and out-of-tree imports, and calls with no name, do not break it."""
+    code = """import os.path as osp
+from ... import outside
+from os import *
+
+
+def main(factories):
+    osp.join("a", "b")
+    factories[0]()
+    outside()
+"""
+    call_graph = call_graph_of(analyzer, tmp_path, {"app.py": code})
+
+    assert call_graph == {"app.main": {"join", "outside"}}
+
+
+def test_package_init_is_named_after_its_package(analyzer, tmp_path):
+    """Functions in pkg/__init__.py belong to pkg."""
+    call_graph = call_graph_of(
+        analyzer, tmp_path, {"pkg/__init__.py": "def setup():\n    pass\n"}
+    )
+
+    assert call_graph == {"pkg.setup": set()}
 
 
 def test_analyze_directory_with_exclude_patterns(

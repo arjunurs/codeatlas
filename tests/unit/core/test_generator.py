@@ -326,7 +326,7 @@ def test_diagram_selection_ignores_case():
     generator.diagram_generator = MagicMock()
     generator.diagram_generator.generate_class_diagram.return_value = "classDiagram"
 
-    diagrams, errors = generator._generate_all_diagrams([])
+    diagrams, errors = generator._generate_all_diagrams([], "/project")
 
     assert diagrams == {"class_diagram": "classDiagram"}
     assert errors == []
@@ -440,7 +440,7 @@ def test_failed_call_analysis_is_reported_for_each_diagram_that_needs_it():
     generator = _diagrams_only_generator()
     generator.analyzer.analyze_function_calls.side_effect = RuntimeError("bad calls")
 
-    diagrams, errors = generator._generate_all_diagrams([])
+    diagrams, errors = generator._generate_all_diagrams([], "/project")
 
     assert set(diagrams) == {"architecture", "class_diagram", "package_dependencies"}
     assert errors == [
@@ -453,8 +453,10 @@ def test_call_analysis_runs_once_for_both_diagrams_that_use_it():
     """The sequence and call graph diagrams share one function call analysis."""
     generator = _diagrams_only_generator()
 
-    diagrams, errors = generator._generate_all_diagrams([])
+    diagrams, errors = generator._generate_all_diagrams([], "/project")
 
     assert errors == []
     assert len(diagrams) == 5
-    generator.analyzer.analyze_function_calls.assert_called_once()
+    generator.analyzer.analyze_function_calls.assert_called_once_with(
+        [], root="/project"
+    )
