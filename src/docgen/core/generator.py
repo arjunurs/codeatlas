@@ -6,6 +6,7 @@ the entire documentation generation process.
 
 from __future__ import annotations
 
+import functools
 import logging
 import os
 from collections.abc import Sequence
@@ -21,9 +22,7 @@ from ..config import (
     GenerationOptions,
     GeneratorConfig,
 )
-from ..exceptions.errors import (
-    DocumentationError,
-)
+from ..exceptions.errors import DocumentationError
 from ..models.file_analysis import FileAnalysis
 from ..prompts.sections import select_sections
 from ..providers.base import EmbeddingProvider, LLMProvider
@@ -31,34 +30,13 @@ from ..templates.html import get_template_manager
 from ..utils.cost_tracker import CostTracker
 from ..utils.usage_tracking import UsageTrackingEmbeddings
 from .analyzer import CodeAnalyzer
-from .cross_reference import CrossReferenceAnalyzer
+from .cross_reference import cross_reference_preprocessor
 from .diagrams import DiagramGenerator, select_diagrams
 from .rag_pipeline import RAGPipelineFactory
 from .renderer import DocumentationRenderer
 from .section_orchestrator import SectionOrchestrator
 
 logger = logging.getLogger(__name__)
-
-
-def _cross_reference_preprocessor(
-    prompt: str, analyses: list[FileAnalysis] | None
-) -> str:
-    """Enhance cross-reference section prompts with pre-analyzed data."""
-    if not analyses:
-        return prompt
-    if "reference" not in prompt.lower() and "cross" not in prompt.lower():
-        return prompt
-
-    analyzer = CrossReferenceAnalyzer(analyses)
-    reference_report = analyzer.generate_reference_report(limit=15)
-
-    return (
-        f"{prompt}\n\n"
-        f"## Pre-analyzed Cross-Reference Data\n\n"
-        f"Use this structured analysis as the foundation for your response. "
-        f"Expand on it with additional insights from the codebase context:\n\n"
-        f"{reference_report}"
-    )
 
 
 class CodeDocumentationGenerator:
@@ -302,7 +280,7 @@ class CodeDocumentationGenerator:
     def _generate_all_diagrams(
         self, analyses: Sequence[FileAnalysis]
     ) -> tuple[dict[str, str], list[tuple[str, str]]]:
-        """Generate all documentation diagrams.
+        """Generate the selected diagrams, recording each failure.
 
         Args:
             analyses: List of file analysis results
@@ -311,64 +289,45 @@ class CodeDocumentationGenerator:
             Tuple of (diagrams dict, list of (diagram_name, error_message) pairs)
         """
         logger.debug("Generating diagrams...")
+        build = self.diagram_generator
+
+        # The sequence and call graph diagrams share one call analysis
+        @functools.cache
+        def function_calls() -> dict:
+            return self.analyzer.analyze_function_calls(analyses)
+
+        # Diagram type -> (output name, builder), in generation order
+        builders = {
+            "architecture": (
+                "architecture",
+                lambda: build.generate_architecture_diagram(analyses),
+            ),
+            "class": ("class_diagram", lambda: build.generate_class_diagram(analyses)),
+            "sequence": (
+                "sequence",
+                lambda: build.generate_sequence_diagram(function_calls()),
+            ),
+            "callgraph": (
+                "function_calls",
+                lambda: build.generate_call_graph_diagram(function_calls()),
+            ),
+            "dependency": (
+                "package_dependencies",
+                lambda: build.generate_dependency_diagram(
+                    self.analyzer.analyze_package_dependencies()
+                ),
+            ),
+        }
+
         diagrams: dict[str, str] = {}
         errors: list[tuple[str, str]] = []
-
-        def should_generate(diagram_key: str) -> bool:
-            return diagram_key in self.selected_diagrams
-
-        if should_generate("architecture"):
+        for diagram_type, (name, builder) in builders.items():
+            if diagram_type not in self.selected_diagrams:
+                continue
             try:
-                diagrams["architecture"] = (
-                    self.diagram_generator.generate_architecture_diagram(analyses)
-                )
+                diagrams[name] = builder()
             except Exception as e:
-                errors.append(("architecture", str(e)))
-
-        if should_generate("class"):
-            try:
-                diagrams["class_diagram"] = (
-                    self.diagram_generator.generate_class_diagram(analyses)
-                )
-            except Exception as e:
-                errors.append(("class_diagram", str(e)))
-
-        need_function_analysis = should_generate("sequence") or should_generate(
-            "callgraph"
-        )
-        if need_function_analysis:
-            try:
-                function_calls = self.analyzer.analyze_function_calls(analyses)
-                if should_generate("sequence"):
-                    try:
-                        diagrams["sequence"] = (
-                            self.diagram_generator.generate_sequence_diagram(
-                                function_calls
-                            )
-                        )
-                    except Exception as e:
-                        errors.append(("sequence", str(e)))
-                if should_generate("callgraph"):
-                    try:
-                        diagrams["function_calls"] = (
-                            self.diagram_generator.generate_call_graph_diagram(
-                                function_calls
-                            )
-                        )
-                    except Exception as e:
-                        errors.append(("function_calls", str(e)))
-            except Exception as e:
-                errors.append(("function_analysis", str(e)))
-
-        if should_generate("dependency"):
-            try:
-                package_deps = self.analyzer.analyze_package_dependencies()
-                diagrams["package_dependencies"] = (
-                    self.diagram_generator.generate_dependency_diagram(package_deps)
-                )
-            except Exception as e:
-                errors.append(("package_dependencies", str(e)))
-
+                errors.append((name, str(e)))
         return diagrams, errors
 
     def _create_vector_store_and_rag_chain(
@@ -407,7 +366,7 @@ class CodeDocumentationGenerator:
             force_refresh=self.force_refresh,
             current_analyses=self._current_analyses,
             selected_sections=self.selected_sections,
-            section_preprocessors={"cross": _cross_reference_preprocessor},
+            section_preprocessors={"cross": cross_reference_preprocessor},
             convert_markdown_to_html=self._renderer.convert_markdown_to_html,
         )
 

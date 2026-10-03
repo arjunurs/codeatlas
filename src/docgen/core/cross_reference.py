@@ -244,3 +244,32 @@ class CrossReferenceAnalyzer:
             graph[file_path] = sorted(imported_files)
 
         return dict(graph)
+
+
+def cross_reference_preprocessor(
+    prompt: str, analyses: list[FileAnalysis] | None
+) -> str:
+    """Add the pre-analyzed cross-reference report to a cross-reference prompt.
+
+    Args:
+        prompt: The section prompt
+        analyses: The run's file analyses, or None
+
+    Returns:
+        The prompt with the report appended, or unchanged for other sections
+    """
+    if not analyses:
+        return prompt
+    if "reference" not in prompt.lower() and "cross" not in prompt.lower():
+        return prompt
+
+    reference_report = CrossReferenceAnalyzer(analyses).generate_reference_report(
+        limit=15
+    )
+    return (
+        f"{prompt}\n\n"
+        f"## Pre-analyzed Cross-Reference Data\n\n"
+        f"Use this structured analysis as the foundation for your response. "
+        f"Expand on it with additional insights from the codebase context:\n\n"
+        f"{reference_report}"
+    )

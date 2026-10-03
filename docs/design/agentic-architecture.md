@@ -54,7 +54,7 @@ Source Directory
 | **No inter-section awareness** | Overview might describe the architecture differently than Data Flow. Sections can contradict each other or repeat information because they share no context. |
 | **Static section structure** | Always generates the same 5 core sections in the same format. A CLI tool, a library, and a web service all get identical documentation structure. |
 | **No self-evaluation** | If the retriever returns poor context (e.g., irrelevant files), the section quality degrades silently. There is no mechanism to detect or recover from bad retrieval. |
-| **Cross-reference is bolted on** | `_cross_reference_preprocessor` manually injects pre-analyzed data into the prompt string. This pattern doesn't scale to other sections that could benefit from structured analysis. |
+| **Cross-reference is bolted on** | `cross_reference_preprocessor` manually injects pre-analyzed data into the prompt string. This pattern doesn't scale to other sections that could benefit from structured analysis. |
 | **No iterative depth** | The LLM gets one shot. If it mentions a class but lacks detail, it cannot go back and retrieve more about that specific class. |
 
 **Measured evidence.** On FastAPI's package (52 files), five agents fact-checked the generated

@@ -430,3 +430,43 @@ def test_diagram_node_limit_comes_from_the_config():
     )
 
     assert generator.diagram_generator.max_nodes == 7
+
+
+def _diagrams_only_generator():
+    """A diagrams-only generator whose analyzer and diagram generator are mocks."""
+    generator = CodeDocumentationGenerator(
+        generation_options=GenerationOptions(diagrams_only=True)
+    )
+    generator.analyzer = MagicMock()
+    generator.diagram_generator = MagicMock()
+    for method in (
+        "generate_architecture_diagram",
+        "generate_class_diagram",
+        "generate_sequence_diagram",
+        "generate_call_graph_diagram",
+        "generate_dependency_diagram",
+    ):
+        getattr(generator.diagram_generator, method).return_value = method
+    return generator
+
+
+def test_failed_call_analysis_is_reported_for_each_diagram_that_needs_it():
+    """The sequence and call graph diagrams fail; the others are still built."""
+    generator = _diagrams_only_generator()
+    generator.analyzer.analyze_function_calls.side_effect = RuntimeError("bad calls")
+
+    diagrams, errors = generator._generate_all_diagrams([])
+
+    assert set(diagrams) == {"architecture", "class_diagram", "package_dependencies"}
+    assert errors == [("sequence", "bad calls"), ("function_calls", "bad calls")]
+
+
+def test_call_analysis_runs_once_for_both_diagrams_that_use_it():
+    """The sequence and call graph diagrams share one function call analysis."""
+    generator = _diagrams_only_generator()
+
+    diagrams, errors = generator._generate_all_diagrams([])
+
+    assert errors == []
+    assert len(diagrams) == 5
+    generator.analyzer.analyze_function_calls.assert_called_once()

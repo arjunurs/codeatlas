@@ -1,6 +1,12 @@
 """Tests for cross-reference analysis."""
 
-from docgen.core.cross_reference import ComponentReference, CrossReferenceAnalyzer
+import pytest
+
+from docgen.core.cross_reference import (
+    ComponentReference,
+    CrossReferenceAnalyzer,
+    cross_reference_preprocessor,
+)
 from docgen.models.code_entity import CodeEntity
 from docgen.models.file_analysis import FileAnalysis
 
@@ -238,3 +244,44 @@ def test_import_graph_generation():
     # main.py imports from helper.py
     if "src/main.py" in graph:
         assert "src/helper.py" in graph["src/main.py"]
+
+
+HELPER_AND_MAIN = [
+    FileAnalysis(
+        file_path="helper.py",
+        entities=[CodeEntity(name="HelperClass", type="class", docstring="A helper")],
+        imports=[],
+        content="class HelperClass: pass",
+        _skip_validation=True,
+    ),
+    FileAnalysis(
+        file_path="main.py",
+        entities=[],
+        imports=["helper.HelperClass"],
+        content="from helper import HelperClass",
+        _skip_validation=True,
+    ),
+]
+
+
+def test_preprocessor_adds_the_reference_report_to_cross_reference_prompts():
+    """A cross-reference prompt gets the pre-analyzed report appended."""
+    prompt = "Document the cross-references."
+
+    result = cross_reference_preprocessor(prompt, HELPER_AND_MAIN)
+
+    assert result.startswith(prompt)
+    assert "## Pre-analyzed Cross-Reference Data" in result
+    assert "### `HelperClass`" in result
+
+
+@pytest.mark.parametrize(
+    ("prompt", "analyses"),
+    [
+        ("Describe the data flow.", HELPER_AND_MAIN),
+        ("Document the cross-references.", None),
+    ],
+)
+def test_preprocessor_leaves_other_prompts_alone(prompt, analyses):
+    """Other sections, or a run with no analyses, keep the prompt as it is."""
+    assert cross_reference_preprocessor(prompt, analyses) == prompt
