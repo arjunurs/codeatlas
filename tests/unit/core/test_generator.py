@@ -430,7 +430,7 @@ def test_diagram_pages_carry_the_project_name(tmp_path):
     generator.generate_documentation(str(project), str(tmp_path / "docs"))
 
     page = (tmp_path / "docs" / "diagrams" / "classes.html").read_text()
-    assert "<title>Classes Diagram · shop</title>" in page
+    assert "<title>Classes · shop</title>" in page
     assert '<h1 class="sidebar-title">shop</h1>' in page
 
 

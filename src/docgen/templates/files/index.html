@@ -30,7 +30,9 @@
 </div>
 {% endif %}
 
+{% if documentation.sections or diagram_pages %}
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 32px;">
+    {% if documentation.sections %}
     <div class="content-card">
         <h2 style="font-size: 18px; font-weight: 600; color: #111827; margin: 0 0 16px 0;">
             <i class="fas fa-book" aria-hidden="true" style="margin-right: 8px; opacity: 0.6;"></i>
@@ -47,47 +49,34 @@
             {% endfor %}
         </ul>
     </div>
+    {% endif %}
 
+    {% if diagram_pages %}
     <div class="content-card">
         <h2 style="font-size: 18px; font-weight: 600; color: #111827; margin: 0 0 16px 0;">
             <i class="fas fa-project-diagram" aria-hidden="true" style="margin-right: 8px; opacity: 0.6;"></i>
             Diagrams
         </h2>
         <ul style="list-style: none; margin: 0; padding: 0;">
+            {% for diagram in diagram_pages %}
             <li style="margin: 8px 0;">
-                <a href="{{ base_url }}diagrams/architecture.html" style="color: #2563eb; text-decoration: none; font-size: 14px;">
-                    System Architecture
+                <a href="{{ base_url }}diagrams/{{ diagram.page }}.html" style="color: #2563eb; text-decoration: none; font-size: 14px;">
+                    {{ diagram.title }}
                 </a>
             </li>
-            <li style="margin: 8px 0;">
-                <a href="{{ base_url }}diagrams/dependencies.html" style="color: #2563eb; text-decoration: none; font-size: 14px;">
-                    Package Dependencies
-                </a>
-            </li>
-            <li style="margin: 8px 0;">
-                <a href="{{ base_url }}diagrams/classes.html" style="color: #2563eb; text-decoration: none; font-size: 14px;">
-                    Class Diagram
-                </a>
-            </li>
-            <li style="margin: 8px 0;">
-                <a href="{{ base_url }}diagrams/sequence.html" style="color: #2563eb; text-decoration: none; font-size: 14px;">
-                    Sequence Diagram
-                </a>
-            </li>
-            <li style="margin: 8px 0;">
-                <a href="{{ base_url }}diagrams/call_graph.html" style="color: #2563eb; text-decoration: none; font-size: 14px;">
-                    Call Graph
-                </a>
-            </li>
+            {% endfor %}
         </ul>
     </div>
+    {% endif %}
 </div>
+{% endif %}
 
-{% if documentation.sections and documentation.sections[0] %}
+{% set overview = documentation.sections | selectattr("title", "equalto", "Overview") | first %}
+{% if overview %}
 <div class="content-card">
     <h2 style="font-size: 18px; font-weight: 600; color: #111827; margin: 0 0 16px 0;">Overview</h2>
     <div style="font-size: 15px; line-height: 1.7; color: #374151;">
-        {{ documentation.sections[0].content | safe }}
+        {{ overview.content | safe }}
     </div>
     <div style="margin-top: 16px;">
         <a href="{{ base_url }}sections/overview.html"

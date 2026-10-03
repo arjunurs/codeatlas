@@ -1,11 +1,12 @@
 """Unit tests for DocumentationRenderer."""
 
+import re
 from unittest.mock import Mock
 
 import jinja2
 import pytest
 
-from docgen.core.renderer import DocumentationRenderer
+from docgen.core.renderer import DIAGRAM_PAGES, DocumentationRenderer
 from docgen.exceptions.errors import DocumentationError
 from docgen.templates.html import get_template_manager
 
@@ -80,20 +81,108 @@ def test_mermaid_uses_strict_security_level(rendered):
 
 
 def test_generate_navigation_passes_titles_active_page_and_base_url():
-    """Navigation is rendered from the section titles, the active page, and base URL."""
+    """Navigation is rendered from the section titles, the active page, the
+    diagram pages, and the base URL."""
     navigation = Mock(render=Mock(return_value="<nav>Test Navigation</nav>"))
     renderer = DocumentationRenderer(Mock(templates={"navigation": navigation}))
     sections = [{"title": "Overview"}, {"title": "Dependencies"}]
+    pages = [DIAGRAM_PAGES[0]]
 
-    nav_html = renderer.generate_navigation("Overview", sections, "./")
+    nav_html = renderer.generate_navigation("Overview", sections, "./", pages)
 
     assert nav_html == "<nav>Test Navigation</nav>"
     navigation.render.assert_called_once_with(
-        active="Overview", sections=["Overview", "Dependencies"], base_url="./"
+        active="Overview",
+        sections=["Overview", "Dependencies"],
+        diagrams=pages,
+        base_url="./",
     )
 
 
 MINIMAL_DOCUMENTATION = {"title": "Docs", "generated_date": "today", "sections": []}
+
+
+@pytest.fixture
+def diagrams_only(tmp_path):
+    """Render a site with no sections and only the sequence and class diagrams."""
+    renderer = DocumentationRenderer(get_template_manager())
+    diagrams = {
+        "sequence": "sequenceDiagram\n    participant a as A",
+        "class_diagram": "classDiagram\n    class A",
+    }
+    renderer.render(MINIMAL_DOCUMENTATION, diagrams, str(tmp_path))
+    return tmp_path
+
+
+def diagram_links(html: str) -> list[str]:
+    """The diagram pages a page links to, in order."""
+    return re.findall(r'href="[./]*diagrams/(\w+)\.html"', html)
+
+
+def test_only_generated_diagrams_are_linked(diagrams_only):
+    """The index and the sidebar link to the diagrams that exist, and no others."""
+    index = (diagrams_only / "index.html").read_text()
+    page = (diagrams_only / "diagrams" / "sequence.html").read_text()
+
+    # Once in the sidebar and once in the index's diagram list
+    assert diagram_links(index) == ["classes", "sequence"] * 2
+    assert diagram_links(page) == ["classes", "sequence"]
+    assert sorted(p.name for p in (diagrams_only / "diagrams").iterdir()) == [
+        "classes.html",
+        "sequence.html",
+    ]
+
+
+def test_no_sections_means_no_documentation_list(diagrams_only):
+    """With no sections, neither the index nor the sidebar lists documentation."""
+    index = (diagrams_only / "index.html").read_text()
+
+    assert ">Documentation<" not in index
+    assert "fa-book" not in index
+
+
+def test_a_diagram_page_is_marked_current_in_the_sidebar(diagrams_only):
+    """The sidebar highlights the diagram being viewed, and only that one."""
+    page = (diagrams_only / "diagrams" / "sequence.html").read_text()
+
+    current = re.findall(
+        r'href="\.\./diagrams/(\w+)\.html"\s+class="nav-item active"', page
+    )
+    assert current == ["sequence"]
+    assert page.count('aria-current="page"') == 1
+
+
+def test_overview_card_shows_only_the_overview(tmp_path):
+    """Without an Overview section, the index shows no overview card."""
+    renderer = DocumentationRenderer(get_template_manager())
+    documentation = {
+        **MINIMAL_DOCUMENTATION,
+        "sections": [{"title": "Dependencies", "content": "<p>Uses yaml.</p>"}],
+    }
+
+    renderer.render(documentation, {}, str(tmp_path))
+
+    index = (tmp_path / "index.html").read_text()
+    assert "overview.html" not in index
+    assert "Uses yaml." not in index
+    assert "sections/dependencies.html" in index
+
+
+def test_each_diagram_has_one_name(diagrams_only):
+    """A diagram is called the same in the sidebar, the index, and its own page."""
+    index = (diagrams_only / "index.html").read_text()
+    page = (diagrams_only / "diagrams" / "classes.html").read_text()
+
+    assert "<title>Classes · Docs</title>" in page
+    assert re.search(r"<h1[^>]*>Classes</h1>", page)
+    assert re.findall(r"<span>(Classes|Sequence)</span>", index) == [
+        "Classes",
+        "Sequence",
+    ]
+    assert re.findall(r">\s*(Classes|Sequence)\s*</a>", index) == [
+        "Classes",
+        "Sequence",
+    ]
 
 
 def failing_template_manager(error: Exception) -> Mock:

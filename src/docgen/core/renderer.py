@@ -7,6 +7,8 @@ and Mermaid diagrams using Jinja2 templates.
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 
 import jinja2
@@ -14,6 +16,33 @@ import markdown
 import nh3
 
 from ..exceptions.errors import DocumentationError
+
+
+@dataclass(frozen=True)
+class DiagramPage:
+    """A diagram's page in the site.
+
+    Attributes:
+        page: The page's file name in diagrams/, without .html
+        key: The diagram's name in the diagrams the generator passes
+        title: What the diagram is called everywhere in the site
+        icon: The Font Awesome icon shown beside it in the sidebar
+    """
+
+    page: str
+    key: str
+    title: str
+    icon: str
+
+
+# The diagram pages, in the order the sidebar and the index list them
+DIAGRAM_PAGES = (
+    DiagramPage("architecture", "architecture", "Architecture", "fa-project-diagram"),
+    DiagramPage("dependencies", "package_dependencies", "Dependencies", "fa-cubes"),
+    DiagramPage("classes", "class_diagram", "Classes", "fa-sitemap"),
+    DiagramPage("sequence", "sequence", "Sequence", "fa-exchange-alt"),
+    DiagramPage("call_graph", "function_calls", "Call Graph", "fa-code-branch"),
+)
 
 
 class DocumentationRenderer:
@@ -80,16 +109,19 @@ class DocumentationRenderer:
             errors = generation_errors or {"diagrams": [], "sections": []}
             has_errors = bool(errors.get("diagrams") or errors.get("sections"))
 
+            # Only the diagrams that were generated get a page and a link
+            pages = [page for page in DIAGRAM_PAGES if diagrams.get(page.key)]
+            sections = documentation["sections"]
+
             # Generate index page
             project = documentation["title"]
             index_context = {
                 "title": project,
                 "project": project,
                 "documentation": documentation,
+                "diagram_pages": pages,
                 "base_url": "./",
-                "navigation": self.generate_navigation(
-                    "index", documentation["sections"], "./"
-                ),
+                "navigation": self.generate_navigation("index", sections, "./", pages),
                 "generation_errors": errors if has_errors else None,
             }
             self.template_manager.render_template(
@@ -97,15 +129,12 @@ class DocumentationRenderer:
             )
 
             # Generate section pages
-            sections_list = documentation["sections"]
-            for i, section in enumerate(sections_list):
+            for i, section in enumerate(sections):
                 filename = f"sections/{section['title'].lower().replace(' ', '_')}.html"
 
-                prev_section = sections_list[i - 1]["title"] if i > 0 else None
+                prev_section = sections[i - 1]["title"] if i > 0 else None
                 next_section = (
-                    sections_list[i + 1]["title"]
-                    if i < len(sections_list) - 1
-                    else None
+                    sections[i + 1]["title"] if i < len(sections) - 1 else None
                 )
 
                 section_context = {
@@ -114,7 +143,7 @@ class DocumentationRenderer:
                     "section": section,
                     "base_url": "../",
                     "navigation": self.generate_navigation(
-                        section["title"], sections_list, "../"
+                        section["title"], sections, "../", pages
                     ),
                     "prev_section": prev_section,
                     "next_section": next_section,
@@ -124,38 +153,29 @@ class DocumentationRenderer:
                 )
 
             # Generate diagram pages
-            diagram_files = {
-                "architecture": diagrams.get("architecture", ""),
-                "dependencies": diagrams.get("package_dependencies", ""),
-                "classes": diagrams.get("class_diagram", ""),
-                "sequence": diagrams.get("sequence", ""),
-                "call_graph": diagrams.get("function_calls", ""),
-            }
-
-            for name, diagram in diagram_files.items():
-                if diagram:
-                    filename = f"diagrams/{name}.html"
-                    diagram_context = {
-                        "title": f"{name.replace('_', ' ').title()} Diagram",
-                        "project": project,
-                        "diagram_code": diagram,
-                        "base_url": "../",
-                        "navigation": self.generate_navigation(
-                            "diagrams", documentation["sections"], "../"
-                        ),
-                    }
-                    self.template_manager.render_template(
-                        "diagrams", diagram_context, output_dir, filename
-                    )
+            for page in pages:
+                diagram_context = {
+                    "title": page.title,
+                    "project": project,
+                    "diagram_code": diagrams[page.key],
+                    "base_url": "../",
+                    "navigation": self.generate_navigation(
+                        page.page, sections, "../", pages
+                    ),
+                }
+                self.template_manager.render_template(
+                    "diagrams",
+                    diagram_context,
+                    output_dir,
+                    f"diagrams/{page.page}.html",
+                )
 
             # Generate search page
             search_context = {
                 "title": "Search Documentation",
                 "project": project,
                 "base_url": "./",
-                "navigation": self.generate_navigation(
-                    "search", documentation["sections"], "./"
-                ),
+                "navigation": self.generate_navigation("search", sections, "./", pages),
             }
             self.template_manager.render_template(
                 "search", search_context, output_dir, "search.html"
@@ -167,14 +187,20 @@ class DocumentationRenderer:
             ) from e
 
     def generate_navigation(
-        self, active_page: str, sections: list[dict[str, str]], base_url: str
+        self,
+        active_page: str,
+        sections: list[dict[str, str]],
+        base_url: str,
+        diagram_pages: Sequence[DiagramPage] = (),
     ) -> str:
         """Generate navigation HTML for the current page.
 
         Args:
-            active_page: Currently active page
+            active_page: The current page: index, a section's title, or a
+                diagram page's name
             sections: List of documentation sections
             base_url: Base URL for relative paths
+            diagram_pages: The diagram pages to link to
 
         Returns:
             Navigation HTML content
@@ -182,5 +208,6 @@ class DocumentationRenderer:
         return self.template_manager.templates["navigation"].render(
             active=active_page,
             sections=[s["title"] for s in sections],
+            diagrams=diagram_pages,
             base_url=base_url,
         )
