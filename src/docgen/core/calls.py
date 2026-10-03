@@ -8,10 +8,13 @@ its bare name.
 from __future__ import annotations
 
 import ast
+import logging
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass, field
 
 from .modules import STDLIB_MODULES, import_base, unique_suffixes
+
+logger = logging.getLogger(__name__)
 
 
 def trace_calls(
@@ -24,7 +27,9 @@ def trace_calls(
             __init__, and its AST
 
     Returns:
-        Each qualified function name, mapped to the calls it makes, in order
+        Each qualified function name, mapped to the calls it makes, in order.
+        A module nested too deeply to walk, such as a generated table of long
+        expressions, is skipped with a warning.
     """
     definitions = [
         (_ModuleDefinitions.from_tree(name, is_package, tree), tree)
@@ -34,7 +39,14 @@ def trace_calls(
     call_graph: dict[str, list[str]] = {}
     for module, tree in definitions:
         visitor = _CallVisitor(module, resolver)
-        visitor.visit(tree)
+        try:
+            visitor.visit(tree)
+        except RecursionError:
+            logger.warning(
+                f"Skipping the calls in {module.name}: "
+                "its code is nested too deeply to trace"
+            )
+            continue
         call_graph.update(visitor.calls)
     return call_graph
 

@@ -148,6 +148,7 @@ exits 0.
 | Failure | What happens |
 |---|---|
 | A file does not parse | That file is skipped with a warning; analysis continues |
+| A file is nested too deeply to trace its calls (a generated table of long expressions) | Its calls are left out of the call graph and sequence diagrams, with a warning; the other diagrams still include it |
 | A diagram fails to generate or validate | It is left out and listed in the warning and on the index page |
 | One section fails (rate limit, timeout) | Its page shows the error and it is listed in the warning; other sections are unaffected. A provider error says what it means and what to do, then gives the SDK's message: "Anthropic rate limit reached; wait and run again (...)" |
 | A section reaches the output limit | It is marked as cut off, a warning is logged, and it is not cached |

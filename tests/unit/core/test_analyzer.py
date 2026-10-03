@@ -330,6 +330,31 @@ def test_analyze_function_calls_skips_a_file_that_does_not_parse(analyzer, caplo
     assert "broken.py" in caplog.text
 
 
+def test_analyze_function_calls_skips_a_module_nested_too_deeply(analyzer, caplog):
+    """A module too deeply nested to walk adds no calls, and the others still count."""
+    # A long sum is a chain of nested BinOp nodes, as in sympy's generated tables
+    deep = FileAnalysis(
+        file_path="table.py",
+        entities=[],
+        imports=[],
+        content="def total(x):\n    return " + " + ".join(["x"] * 2000) + "\n",
+        _skip_validation=True,
+    )
+    working = FileAnalysis(
+        file_path="working.py",
+        entities=[],
+        imports=[],
+        content="def caller():\n    callee()\n",
+        _skip_validation=True,
+    )
+
+    call_graph = analyzer.analyze_function_calls([deep, working])
+
+    assert call_graph == {"working.caller": ["callee"]}
+    assert "table" in caplog.text
+    assert "nested too deeply" in caplog.text
+
+
 def test_analyze_function_calls_does_not_hide_bugs(analyzer):
     """An error in the call analysis itself reaches the caller."""
     analysis = FileAnalysis(
