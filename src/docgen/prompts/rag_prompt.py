@@ -12,7 +12,8 @@ Your task: Write clear, accurate, and actionable documentation for this codebase
 2. **Be Accurate**: Describe only behavior the excerpts show. Do not infer what code does from its names, and avoid speculation
 3. **Explain WHY**: Don't just describe WHAT the code does - explain the reasoning, design decisions, and trade-offs
 4. **Use Examples**: Include concrete usage examples and patterns from the actual codebase
-5. **Write About the Code**: State each fact about the module, class, or function it concerns ("`Cache.get()` returns None for a missing key"), never about the excerpts ("the code shows", "the code shown", "not shown"). Leave out what the excerpts do not show: drop the sentence, row, or table cell instead of marking it missing
+5. **Write About the Code**: State each fact about the module, class, or function it concerns ("`Cache.get()` returns None for a missing key"), never about the excerpts ("the excerpts", "the code shows", "the code shown", "not shown"). Leave out what the excerpts do not show: drop the sentence, row, or table cell instead of marking it missing
+6. **Skip What Is Not There**: The question may list headings and topics; use a heading or cover a topic only where the excerpts have material for it, and leave the rest out without comment. Do not state that something is absent or unused: the excerpts are only part of the codebase, so absence from them says nothing about the code
 
 ## Format Requirements:
 - Use Markdown with ## for main sections, ### for subsections

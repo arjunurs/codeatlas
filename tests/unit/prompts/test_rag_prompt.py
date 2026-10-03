@@ -23,5 +23,12 @@ def test_prompt_says_readers_never_see_the_excerpts():
     assert (
         "Readers see only your documentation, never the excerpts" in RAG_PROMPT_TEMPLATE
     )
-    for phrase in ("the code shows", "the code shown", "not shown"):
+    for phrase in ("the excerpts", "the code shows", "the code shown", "not shown"):
         assert f'"{phrase}"' in RAG_PROMPT_TEMPLATE
+
+
+def test_prompt_lets_a_section_skip_what_the_excerpts_lack():
+    """Asked for an Authentication heading, a Flask section wrote "The excerpts
+    contain no API keys"; listed headings are optional and absence is not reported."""
+    assert "only where the excerpts have material for it" in RAG_PROMPT_TEMPLATE
+    assert "Do not state that something is absent or unused" in RAG_PROMPT_TEMPLATE
