@@ -167,7 +167,7 @@ class ValidationConfig:
             try:
                 self.mode = ValidationMode(self.mode)
             except ValueError:
-                raise ValueError("Mode must be 'strict' or 'permissive'")
+                raise ValueError("Mode must be 'strict' or 'permissive'") from None
 
         if self.enabled_rules and self.disabled_rules:
             overlap = self.enabled_rules & self.disabled_rules

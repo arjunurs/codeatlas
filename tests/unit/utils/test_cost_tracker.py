@@ -121,9 +121,9 @@ def test_cost_tracker_get_cache_hit_rate():
     tracker = CostTracker()
 
     # Record 10 requests, 3 cached
-    for i in range(7):
+    for _ in range(7):
         tracker.record_llm_usage("claude-sonnet-4-20250514", 1000, 500, cached=False)
-    for i in range(3):
+    for _ in range(3):
         tracker.record_llm_usage("claude-sonnet-4-20250514", 0, 0, cached=True)
 
     assert tracker.get_cache_hit_rate() == 30.0  # 3/10 = 30%

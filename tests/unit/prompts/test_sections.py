@@ -43,10 +43,11 @@ def test_selection_matches_loosely(selection, expected):
 
 def test_documented_full_selection_returns_all_sections_in_order():
     """The README's all-sections example selects every section, in order."""
-    selection = (
+    readme_argument = (
         "overview,dependencies,classes,dataflow,integration,"
         "migration_guidance,code_quality,cross_reference"
-    ).split(",")
+    )
+    selection = readme_argument.split(",")
 
     assert select_sections(list(reversed(selection))) == ALL_SECTIONS
 

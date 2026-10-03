@@ -261,7 +261,7 @@ class VectorStoreCache:
         stored = vector_store.get(include=["metadatas"])
         stale_ids = [
             doc_id
-            for doc_id, meta in zip(stored["ids"], stored["metadatas"])
+            for doc_id, meta in zip(stored["ids"], stored["metadatas"], strict=True)
             if self._relative_source(meta) not in changes.unchanged_files
         ]
         if stale_ids:

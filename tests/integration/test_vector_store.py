@@ -6,6 +6,7 @@ traffic.
 """
 
 import logging
+from typing import ClassVar
 
 import pytest
 from langchain_core.embeddings import Embeddings
@@ -165,7 +166,7 @@ def test_embedding_failure_is_reported_once(
 
     with pytest.raises(
         VectorStoreError,
-        match="^Failed to create vector store: RuntimeError: embedding service down$",
+        match=r"^Failed to create vector store: RuntimeError: embedding service down$",
     ):
         factory.create_rag_chain(analyses, source_dir=project)
 
@@ -180,7 +181,7 @@ def test_no_content_error_is_not_wrapped(fake_chat_model_with_usage, fake_embedd
     )
 
     with pytest.raises(
-        DocumentationError, match="^No documentation content could be generated$"
+        DocumentationError, match=r"^No documentation content could be generated$"
     ):
         factory.create_rag_chain([])
 
@@ -193,7 +194,7 @@ class KeywordEmbeddings(Embeddings):
     alpha's two chunks are exact near-duplicates of each other.
     """
 
-    VECTORS = {
+    VECTORS: ClassVar[dict[str, list[float]]] = {
         "alpha_function": [0.9, 0.43589, 0.0],
         "beta_function": [0.8, 0.0, 0.6],
     }

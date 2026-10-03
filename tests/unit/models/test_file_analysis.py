@@ -50,7 +50,7 @@ def test_file_analysis_nonexistent_file(sample_code_entity):
 def test_file_analysis_empty_content():
     """Test validation of empty file content."""
     with pytest.raises(
-        ValueError, match="Content cannot be empty except for __init__.py files"
+        ValueError, match=r"Content cannot be empty except for __init__\.py files"
     ):
         FileAnalysis(file_path="/path/to/test.py", entities=[], imports=[], content="")
 

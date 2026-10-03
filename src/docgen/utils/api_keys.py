@@ -63,12 +63,12 @@ def get_api_keys(custom_env_file: str | None = None) -> tuple[str, str]:
                 logger.debug("Using OpenAI API key from custom env file")
         except PathValidationError as e:
             raise ApiKeyError(f"Invalid env file path '{custom_env_file}': {e}") from e
-        except FileNotFoundError:
-            raise ApiKeyError(f"Custom env file not found: {custom_env_file}")
-        except PermissionError:
+        except FileNotFoundError as e:
+            raise ApiKeyError(f"Custom env file not found: {custom_env_file}") from e
+        except PermissionError as e:
             raise ApiKeyError(
                 f"Permission denied reading custom env file: {custom_env_file}"
-            )
+            ) from e
         except UnicodeDecodeError as e:
             raise ApiKeyError(
                 f"Encoding error reading custom env file '{custom_env_file}': {e}"

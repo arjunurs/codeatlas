@@ -52,7 +52,7 @@ DEFAULT_EXCLUDED_DIRS = frozenset(
 class CodeAnalyzer:
     """Analyzes Python source code to extract code entities and relationships."""
 
-    def __init__(self, skip_validation: bool = False, encoding: str = None):
+    def __init__(self, skip_validation: bool = False, encoding: str | None = None):
         """Initialize the code analyzer.
 
         Args:
@@ -85,10 +85,10 @@ class CodeAnalyzer:
                 self._source = f.read()
         except UnicodeDecodeError as e:
             raise FileEncodingError(
-                f"Failed to decode {file_path} with encoding {self.encoding}: {str(e)}"
-            )
+                f"Failed to decode {file_path} with encoding {self.encoding}: {e}"
+            ) from e
         except OSError as e:
-            raise CodeParseError(f"Failed to read {file_path}: {str(e)}")
+            raise CodeParseError(f"Failed to read {file_path}: {e}") from e
 
         if not self._source and os.path.basename(file_path) != "__init__.py":
             raise CodeParseError(f"File is empty: {file_path}")
@@ -305,10 +305,10 @@ class CodeAnalyzer:
                         dependencies[package_name].add(top_pkg)
 
             except (OSError, UnicodeDecodeError) as e:
-                logger.warning(f"Error reading {file_path}: {str(e)}")
+                logger.warning(f"Error reading {file_path}: {e}")
                 continue
             except (SyntaxError, ValueError) as e:
-                logger.warning(f"Error parsing {file_path}: {str(e)}")
+                logger.warning(f"Error parsing {file_path}: {e}")
                 continue
 
         return dependencies
@@ -378,7 +378,7 @@ class CodeAnalyzer:
 
             except SyntaxError as e:
                 logger.warning(
-                    f"Syntax error analyzing function calls in {analysis.file_path}: {str(e)}"
+                    f"Syntax error analyzing function calls in {analysis.file_path}: {e}"
                 )
 
         return call_graph

@@ -266,7 +266,7 @@ def test_unexpected_error_propagates_unchanged(mock_generator, tmp_path):
         "Analysis failed"
     )
 
-    with pytest.raises(RuntimeError, match="^Analysis failed$"):
+    with pytest.raises(RuntimeError, match=r"^Analysis failed$"):
         mock_generator.generate_documentation(str(source_dir), str(output_dir))
 
 
@@ -278,7 +278,7 @@ def test_documentation_error_propagates_unchanged(generator, tmp_path):
 
     generator.analyzer.analyze_directory.side_effect = CodeParseError("Analysis failed")
 
-    with pytest.raises(CodeParseError, match="^Analysis failed$"):
+    with pytest.raises(CodeParseError, match=r"^Analysis failed$"):
         generator.generate_documentation(str(source_dir), str(output_dir))
 
 

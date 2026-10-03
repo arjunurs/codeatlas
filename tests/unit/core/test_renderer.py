@@ -124,5 +124,5 @@ def test_renderer_bug_is_not_disguised(tmp_path):
         failing_template_manager(ValueError("Unknown template: x"))
     )
 
-    with pytest.raises(ValueError, match="^Unknown template: x$"):
+    with pytest.raises(ValueError, match=r"^Unknown template: x$"):
         renderer.render(MINIMAL_DOCUMENTATION, {}, str(tmp_path))

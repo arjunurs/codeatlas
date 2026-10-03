@@ -111,7 +111,7 @@ def test_analyze_file_does_not_hide_bugs(analyzer, tmp_path):
 
     with (
         patch.object(analyzer, "_extract_entities", side_effect=RuntimeError("bug")),
-        pytest.raises(RuntimeError, match="^bug$"),
+        pytest.raises(RuntimeError, match=r"^bug$"),
     ):
         analyzer.analyze_file(str(good_file))
 
@@ -216,14 +216,16 @@ requests>=2.25.1
 pandas>=1.2.0
 numpy>=1.19.2
 """
-    with patch("builtins.open", mock_open(read_data=requirements_content)) as mock_file:
-        with patch("os.path.exists") as mock_exists:
-            mock_exists.return_value = True
-            dependencies = analyzer.analyze_dependencies("requirements.txt")
-            assert "requests" in dependencies
-            assert "pandas" in dependencies
-            assert "numpy" in dependencies
-            mock_file.assert_called_once_with("requirements.txt", encoding="utf-8")
+    with (
+        patch("builtins.open", mock_open(read_data=requirements_content)) as mock_file,
+        patch("os.path.exists") as mock_exists,
+    ):
+        mock_exists.return_value = True
+        dependencies = analyzer.analyze_dependencies("requirements.txt")
+        assert "requests" in dependencies
+        assert "pandas" in dependencies
+        assert "numpy" in dependencies
+        mock_file.assert_called_once_with("requirements.txt", encoding="utf-8")
 
 
 def test_analyze_dependencies_no_requirements(analyzer):
@@ -236,12 +238,14 @@ def test_analyze_dependencies_no_requirements(analyzer):
 
 def test_analyze_dependencies_empty_file(analyzer):
     """Test dependency analysis with empty file."""
-    with patch("builtins.open", mock_open(read_data="")) as mock_file:
-        with patch("os.path.exists") as mock_exists:
-            mock_exists.return_value = True
-            with pytest.raises(ValueError, match="Requirements file is empty"):
-                analyzer.analyze_dependencies("requirements.txt")
-            mock_file.assert_called_once_with("requirements.txt", encoding="utf-8")
+    with (
+        patch("builtins.open", mock_open(read_data="")) as mock_file,
+        patch("os.path.exists") as mock_exists,
+    ):
+        mock_exists.return_value = True
+        with pytest.raises(ValueError, match="Requirements file is empty"):
+            analyzer.analyze_dependencies("requirements.txt")
+        mock_file.assert_called_once_with("requirements.txt", encoding="utf-8")
 
 
 def test_analyze_function_calls(analyzer, tmp_path):
@@ -328,7 +332,7 @@ def test_analyze_function_calls_does_not_hide_bugs(analyzer):
 
     with (
         patch("docgen.core.analyzer.ast.parse", side_effect=RuntimeError("bug")),
-        pytest.raises(RuntimeError, match="^bug$"),
+        pytest.raises(RuntimeError, match=r"^bug$"),
     ):
         analyzer.analyze_function_calls([analysis])
 

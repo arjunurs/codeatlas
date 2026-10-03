@@ -264,7 +264,7 @@ def test_incremental_update_refreshes_vector_store(
     before = _stored_chunks(project_cache_dir, mock_embedding_provider)
     untouched_ids = {
         doc_id
-        for doc_id, meta in zip(before["ids"], before["metadatas"])
+        for doc_id, meta in zip(before["ids"], before["metadatas"], strict=True)
         if Path(meta["source"]).name == "untouched.py"
     }
     assert untouched_ids
@@ -288,11 +288,11 @@ def test_incremental_update_refreshes_vector_store(
     # The untouched file keeps its original chunks rather than being re-added
     assert {
         doc_id
-        for doc_id, source in zip(after["ids"], sources)
+        for doc_id, source in zip(after["ids"], sources, strict=True)
         if source == "untouched.py"
     } == untouched_ids
     # No chunk is stored twice
-    assert len(set(zip(sources, after["documents"]))) == len(after["ids"])
+    assert len(set(zip(sources, after["documents"], strict=True))) == len(after["ids"])
     assert "def wave" in contents
     assert "def added" in contents
     assert "Greeter" not in contents  # old module1.py

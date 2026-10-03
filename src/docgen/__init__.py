@@ -9,9 +9,9 @@ from .core.generator import CodeDocumentationGenerator
 from .utils.logging import setup_logging
 
 __all__ = [
-    "__version__",
-    "parse_args",
-    "main",
     "CodeDocumentationGenerator",
+    "__version__",
+    "main",
+    "parse_args",
     "setup_logging",
 ]

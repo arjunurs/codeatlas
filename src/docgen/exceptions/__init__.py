@@ -17,14 +17,14 @@ from .errors import (
 )
 
 __all__ = [
-    "DocumentationError",
+    "ApiKeyError",
     "CodeParseError",
     "DiagramGenerationError",
-    "ApiKeyError",
-    "VectorStoreError",
-    "FileEncodingError",
-    "TemplateError",
-    "LLMError",
+    "DocumentationError",
     "EmbeddingError",
+    "FileEncodingError",
+    "LLMError",
     "PathValidationError",
+    "TemplateError",
+    "VectorStoreError",
 ]

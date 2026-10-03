@@ -70,7 +70,7 @@ class AnthropicProvider(BaseLLMProvider):
             return ChatAnthropic(**kwargs)
         except ValueError as e:
             # Configuration errors (invalid parameters)
-            raise LLMError(f"Invalid Anthropic configuration: {str(e)}") from e
+            raise LLMError(f"Invalid Anthropic configuration: {e}") from e
         except TypeError as e:
             # API changes or incorrect argument types
-            raise LLMError(f"Anthropic API incompatibility: {str(e)}") from e
+            raise LLMError(f"Anthropic API incompatibility: {e}") from e

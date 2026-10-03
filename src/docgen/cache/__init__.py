@@ -12,11 +12,11 @@ from .metadata import CacheMetadata, FileMetadata
 from .vector_cache import VectorStoreCache
 
 __all__ = [
-    "FileMetadata",
     "CacheMetadata",
-    "FileChangeDetector",
     "ChangeDetectionStrategy",
-    "VectorStoreCache",
-    "SectionContentCache",
+    "FileChangeDetector",
+    "FileMetadata",
     "SectionCacheEntry",
+    "SectionContentCache",
+    "VectorStoreCache",
 ]

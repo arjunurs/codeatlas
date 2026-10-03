@@ -65,7 +65,7 @@ class NodeDefinitionRule:
         defined_nodes = set()
         referenced_nodes = set()
 
-        for line_num, line in enumerate(lines, 1):
+        for line in lines:
             # Skip header, comments, empty lines
             if (
                 line.strip().startswith(("graph", "flowchart", "%%"))
@@ -230,7 +230,7 @@ class ParticipantReferenceRule:
         defined_participants = set()
         referenced_participants = set()
 
-        for line_num, line in enumerate(lines, 1):
+        for line in lines:
             if line.strip().startswith("sequenceDiagram") or not line.strip():
                 continue
 

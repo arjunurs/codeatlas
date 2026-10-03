@@ -121,9 +121,9 @@ class GeneratorConfig:
             raise ValueError("Retriever K must be positive")
         if self.RETRIEVER_SEARCH_TYPE not in ("similarity", "mmr"):
             raise ValueError("Retriever search type must be 'similarity' or 'mmr'")
-        if self.RETRIEVER_SCORE_THRESHOLD is not None:
-            if not 0 <= self.RETRIEVER_SCORE_THRESHOLD <= 1:
-                raise ValueError("Retriever score threshold must be between 0 and 1")
+        threshold = self.RETRIEVER_SCORE_THRESHOLD
+        if threshold is not None and not 0 <= threshold <= 1:
+            raise ValueError("Retriever score threshold must be between 0 and 1")
         if self.RETRIEVER_FETCH_K <= 0:
             raise ValueError("Retriever fetch K must be positive")
         if not 0 <= self.RETRIEVER_LAMBDA_MULT <= 1:

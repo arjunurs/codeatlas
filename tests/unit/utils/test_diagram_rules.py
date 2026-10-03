@@ -133,6 +133,18 @@ class TestSpecialCharactersRule:
         errors = rule.validate(diagram, DiagramType.ARCHITECTURE)
         assert len(errors) > 0
 
+    def test_line_with_several_is_reported_by_the_first_listed(self):
+        """The same character is reported on every run, whatever the hash seed.
+
+        The characters used to be a set, whose order changes between runs.
+        """
+        rule = SpecialCharactersRule()
+        diagram = "graph TD\n    A --> B; C | D"
+        errors = rule.validate(diagram, DiagramType.ARCHITECTURE)
+        assert [error.message for error in errors] == [
+            "Special character ';' may need quoting"
+        ]
+
     def test_skips_comments(self):
         """Test that comments are skipped."""
         rule = SpecialCharactersRule()

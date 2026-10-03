@@ -130,10 +130,11 @@ class SpecialCharactersRule:
     rule_name = "special_characters"
 
     # Special characters that need escaping or quoting in Mermaid
-    SPECIAL_CHARS = set("[];{}|:")
+    # A tuple, so a line with several is always reported by the same one
+    SPECIAL_CHARS = tuple("[];{}|:")
 
     # Known valid Mermaid operators that contain special chars
-    _VALID_OPERATORS = [
+    _VALID_OPERATORS = (
         "--|>",
         "--*",
         "--o",
@@ -144,7 +145,7 @@ class SpecialCharactersRule:
         "-->>",
         "<<--",
         "<--",
-    ]
+    )
 
     _HEADER_PREFIXES = ("graph", "flowchart", "classDiagram", "sequenceDiagram")
 

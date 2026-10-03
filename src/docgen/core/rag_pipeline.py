@@ -206,7 +206,7 @@ class RAGPipelineFactory:
             raise
         # Stage boundary: embedding calls and Chroma raise many unrelated
         # error types, and any of them means the index could not be built
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             raise VectorStoreError(
                 f"Failed to create vector store: {describe_error(e)}"
             ) from e

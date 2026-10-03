@@ -10,6 +10,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import ClassVar
 
 from ..models.file_analysis import FileAnalysis
 
@@ -71,7 +72,7 @@ class SectionContentCache:
     """
 
     # Define which files each section type depends on (use normalized names)
-    SECTION_DEPENDENCIES = {
+    SECTION_DEPENDENCIES: ClassVar[dict[str, str]] = {
         "overview": "all",
         "dependencies": "imports",
         "key_classes_functions": "entities",
