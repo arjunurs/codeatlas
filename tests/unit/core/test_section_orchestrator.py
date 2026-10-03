@@ -254,6 +254,22 @@ def test_truncated_section_is_flagged_and_not_cached(
     assert cost_tracker.usage_by_model["claude-sonnet-5"].requests == 2
 
 
+def test_section_that_refers_to_its_excerpts_is_warned_about(caplog):
+    """Readers never see the excerpts, so a remark about them is reported."""
+    chain = RunnableLambda(
+        lambda prompt: "## Overview\n\nThe code shows two pipelines."
+    )
+    orchestrator = SectionOrchestrator(
+        DEFAULT_CONFIG, model_name="claude-sonnet-5", current_analyses=ANALYSES
+    )
+
+    with caplog.at_level("WARNING", logger="docgen"):
+        orchestrator._generate_section(chain, "Overview")
+
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("Overview" in m and '"The code shows"' in m for m in messages)
+
+
 def failing_chain(message: str) -> RunnableLambda:
     """A chain that raises the same error for every section."""
 

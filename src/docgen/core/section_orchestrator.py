@@ -19,6 +19,7 @@ from ..prompts.rag_prompt import EXCERPT_LABEL, RAG_PROMPT_TEMPLATE
 from ..prompts.sections import get_section_prompt, select_sections
 from ..utils.cost_tracker import CostTracker
 from ..utils.error_classification import describe_error
+from ..utils.excerpt_remarks import find_excerpt_remarks
 from ..utils.usage_tracking import TokenUsageCallback
 
 logger = logging.getLogger(__name__)
@@ -289,4 +290,11 @@ class SectionOrchestrator:
                 "limit; it will be regenerated on the next run"
             )
             content += TRUNCATION_NOTE
+        remarks = find_excerpt_remarks(content)
+        if remarks:
+            quoted = ", ".join(f'"{remark}"' for remark in remarks)
+            logger.warning(
+                f"Section '{section_name}' refers to the code excerpts it was "
+                f"written from, which readers never see: {quoted}"
+            )
         return content, usage.truncated
