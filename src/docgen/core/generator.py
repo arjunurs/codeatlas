@@ -197,8 +197,10 @@ class CodeDocumentationGenerator:
                 in that case the output is still written first
             ValueError: If directory paths are invalid
         """
-        # Validate and convert paths
-        abs_directory_path = os.path.abspath(directory_path)
+        # Validate and convert paths. The source is resolved once, here, so a
+        # symlink in it (as /tmp is on macOS) names files the same way in the
+        # analysis and in the cache, which resolves the paths it is given
+        abs_directory_path = os.path.realpath(directory_path)
         abs_output_dir = os.path.abspath(output_dir)
 
         if not os.path.isdir(abs_directory_path):

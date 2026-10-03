@@ -362,6 +362,36 @@ def test_edits_in_a_git_repository_are_picked_up(
     assert "def old_name" not in contents
 
 
+def test_source_reached_through_a_symlink_is_cached(
+    sample_python_project,
+    cache_dir,
+    tmp_path,
+    mock_llm_provider,
+    mock_embedding_provider,
+):
+    """--source through a symlink (as /tmp is on macOS) caches and updates normally."""
+    link = tmp_path / "link"
+    link.symlink_to(sample_python_project, target_is_directory=True)
+    project_cache_dir = cache_dir / "project"
+    run_args = (
+        link,
+        project_cache_dir,
+        tmp_path / "output",
+        mock_llm_provider,
+        mock_embedding_provider,
+    )
+    _run_cached_generator(*run_args)
+
+    (link / "module1.py").write_text('def wave():\n    """Wave."""\n    return "o/"\n')
+    _run_cached_generator(*run_args)
+
+    contents = "\n".join(
+        _stored_chunks(project_cache_dir, mock_embedding_provider)["documents"]
+    )
+    assert "def wave" in contents
+    assert "Greeter" not in contents
+
+
 def test_incremental_update_removes_orphaned_chunks(
     sample_python_project,
     cache_dir,
