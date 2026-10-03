@@ -58,7 +58,7 @@ def mock_llm_provider():
     """Create a mock LLM provider."""
     from langchain_core.runnables import RunnableLambda
 
-    mock_provider = MagicMock()
+    mock_provider = MagicMock(model_name="claude-sonnet-5")
     # Create a simple runnable that returns mock content
     mock_llm = RunnableLambda(lambda x: "Mock documentation content")
     mock_provider.get_langchain_llm.return_value = mock_llm
@@ -79,7 +79,7 @@ def mock_embedding_provider():
         def embed_query(self, text):
             return [0.1] * 1536
 
-    mock_provider = MagicMock()
+    mock_provider = MagicMock(model_name="text-embedding-3-small")
     mock_provider.get_langchain_embeddings.return_value = MockEmbeddings()
     return mock_provider
 

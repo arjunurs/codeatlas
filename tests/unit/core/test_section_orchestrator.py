@@ -1,5 +1,6 @@
 """Unit tests for SectionOrchestrator."""
 
+import logging
 from unittest.mock import MagicMock
 
 import anthropic
@@ -220,3 +221,17 @@ def test_rejected_api_key_is_reported_with_what_to_do():
             f"Anthropic rejected the API key; check ANTHROPIC_API_KEY ({rejected})",
         )
     ]
+
+
+def test_failed_section_is_left_to_the_caller_to_report(caplog):
+    """The orchestrator logs a failure only at debug level, with its traceback."""
+    orchestrator = SectionOrchestrator(
+        DEFAULT_CONFIG, model_name="claude-sonnet-5", selected_sections=["overview"]
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="docgen"):
+        orchestrator.generate_documentation_sections(failing_chain("boom"))
+
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
+    failures = [r for r in caplog.records if r.exc_info]
+    assert [r.getMessage() for r in failures] == ["Section 'Overview' failed"]

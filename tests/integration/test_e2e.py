@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from langchain_core.runnables import RunnableLambda
 
 from docgen.cli import main
 from docgen.config import CacheConfig, GenerationOptions
@@ -229,6 +230,86 @@ class TestErrorHandling:
 
         assert generator.llm_provider is None
         assert generator.embedding_provider is None
+
+
+def failing_model(*failures: str) -> RunnableLambda:
+    """A model that raises each message in turn, then answers normally."""
+    remaining = list(failures)
+
+    def answer(prompt) -> str:
+        if remaining:
+            raise RuntimeError(remaining.pop(0))
+        return "generated text"
+
+    return RunnableLambda(answer)
+
+
+def generate_sections(model, source_dir: Path, output_dir: Path, fake_embeddings):
+    """Generate the overview and dependencies sections, one after the other."""
+    llm_provider = MagicMock(model_name="claude-sonnet-5")
+    llm_provider.get_langchain_llm.return_value = model
+    embedding_provider = MagicMock(model_name="text-embedding-3-small")
+    embedding_provider.get_langchain_embeddings.return_value = fake_embeddings
+    with CodeDocumentationGenerator(
+        llm_provider,
+        embedding_provider,
+        generation_options=GenerationOptions(
+            selected_sections=["overview", "dependencies"],
+            skip_diagrams=True,
+            parallel_sections=False,
+        ),
+        cache_config=CacheConfig(enabled=False),
+    ) as generator:
+        generator.generate_documentation(str(source_dir), str(output_dir))
+
+
+class TestSectionFailures:
+    """How a run reports sections that fail."""
+
+    def test_run_fails_when_every_section_fails(
+        self, temp_source_dir, temp_output_dir, fake_embeddings
+    ):
+        """One shared cause is reported once, and the pages are still written."""
+        model = failing_model("model down", "model down")
+
+        with pytest.raises(
+            DocumentationError,
+            match=r"^No section could be generated: RuntimeError: model down$",
+        ):
+            generate_sections(model, temp_source_dir, temp_output_dir, fake_embeddings)
+
+        assert (temp_output_dir / "index.html").exists()
+        overview = (temp_output_dir / "sections" / "overview.html").read_text()
+        assert "RuntimeError: model down" in overview
+
+    def test_sections_failing_differently_are_each_listed(
+        self, temp_source_dir, temp_output_dir, fake_embeddings
+    ):
+        """Different causes are listed by section."""
+        model = failing_model("first cause", "second cause")
+
+        with pytest.raises(DocumentationError) as exc_info:
+            generate_sections(model, temp_source_dir, temp_output_dir, fake_embeddings)
+
+        assert str(exc_info.value) == (
+            "No section could be generated:\n"
+            "  - Overview: RuntimeError: first cause\n"
+            "  - Dependencies: RuntimeError: second cause"
+        )
+
+    def test_partial_failure_is_one_warning(
+        self, temp_source_dir, temp_output_dir, fake_embeddings, caplog
+    ):
+        """A run where some sections work succeeds, with one warning for the rest."""
+        model = failing_model("model down")
+
+        with caplog.at_level(logging.INFO, logger="docgen"):
+            generate_sections(model, temp_source_dir, temp_output_dir, fake_embeddings)
+
+        problems = [r for r in caplog.records if r.levelno >= logging.WARNING]
+        assert [r.getMessage() for r in problems] == [
+            "1 of 2 sections failed:\n  - Overview: RuntimeError: model down"
+        ]
 
 
 class TestCodeAnalysis:

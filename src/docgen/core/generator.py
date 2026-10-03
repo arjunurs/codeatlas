@@ -40,6 +40,33 @@ from .section_orchestrator import SectionOrchestrator
 logger = logging.getLogger(__name__)
 
 
+def _report_failures(
+    kind: str, errors: list[tuple[str, str]], *, total: int, required: bool
+) -> DocumentationError | None:
+    """Warn about the diagrams or sections that failed.
+
+    Args:
+        kind: "diagram" or "section"
+        errors: (name, error description) for each one that failed
+        total: How many were attempted
+        required: Whether the run fails when every one of them fails
+
+    Returns:
+        The error to fail the run with when every required one failed, in
+        place of the warning; otherwise None
+    """
+    if not errors:
+        return None
+    lines = "\n".join(f"  - {name}: {message}" for name, message in errors)
+    if required and len(errors) == total:
+        messages = {message for _, message in errors}
+        if len(messages) == 1:
+            return DocumentationError(f"No {kind} could be generated: {messages.pop()}")
+        return DocumentationError(f"No {kind} could be generated:\n{lines}")
+    logger.warning(f"{len(errors)} of {total} {kind}s failed:\n{lines}")
+    return None
+
+
 class CodeDocumentationGenerator:
     """Turns a Python source tree into a documentation site.
 
@@ -163,7 +190,9 @@ class CodeDocumentationGenerator:
             output_dir: Directory where documentation will be generated
 
         Raises:
-            DocumentationError: If documentation generation fails
+            DocumentationError: If documentation generation fails, or if no
+                section (no diagram, in diagrams-only mode) could be generated;
+                in that case the output is still written first
             ValueError: If directory paths are invalid
         """
         # Validate and convert paths
@@ -185,7 +214,6 @@ class CodeDocumentationGenerator:
         )
 
         if not analyses:
-            logger.error("No Python files found in directory")
             raise DocumentationError("No Python files found in directory")
 
         logger.info(f"Analyzed {len(analyses)} Python files")
@@ -203,13 +231,6 @@ class CodeDocumentationGenerator:
         if not self.skip_diagrams:
             diagrams, diagram_errors = self._generate_all_diagrams(analyses)
             logger.info(f"Generated {len(diagrams)} diagrams")
-            if diagram_errors:
-                logger.warning(
-                    f"{len(diagram_errors)} diagram(s) failed:\n"
-                    + "\n".join(
-                        f"  - {name}: {error}" for name, error in diagram_errors
-                    )
-                )
         else:
             logger.debug("Skipping diagram generation (--no-diagrams)")
 
@@ -252,6 +273,23 @@ class CodeDocumentationGenerator:
                 orchestrator.generate_documentation_sections(rag_chain)
             )
 
+        # The run fails if none of what it was asked for could be generated:
+        # the sections, or the diagrams in diagrams-only mode. It fails after
+        # the output is written, since the pages still show what went wrong.
+        diagram_failure = _report_failures(
+            "diagram",
+            diagram_errors,
+            total=len(diagrams) + len(diagram_errors),
+            required=self.diagrams_only,
+        )
+        section_failure = _report_failures(
+            "section",
+            section_errors,
+            total=len(documentation["sections"]),
+            required=not self.diagrams_only,
+        )
+        failure = diagram_failure or section_failure
+
         # Create final HTML output with any generation errors
         generation_errors = {
             "diagrams": diagram_errors,
@@ -270,6 +308,9 @@ class CodeDocumentationGenerator:
         if self.cost_tracker:
             self.cost_tracker.finish()
             self.cost_tracker.print_summary()
+
+        if failure:
+            raise failure
 
     def _generate_all_diagrams(
         self, analyses: Sequence[FileAnalysis]

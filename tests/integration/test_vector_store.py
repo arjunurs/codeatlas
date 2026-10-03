@@ -171,8 +171,10 @@ def test_embedding_failure_is_reported_once(
         factory.create_rag_chain(analyses, source_dir=project)
 
 
-def test_no_content_error_is_not_wrapped(fake_chat_model_with_usage, fake_embeddings):
-    """An error codeatlas raised itself keeps its own message."""
+def test_no_content_error_is_not_wrapped(
+    fake_chat_model_with_usage, fake_embeddings, caplog
+):
+    """An error codeatlas raised itself keeps its own message, logged once by the CLI."""
     factory = RAGPipelineFactory(
         llm=fake_chat_model_with_usage,
         embeddings=fake_embeddings,
@@ -184,6 +186,8 @@ def test_no_content_error_is_not_wrapped(fake_chat_model_with_usage, fake_embedd
         DocumentationError, match=r"^No documentation content could be generated$"
     ):
         factory.create_rag_chain([])
+
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
 
 
 class KeywordEmbeddings(Embeddings):

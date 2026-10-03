@@ -140,15 +140,21 @@ text length (about 4 characters per token) and labeled as estimates. Prices live
 
 ## Failure behavior
 
+A run exits 1 when it produces none of what it was asked for: no section, or, in diagrams-only
+mode, no diagram. It still writes the site first, so the diagrams and the error pages can be
+read. Anything less is a warning at the end of the run, listing what failed, and the run
+exits 0.
+
 | Failure | What happens |
 |---|---|
 | A file does not parse | That file is skipped with a warning; analysis continues |
-| A diagram fails to generate or validate | It is left out and listed in a warning and on the index page |
-| One section fails (rate limit, timeout) | Its page shows the error; other sections are unaffected. A provider error says what it means and what to do, then gives the SDK's message: "Anthropic rate limit reached; wait and run again (...)" |
+| A diagram fails to generate or validate | It is left out and listed in the warning and on the index page |
+| One section fails (rate limit, timeout) | Its page shows the error and it is listed in the warning; other sections are unaffected. A provider error says what it means and what to do, then gives the SDK's message: "Anthropic rate limit reached; wait and run again (...)" |
 | A section reaches the output limit | It is marked as cut off, a warning is logged, and it is not cached |
 | Invalid OpenAI key | The run stops when building the vector store, after diagrams, with exit code 1 and "OpenAI rejected the API key; check OPENAI_API_KEY" |
-| Invalid Anthropic key | Every section page shows the error, but the run currently exits 0 |
+| Invalid Anthropic key | Every section page shows the error, and the run exits 1 with "No section could be generated: Anthropic rejected the API key; check ANTHROPIC_API_KEY" |
 | Transient API errors | The Anthropic and OpenAI clients retry twice; codeatlas adds no retry of its own |
+| An unexpected error | The run exits 1 with "Unexpected error:" and the error's type; `--verbose` adds the traceback |
 
 ## Known limits
 

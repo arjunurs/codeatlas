@@ -156,7 +156,6 @@ class RAGPipelineFactory:
             documents = create_documents(analyses)
 
             if not documents:
-                logger.error("No documentation content could be generated")
                 raise DocumentationError("No documentation content could be generated")
 
             texts = self.text_splitter.split_documents(documents)

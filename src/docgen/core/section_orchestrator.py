@@ -71,7 +71,8 @@ class SectionOrchestrator:
             rag_chain: LCEL RAG chain for content generation
 
         Returns:
-            Tuple of (documentation dict, list of (section_name, error) pairs)
+            Tuple of (documentation dict, list of (section_name, error) pairs);
+            the caller reports the errors
         """
         logger.debug("Generating documentation content...")
 
@@ -86,12 +87,6 @@ class SectionOrchestrator:
         else:
             sections, errors = self._generate_sections_sequential(
                 rag_chain, sections_to_generate
-            )
-
-        if errors:
-            logger.warning(
-                f"Some sections failed to generate ({len(errors)} errors):\n"
-                + "\n".join(f"  - {name}: {error}" for name, error in errors)
             )
 
         documentation = {
@@ -170,10 +165,11 @@ class SectionOrchestrator:
 
         Sections are generated independently, so one that fails for any
         reason (a rate limit, a timeout, a bug) is reported and the others
-        are still generated.
+        are still generated. The caller reports the failures together; the
+        traceback is logged here, for --verbose.
         """
+        logger.debug(f"Section '{section_name}' failed", exc_info=error)
         message = describe_error(error)
-        logger.error(f"Failed to generate section '{section_name}': {message}")
         errors.append((section_name, message))
         return {
             "title": section_name,

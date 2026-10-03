@@ -405,6 +405,26 @@ def test_failed_diagram_is_reported_as_warning(temp_source_dir, tmp_path, caplog
     """A diagram that fails to generate is reported on the console, not only in HTML."""
     generator = CodeDocumentationGenerator(
         generation_options=GenerationOptions(
+            selected_diagrams=["class", "architecture"], diagrams_only=True
+        ),
+    )
+    generator.diagram_generator = MagicMock()
+    generator.diagram_generator.generate_class_diagram.side_effect = DocumentationError(
+        "no classes found"
+    )
+    generator.diagram_generator.generate_architecture_diagram.return_value = "graph TD"
+
+    with caplog.at_level(logging.WARNING, logger="docgen"):
+        generator.generate_documentation(str(temp_source_dir), str(tmp_path / "docs"))
+
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert warnings == ["1 of 2 diagrams failed:\n  - class_diagram: no classes found"]
+
+
+def test_diagrams_only_run_fails_when_every_diagram_fails(temp_source_dir, tmp_path):
+    """A diagrams-only run with no diagram fails, after writing its pages."""
+    generator = CodeDocumentationGenerator(
+        generation_options=GenerationOptions(
             selected_diagrams=["class"], diagrams_only=True
         ),
     )
@@ -413,11 +433,42 @@ def test_failed_diagram_is_reported_as_warning(temp_source_dir, tmp_path, caplog
         "no classes found"
     )
 
-    with caplog.at_level(logging.WARNING, logger="docgen"):
+    with pytest.raises(
+        DocumentationError, match=r"^No diagram could be generated: no classes found$"
+    ):
         generator.generate_documentation(str(temp_source_dir), str(tmp_path / "docs"))
 
-    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
-    assert any("class_diagram" in w and "no classes found" in w for w in warnings)
+    assert (tmp_path / "docs" / "index.html").exists()
+
+
+def test_full_run_succeeds_when_only_diagrams_fail(temp_source_dir, tmp_path):
+    """Diagrams are extra in a run that writes sections, so losing them all is a warning."""
+    generator = CodeDocumentationGenerator(
+        generation_options=GenerationOptions(selected_diagrams=["class"], dry_run=True),
+    )
+    generator.diagram_generator = MagicMock()
+    generator.diagram_generator.generate_class_diagram.side_effect = DocumentationError(
+        "no classes found"
+    )
+
+    generator.generate_documentation(str(temp_source_dir), str(tmp_path / "docs"))
+
+    assert (tmp_path / "docs" / "index.html").exists()
+
+
+def test_no_files_error_is_left_to_the_caller_to_log(mock_generator, tmp_path, caplog):
+    """The generator raises the error without also logging it."""
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    mock_generator.analyzer.analyze_directory.return_value = []
+
+    with (
+        caplog.at_level(logging.DEBUG, logger="docgen"),
+        pytest.raises(DocumentationError, match="No Python files found"),
+    ):
+        mock_generator.generate_documentation(str(source_dir), str(tmp_path / "docs"))
+
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
 
 
 def test_diagram_node_limit_comes_from_the_config():
