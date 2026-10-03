@@ -80,6 +80,13 @@ near-duplicates. The retriever searches with a short query per section ("main en
 top-level classes, and the public API" for the Overview), not with the section's full prompt,
 whose instructions and examples would otherwise steer which code is found.
 
+**Dependency manifests.** Only Python files are indexed, so the Dependencies section is also
+given the project's manifests: `pyproject.toml`, `setup.cfg`, and `requirements*.txt`, from the
+source directory or the nearest directory above it that declares dependencies, without leaving
+the repository (`--source fastapi/fastapi` finds the checkout's `pyproject.toml`). Of
+`pyproject.toml` and `setup.cfg`, only the tables that declare dependencies are included, since
+tool configuration is often most of the file; the manifests take up to 12,000 characters.
+
 **Providers supply LangChain models.** The RAG chain, the vector store, and usage tracking are
 all built on LangChain, so a provider's job is to configure and create the model: the
 `LLMProvider` and `EmbeddingProvider` protocols ask for a model name and a LangChain chat or
@@ -111,10 +118,10 @@ render time, diagram code is HTML-escaped, and Mermaid runs with `securityLevel:
   modification time differs, or, when the time is too recent to trust, its content hash does;
   edits count whether or not they are committed.
 - **Level 2, sections.** A section is reused while its code dependencies, the model, its exact
-  prompt and retrieval query, the prompt template it is wrapped in, the `--retriever-*`
-  settings, and the output token limit are unchanged. Sections depend on different parts of the code (Overview on all
-  content, Dependencies on imports, Key Classes on entities), so an edit only regenerates the
-  sections it affects.
+  prompt (for Dependencies, with the manifests) and retrieval query, the prompt template it is
+  wrapped in, the `--retriever-*` settings, and the output token limit are unchanged. Sections
+  depend on different parts of the code (Overview on all content, Dependencies on imports, Key
+  Classes on entities), so an edit only regenerates the sections it affects.
 - `--force-refresh` rebuilds the vector store and regenerates every section; `--no-cache` skips
   both levels; `--clear-cache` deletes the project's cache.
 
@@ -164,9 +171,8 @@ exits 0.
 
 - **Section quality.** Five agents fact-checked the FastAPI sections against the source: 87% of
   checkable claims were correct and no API was invented, but sections describe only what the 10
-  retrieved chunks show. They over-weight whatever was retrieved, miss some central public APIs,
-  and the Dependencies section never sees `pyproject.toml`, because only `.py` files are
-  indexed. The [agent-enhanced design](design/agentic-architecture.md) proposes adaptive
+  retrieved chunks show. They over-weight whatever was retrieved and miss some central public
+  APIs. The [agent-enhanced design](design/agentic-architecture.md) proposes adaptive
   retrieval and planning to address this.
 - **Diagrams.** The architecture, dependency, and call graph diagrams show only the project's
   own code and its third-party packages, and keep their 50 most connected nodes, so on a large

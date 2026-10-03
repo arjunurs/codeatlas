@@ -34,6 +34,7 @@ from ..utils.usage_tracking import UsageTrackingEmbeddings
 from .analyzer import CodeAnalyzer
 from .cross_reference import cross_reference_preprocessor
 from .diagrams import DiagramGenerator, select_diagrams
+from .manifests import add_manifests, find_manifests
 from .modules import module_root, project_name
 from .rag_pipeline import RAGPipelineFactory
 from .renderer import DocumentationRenderer
@@ -269,7 +270,7 @@ class CodeDocumentationGenerator:
             )
 
             # Generate documentation sections (with error aggregation)
-            orchestrator = self._create_section_orchestrator()
+            orchestrator = self._create_section_orchestrator(abs_directory_path)
             sections, section_errors = orchestrator.generate_documentation_sections(
                 rag_chain
             )
@@ -404,9 +405,15 @@ class CodeDocumentationGenerator:
         )
         return self._rag_pipeline.create_rag_chain(analyses, source_dir=source_dir)
 
-    def _create_section_orchestrator(self) -> SectionOrchestrator:
-        """Create the orchestrator that generates the documentation sections."""
+    def _create_section_orchestrator(self, source_dir: str) -> SectionOrchestrator:
+        """Create the orchestrator that generates the documentation sections.
+
+        Args:
+            source_dir: The source directory; the Dependencies section is
+                given the dependency manifests of the project it is in
+        """
         llm_provider, _ = self._providers()
+        manifests = find_manifests(source_dir)
         return SectionOrchestrator(
             config=self.config,
             model_name=llm_provider.model_name,
@@ -416,7 +423,10 @@ class CodeDocumentationGenerator:
             force_refresh=self.force_refresh,
             current_analyses=self._current_analyses,
             selected_sections=self.selected_sections,
-            section_preprocessors={"cross": cross_reference_preprocessor},
+            section_preprocessors={
+                "cross": cross_reference_preprocessor,
+                "dependencies": lambda prompt, _: add_manifests(prompt, manifests),
+            },
             convert_markdown_to_html=self._renderer.convert_markdown_to_html,
         )
 

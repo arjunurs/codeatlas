@@ -151,6 +151,48 @@ class TestPythonApiRun:
         assert "def add_numbers" in chat_model.prompts[0]
 
 
+class TestDependencyManifests:
+    """The Dependencies section is written from the project's manifests."""
+
+    def test_dependencies_prompt_shows_the_pyproject_above_the_package(
+        self, tmp_path: Path, fake_chat_model_with_usage, fake_embeddings
+    ):
+        """--source repo/calc reads repo/pyproject.toml, for that section only."""
+        repo = tmp_path / "repo"
+        (repo / ".git").mkdir(parents=True)
+        (repo / "pyproject.toml").write_text(
+            '[project]\nname = "calc"\ndependencies = ["numpy>=2.1"]\n\n'
+            "[tool.ruff]\nline-length = 100\n"
+        )
+        (repo / "calc").mkdir()
+        (repo / "calc" / "__init__.py").write_text("")
+        (repo / "calc" / "calculator.py").write_text(CALCULATOR_SOURCE)
+        llm_provider = MagicMock(model_name="claude-sonnet-5")
+        llm_provider.get_langchain_llm.return_value = fake_chat_model_with_usage
+        embedding_provider = MagicMock(model_name="text-embedding-3-small")
+        embedding_provider.get_langchain_embeddings.return_value = fake_embeddings
+
+        with CodeDocumentationGenerator(
+            llm_provider=llm_provider,
+            embedding_provider=embedding_provider,
+            generation_options=GenerationOptions(
+                selected_sections=["overview", "dependencies"],
+                skip_diagrams=True,
+                parallel_sections=False,
+            ),
+            cache_config=CacheConfig(enabled=False),
+        ) as generator:
+            generator.generate_documentation(
+                str(repo / "calc"), str(tmp_path / "output")
+            )
+
+        overview, dependencies = fake_chat_model_with_usage.prompts
+        assert "Analyze the project dependencies" in dependencies
+        assert 'dependencies = ["numpy>=2.1"]' in dependencies
+        assert "line-length" not in dependencies
+        assert "numpy" not in overview
+
+
 class TestGeneratorLifecycle:
     """Test the generator's resource handling."""
 
