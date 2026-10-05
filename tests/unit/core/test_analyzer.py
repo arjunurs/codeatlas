@@ -1151,6 +1151,22 @@ def test_analyze_directory_skips_a_file_that_links_outside_it(
     assert "outside" in caplog.text
 
 
+def test_analyze_directory_skips_a_link_that_loops(analyzer, tmp_path, caplog):
+    """A link that points to itself is skipped, and the other files still count.
+
+    Python 3.10 to 3.12 raise RuntimeError when resolving a link loop.
+    """
+    (tmp_path / "main.py").write_text("def main():\n    pass\n")
+    (tmp_path / "self.py").symlink_to(tmp_path / "self.py")
+    (tmp_path / "a.py").symlink_to(tmp_path / "b.py")
+    (tmp_path / "b.py").symlink_to(tmp_path / "a.py")
+
+    analyses = analyzer.analyze_directory(str(tmp_path))
+
+    assert [os.path.basename(a.file_path) for a in analyses] == ["main.py"]
+    assert "self.py" in caplog.text
+
+
 def test_package_dependencies_skip_excluded_dirs(analyzer, project_with_tool_dirs):
     """Dependencies skip default and user-excluded directories too."""
     analyses = analyzer.analyze_directory(

@@ -63,8 +63,9 @@ class DocumentationRenderer:
             output_dir: Base output directory path
 
         Raises:
-            PathValidationError: If the directory, or a folder in it, is a link
-                (checked here, before any model call, and again for each page)
+            PathValidationError: If the directory is a link, or a folder or
+                page in it links outside it (checked here, before any model
+                call, and again as each page is written)
         """
         if os.path.islink(output_dir):
             raise PathValidationError(
@@ -75,6 +76,10 @@ class DocumentationRenderer:
             path = os.path.join(output_dir, subdir)
             require_within(path, output_dir)
             os.makedirs(path, exist_ok=True)
+            # Pages left by an earlier run, or planted by a checkout
+            with os.scandir(path) as entries:
+                for entry in entries:
+                    require_within(entry.path, output_dir)
 
     def convert_markdown_to_html(self, content: str) -> str:
         """Convert markdown content to HTML.

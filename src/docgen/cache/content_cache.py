@@ -96,6 +96,9 @@ class SectionContentCache:
         """
         self.cache_dir = cache_dir
         self.cache_file = cache_dir / "section_cache.json"
+        # Checked again on save; checking now stops a run before any section
+        # is paid for
+        require_within(self.cache_file, cache_dir)
         self.cache: dict[str, SectionCacheEntry] = {}
         self._load_cache()
 

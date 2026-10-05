@@ -262,16 +262,32 @@ def test_cached_section_misses_for_other_model(tmp_path, sample_analyses):
 def test_section_cache_is_not_written_through_a_link_out_of_its_directory(
     tmp_path, sample_analyses
 ):
-    """A planted section_cache.json link would let the save overwrite any file."""
+    """A link to section_cache.json made during a run is not written through."""
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
     elsewhere = tmp_path / "notes.txt"
     elsewhere.write_text("keep me\n")
-    (cache_dir / "section_cache.json").symlink_to(elsewhere)
     cache = SectionContentCache(cache_dir)
     cache.cache_section("overview", "Overview content", sample_analyses)
+    (cache_dir / "section_cache.json").symlink_to(elsewhere)
 
     with pytest.raises(PathValidationError, match=r"section_cache\.json"):
         cache.save_cache()
 
     assert elsewhere.read_text() == "keep me\n"
+
+
+def test_section_cache_linked_out_of_its_directory_is_refused_before_any_section(
+    tmp_path,
+):
+    """A planted section_cache.json link is refused when the cache is opened.
+
+    The cache is opened before any model call, so the run stops before the
+    sections are paid for rather than after the site is written.
+    """
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    (cache_dir / "section_cache.json").symlink_to(tmp_path / "notes.txt")
+
+    with pytest.raises(PathValidationError, match=r"section_cache\.json"):
+        SectionContentCache(cache_dir)

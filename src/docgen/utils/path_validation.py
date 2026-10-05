@@ -4,6 +4,7 @@ This module provides functions to validate file paths and prevent
 path traversal vulnerabilities.
 """
 
+import os
 from pathlib import Path
 
 from ..exceptions.errors import PathValidationError
@@ -116,9 +117,13 @@ def resolves_within(path: str | Path, root: str | Path) -> bool:
         root: The directory it must stay within
 
     Returns:
-        True if the path resolves to root or to something inside it
+        True if the path resolves to root or to something inside it; False
+        for a link loop, which Python 3.10 to 3.12 report as RuntimeError
     """
-    return Path(path).resolve().is_relative_to(Path(root).resolve())
+    try:
+        return Path(path).resolve().is_relative_to(Path(root).resolve())
+    except (OSError, RuntimeError):
+        return False
 
 
 def require_within(path: str | Path, root: str | Path) -> None:
@@ -136,7 +141,7 @@ def require_within(path: str | Path, root: str | Path) -> None:
     """
     if not resolves_within(path, root):
         raise PathValidationError(
-            f"Refusing to write {path}: it links to {Path(path).resolve()}, "
+            f"Refusing to write {path}: it links to {os.path.realpath(path)}, "
             f"outside {root}"
         )
 
