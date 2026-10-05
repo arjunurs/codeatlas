@@ -21,6 +21,7 @@ from ..models.call_graph import CallGraph
 from ..models.code_entity import CodeEntity, EntityType
 from ..models.file_analysis import FileAnalysis, FileSnapshot
 from ..utils.error_classification import describe_error
+from ..utils.path_validation import resolves_within
 from .calls import trace_calls
 from .modules import ImportKind, ModuleIndex, module_name
 
@@ -219,7 +220,13 @@ class CodeAnalyzer:
                     logger.debug(f"Excluding file by path: {rel_path}")
                     continue
 
-                yield os.path.join(root, file)
+                path = os.path.join(root, file)
+                if not resolves_within(path, directory):
+                    logger.warning(
+                        f"Skipping {rel_path}: it links to a file outside {directory}"
+                    )
+                    continue
+                yield path
 
     def _matches_any_pattern(self, name: str, patterns: list[str]) -> bool:
         """Check if a name matches any of the given glob patterns.

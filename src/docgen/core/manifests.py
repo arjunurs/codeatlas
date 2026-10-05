@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..utils.error_classification import describe_error
+from ..utils.path_validation import resolves_within
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,11 @@ def _read_manifests(directory: Path) -> list[Manifest]:
     manifests = []
     for path in paths:
         if not path.is_file():
+            continue
+        if not resolves_within(path, directory):
+            logger.warning(
+                f"Skipping dependency manifest {path}: it links outside {directory}"
+            )
             continue
         try:
             text = path.read_text(encoding="utf-8", errors="replace")

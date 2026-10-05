@@ -122,6 +122,10 @@ async. The cap stays under typical API rate limits.
 **Untrusted output is sanitized.** LLM output and error text are cleaned with nh3's allowlist at
 render time, diagram code is HTML-escaped, and Mermaid runs with `securityLevel: 'strict'`.
 
+**The analyzed project is untrusted too.** A repository can hold links to any file on the
+machine. Source and manifest files that resolve outside the source tree are skipped with a
+warning, since their contents would go to the model providers.
+
 ## Caching
 
 ```

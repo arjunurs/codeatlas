@@ -104,6 +104,23 @@ def validate_env_file_path(
     return resolved_path
 
 
+def resolves_within(path: str | Path, root: str | Path) -> bool:
+    """Check that a path, with every symbolic link followed, stays inside root.
+
+    A repository can hold links to files anywhere on the machine, and to
+    files that anyone could replace, so codeatlas reads and writes only
+    paths that resolve inside the directory it was given.
+
+    Args:
+        path: The path to check
+        root: The directory it must stay within
+
+    Returns:
+        True if the path resolves to root or to something inside it
+    """
+    return Path(path).resolve().is_relative_to(Path(root).resolve())
+
+
 def is_safe_path(path: str, allowed_directories: set[Path] | None = None) -> bool:
     """Check if a path is safe without raising an exception.
 

@@ -6,6 +6,12 @@ All notable changes to codeatlas are recorded here. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- A file in the analyzed project that links outside it, a `.py` file or a `requirements*.txt`,
+  is skipped with a warning instead of read, so a checkout cannot send other files on the
+  machine to the model providers.
+
 ### Fixed
 
 - Diagram validation no longer slows down quadratically on very long names: a 40,000-character

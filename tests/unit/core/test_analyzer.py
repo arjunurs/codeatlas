@@ -1126,6 +1126,31 @@ def test_analyze_directory_skips_virtualenvs_and_tool_dirs(
     assert analyzed == [os.path.join("app", "main.py"), "tool.py"]
 
 
+def test_analyze_directory_skips_a_file_that_links_outside_it(
+    analyzer, tmp_path, caplog
+):
+    """A link to a file outside the source tree is not read.
+
+    Its contents would be embedded and sent to the model providers, so a
+    checkout could leak any readable file on the machine.
+    """
+    project = tmp_path / "project"
+    (project / "pkg").mkdir(parents=True)
+    (project / "pkg" / "main.py").write_text("def main():\n    pass\n")
+    (project / "pkg" / "alias.py").symlink_to(project / "pkg" / "main.py")
+    private = tmp_path / "private.py"
+    private.write_text("TOKEN = 'kept out of the docs'\n")
+    (project / "pkg" / "settings.py").symlink_to(private)
+
+    analyses = analyzer.analyze_directory(str(project))
+
+    analyzed = sorted(os.path.relpath(a.file_path, project) for a in analyses)
+    assert analyzed == [os.path.join("pkg", "alias.py"), os.path.join("pkg", "main.py")]
+    assert "kept out of the docs" not in "".join(a.content for a in analyses)
+    assert "settings.py" in caplog.text
+    assert "outside" in caplog.text
+
+
 def test_package_dependencies_skip_excluded_dirs(analyzer, project_with_tool_dirs):
     """Dependencies skip default and user-excluded directories too."""
     analyses = analyzer.analyze_directory(

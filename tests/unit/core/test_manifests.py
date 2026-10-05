@@ -206,6 +206,33 @@ def test_requirements_files_are_kept_whole_after_the_project_files(tmp_path):
     assert manifests[2].text == "# Tests\npytest>=8"
 
 
+def test_manifest_that_links_outside_its_directory_is_skipped(tmp_path, caplog):
+    """A requirements file linked to a file elsewhere is not read.
+
+    Its text goes into the Dependencies prompt, so a checkout could send any
+    readable file to the model providers. Links inside the folder still work.
+    """
+    project = _project(
+        tmp_path / "project",
+        {"pyproject.toml": PYPROJECT, "requirements/base.txt": "click\n"},
+    )
+    (project / "requirements.txt").symlink_to(project / "requirements" / "base.txt")
+    private = tmp_path / "notes.txt"
+    private.write_text("private notes\n")
+    (project / "requirements-dev.txt").symlink_to(private)
+
+    with caplog.at_level(logging.WARNING, logger="docgen"):
+        manifests = find_manifests(project)
+
+    assert [manifest.name for manifest in manifests] == [
+        "pyproject.toml",
+        "requirements.txt",
+    ]
+    assert manifests[1].text == "click"
+    assert "requirements-dev.txt" in caplog.text
+    assert "outside" in caplog.text
+
+
 def test_manifest_that_declares_nothing_does_not_end_the_search(tmp_path):
     """A pyproject.toml holding only tool settings is passed over."""
     _project(
