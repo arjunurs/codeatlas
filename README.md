@@ -155,7 +155,8 @@ More detail, including caching, measured cost, and failure behavior:
 - **Two cache levels**: embeddings per file, and sections keyed on the code they depend on, the
   model, the exact prompt, and the retrieval settings. [More](docs/architecture.md#caching)
 - **Model output is untrusted**: it is sanitized with nh3 before it reaches HTML, and Mermaid
-  runs in strict mode.
+  runs in strict mode. So is the analyzed project: links out of it are not read, and no file is
+  written through a link out of the output or cache directory.
 - **A failed diagram or section does not fail the run**: it is reported, and the rest are still
   generated. [More](docs/architecture.md#failure-behavior)
 

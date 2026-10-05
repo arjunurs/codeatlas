@@ -121,6 +121,26 @@ def resolves_within(path: str | Path, root: str | Path) -> bool:
     return Path(path).resolve().is_relative_to(Path(root).resolve())
 
 
+def require_within(path: str | Path, root: str | Path) -> None:
+    """Refuse a write to a path that leaves root once its links are followed.
+
+    Called before every write, since a link planted at a path codeatlas
+    writes would redirect the write to any file the user can change.
+
+    Args:
+        path: The path about to be written
+        root: The directory the write must stay within
+
+    Raises:
+        PathValidationError: If the path resolves outside root
+    """
+    if not resolves_within(path, root):
+        raise PathValidationError(
+            f"Refusing to write {path}: it links to {Path(path).resolve()}, "
+            f"outside {root}"
+        )
+
+
 def is_safe_path(path: str, allowed_directories: set[Path] | None = None) -> bool:
     """Check if a path is safe without raising an exception.
 

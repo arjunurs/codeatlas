@@ -5,7 +5,10 @@ import time
 from datetime import datetime
 from unittest.mock import patch
 
+import pytest
+
 from docgen.cache.metadata import CacheMetadata, FileMetadata
+from docgen.exceptions.errors import PathValidationError
 from docgen.models.file_analysis import FileSnapshot
 
 
@@ -176,3 +179,17 @@ def test_cache_metadata_load_corrupted(tmp_path):
 
     loaded = CacheMetadata.load(cache_dir)
     assert loaded is None  # Should return None on corruption
+
+
+def test_cache_metadata_is_not_written_through_a_link_out_of_its_directory(tmp_path):
+    """A planted file_metadata.json link would let the save overwrite any file."""
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    elsewhere = tmp_path / "notes.txt"
+    elsewhere.write_text("keep me\n")
+    (cache_dir / "file_metadata.json").symlink_to(elsewhere)
+
+    with pytest.raises(PathValidationError, match=r"file_metadata\.json"):
+        CacheMetadata.create_for_project(tmp_path).save(cache_dir)
+
+    assert elsewhere.read_text() == "keep me\n"

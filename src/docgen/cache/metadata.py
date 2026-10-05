@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..models.file_analysis import FileSnapshot
+from ..utils.path_validation import require_within
 
 # Coarsest mtime granularity we expect from a filesystem (FAT and some network
 # mounts round to 2 seconds). Files modified this close to when their metadata
@@ -269,6 +270,7 @@ class CacheMetadataStore:
         """
         cache_dir.mkdir(parents=True, exist_ok=True)
         metadata_file = cache_dir / CacheMetadataStore.METADATA_FILENAME
+        require_within(metadata_file, cache_dir)
 
         with open(metadata_file, "w") as f:
             json.dump(metadata.to_dict(), f, indent=2)

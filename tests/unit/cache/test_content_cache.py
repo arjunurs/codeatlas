@@ -9,6 +9,7 @@ from docgen.cache.content_cache import (
     SectionContentCache,
     _normalize_section_name,
 )
+from docgen.exceptions.errors import PathValidationError
 from docgen.models.code_entity import CodeEntity, EntityType
 from docgen.models.file_analysis import FileAnalysis
 
@@ -256,3 +257,21 @@ def test_cached_section_misses_for_other_model(tmp_path, sample_analyses):
         )
         is None
     )
+
+
+def test_section_cache_is_not_written_through_a_link_out_of_its_directory(
+    tmp_path, sample_analyses
+):
+    """A planted section_cache.json link would let the save overwrite any file."""
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    elsewhere = tmp_path / "notes.txt"
+    elsewhere.write_text("keep me\n")
+    (cache_dir / "section_cache.json").symlink_to(elsewhere)
+    cache = SectionContentCache(cache_dir)
+    cache.cache_section("overview", "Overview content", sample_analyses)
+
+    with pytest.raises(PathValidationError, match=r"section_cache\.json"):
+        cache.save_cache()
+
+    assert elsewhere.read_text() == "keep me\n"

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from ..models.file_analysis import FileAnalysis
+from ..utils.path_validation import require_within
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +117,7 @@ class SectionContentCache:
     def save_cache(self) -> None:
         """Save cache to disk."""
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        require_within(self.cache_file, self.cache_dir)
         with open(self.cache_file, "w") as f:
             data = {name: entry.to_dict() for name, entry in self.cache.items()}
             json.dump(data, f, indent=2)

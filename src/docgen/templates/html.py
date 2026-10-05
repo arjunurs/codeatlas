@@ -12,6 +12,8 @@ from typing import Any
 
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader
 
+from ..utils.path_validation import require_within
+
 logger = logging.getLogger(__name__)
 
 
@@ -117,6 +119,7 @@ class TemplateManager:
         else:
             output_path = os.path.join(output_dir, f"{template_name}.html")
 
+        require_within(output_path, output_dir)
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(output)
