@@ -312,6 +312,20 @@ def test_page_linked_elsewhere_is_refused_before_any_model_call(tmp_path, page):
         )
 
 
+@pytest.mark.parametrize("entry", ["assets/logo.png", "notes.txt", "sections/notes.md"])
+def test_link_the_run_never_writes_through_is_left_alone(tmp_path, entry):
+    """Only pages the run writes are checked: other links are the user's business."""
+    output = tmp_path / "output"
+    (output / entry).parent.mkdir(parents=True)
+    shared = tmp_path / "shared"
+    shared.write_text("shared\n")
+    (output / entry).symlink_to(shared)
+
+    DocumentationRenderer(get_template_manager()).setup_output_directories(str(output))
+
+    assert (output / entry).is_symlink()
+
+
 def test_output_subdirectory_linked_elsewhere_is_refused(tmp_path):
     output = tmp_path / "output"
     output.mkdir()
