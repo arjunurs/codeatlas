@@ -13,6 +13,7 @@ from docgen.cache.metadata import CacheMetadata, FileMetadata
 from docgen.cache.vector_cache import persistent_chroma_client
 from docgen.config import CacheConfig, GenerationOptions
 from docgen.core.generator import CodeDocumentationGenerator
+from docgen.exceptions.errors import PathValidationError
 from docgen.models.file_analysis import FileAnalysis
 
 
@@ -661,3 +662,21 @@ def test_force_refresh_regenerates_cached_sections(
 
     run(force_refresh=True)
     assert len(llm_calls) == 2
+
+
+def test_metadata_linked_out_of_the_cache_is_refused_before_embedding(
+    tmp_path, mock_embedding_provider
+):
+    """A planted file_metadata.json link is refused before any embedding call."""
+    source = tmp_path / "project"
+    source.mkdir()
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    (cache_dir / "file_metadata.json").symlink_to(tmp_path / "notes.txt")
+
+    with pytest.raises(PathValidationError, match=r"file_metadata\.json"):
+        vector_cache.VectorStoreCache(
+            cache_dir=cache_dir,
+            source_dir=source,
+            embeddings=mock_embedding_provider.get_langchain_embeddings(),
+        )

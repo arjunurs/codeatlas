@@ -286,6 +286,9 @@ class CacheMetadataStore:
             CacheMetadata instance if exists, None otherwise
         """
         metadata_file = cache_dir / CacheMetadataStore.METADATA_FILENAME
+        # The file is rewritten after indexing; refusing a link now stops a run
+        # before any embedding call
+        require_within(metadata_file, cache_dir)
 
         if not metadata_file.exists():
             return None

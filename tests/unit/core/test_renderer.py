@@ -297,6 +297,21 @@ def test_output_directory_that_is_a_link_is_refused(tmp_path):
     assert list(target.iterdir()) == []
 
 
+@pytest.mark.parametrize(
+    "page", ["index.html", "sections/overview.html", "diagrams/call_graph.html"]
+)
+def test_page_linked_elsewhere_is_refused_before_any_model_call(tmp_path, page):
+    """Existing pages are checked when the folders are set up, at the start of a run."""
+    output = tmp_path / "output"
+    (output / page).parent.mkdir(parents=True)
+    (output / page).symlink_to(tmp_path / "notes.txt")
+
+    with pytest.raises(PathValidationError, match=re.escape(page.split("/")[-1])):
+        DocumentationRenderer(get_template_manager()).setup_output_directories(
+            str(output)
+        )
+
+
 def test_output_subdirectory_linked_elsewhere_is_refused(tmp_path):
     output = tmp_path / "output"
     output.mkdir()

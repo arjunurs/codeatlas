@@ -223,7 +223,7 @@ class CodeAnalyzer:
                 path = os.path.join(root, file)
                 if not resolves_within(path, directory):
                     logger.warning(
-                        f"Skipping {rel_path}: it links to a file outside {directory}"
+                        f"Skipping {rel_path}: it links outside {directory}, or in a loop"
                     )
                     continue
                 yield path
