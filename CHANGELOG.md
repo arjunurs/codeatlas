@@ -11,6 +11,9 @@ All notable changes to codeatlas are recorded here. The format follows
 - A file in the analyzed project that links outside it, a `.py` file or a `requirements*.txt`,
   is skipped with a warning instead of read, so a checkout cannot send other files on the
   machine to the model providers.
+- Pages and cache files are never written through a link that leads out of the output or cache
+  directory, and an output directory that is itself a link is refused before any model call,
+  so a checkout cannot have a run overwrite other files.
 
 ### Fixed
 

@@ -15,7 +15,8 @@ import jinja2
 import nh3
 from markdown_it import MarkdownIt
 
-from ..exceptions.errors import DocumentationError
+from ..exceptions.errors import DocumentationError, PathValidationError
+from ..utils.path_validation import require_within
 
 
 @dataclass(frozen=True)
@@ -60,9 +61,20 @@ class DocumentationRenderer:
 
         Args:
             output_dir: Base output directory path
+
+        Raises:
+            PathValidationError: If the directory, or a folder in it, is a link
+                (checked here, before any model call, and again for each page)
         """
+        if os.path.islink(output_dir):
+            raise PathValidationError(
+                f"Output directory {output_dir} is a link to "
+                f"{os.path.realpath(output_dir)}; pass that path to --output instead"
+            )
         for subdir in ["", "sections", "diagrams", "assets"]:
-            os.makedirs(os.path.join(output_dir, subdir), exist_ok=True)
+            path = os.path.join(output_dir, subdir)
+            require_within(path, output_dir)
+            os.makedirs(path, exist_ok=True)
 
     def convert_markdown_to_html(self, content: str) -> str:
         """Convert markdown content to HTML.

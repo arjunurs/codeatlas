@@ -124,7 +124,9 @@ render time, diagram code is HTML-escaped, and Mermaid runs with `securityLevel:
 
 **The analyzed project is untrusted too.** A repository can hold links to any file on the
 machine. Source and manifest files that resolve outside the source tree are skipped with a
-warning, since their contents would go to the model providers.
+warning, since their contents would go to the model providers. Pages and cache files are only
+written to paths that stay inside the output or cache directory once links are followed, and
+an output directory that is itself a link is refused before any model call.
 
 ## Caching
 

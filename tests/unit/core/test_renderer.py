@@ -7,7 +7,7 @@ import jinja2
 import pytest
 
 from docgen.core.renderer import DIAGRAM_PAGES, DocumentationRenderer
-from docgen.exceptions.errors import DocumentationError
+from docgen.exceptions.errors import DocumentationError, PathValidationError
 from docgen.templates.html import get_template_manager
 
 SAFE_HTML = (
@@ -262,3 +262,51 @@ def test_renderer_bug_is_not_disguised(tmp_path):
 
     with pytest.raises(ValueError, match=r"^Unknown template: x$"):
         renderer.render(MINIMAL_DOCUMENTATION, {}, str(tmp_path))
+
+
+# A checkout can hold output/ entries that link to files elsewhere; writing the
+# site through them would overwrite those files
+
+
+def test_page_is_not_written_through_a_link_out_of_the_output_directory(tmp_path):
+    output = tmp_path / "output"
+    output.mkdir()
+    elsewhere = tmp_path / "notes.txt"
+    elsewhere.write_text("keep me\n")
+    (output / "index.html").symlink_to(elsewhere)
+
+    with pytest.raises(PathValidationError, match=r"index\.html"):
+        DocumentationRenderer(get_template_manager()).render(
+            MINIMAL_DOCUMENTATION, {}, str(output)
+        )
+
+    assert elsewhere.read_text() == "keep me\n"
+
+
+def test_output_directory_that_is_a_link_is_refused(tmp_path):
+    target = tmp_path / "target"
+    target.mkdir()
+    output = tmp_path / "output"
+    output.symlink_to(target)
+
+    with pytest.raises(PathValidationError, match="link"):
+        DocumentationRenderer(get_template_manager()).setup_output_directories(
+            str(output)
+        )
+
+    assert list(target.iterdir()) == []
+
+
+def test_output_subdirectory_linked_elsewhere_is_refused(tmp_path):
+    output = tmp_path / "output"
+    output.mkdir()
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (output / "sections").symlink_to(elsewhere)
+
+    with pytest.raises(PathValidationError, match="sections"):
+        DocumentationRenderer(get_template_manager()).setup_output_directories(
+            str(output)
+        )
+
+    assert list(elsewhere.iterdir()) == []
