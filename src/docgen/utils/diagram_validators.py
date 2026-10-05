@@ -73,12 +73,15 @@ class NodeDefinitionRule:
             ):
                 continue
 
-            # Extract node definitions (nodes with labels: node[label])
-            node_defs = re.findall(r"(\w+)\[", line)
+            # Extract node definitions (nodes with labels: node[label]). Each
+            # pattern starts only at the start of a word: a match never begins
+            # inside one, and without (?<!\w) a long name with no match is
+            # rescanned from every character, in quadratic time
+            node_defs = re.findall(r"(?<!\w)(\w+)\[", line)
             defined_nodes.update(node_defs)
 
             # Extract node references in edges (node1 --> node2)
-            edge_matches = re.findall(r"(\w+)\s*(?:-->|\.\.>|==>)\s*(\w+)", line)
+            edge_matches = re.findall(r"(?<!\w)(\w+)\s*(?:-->|\.\.>|==>)\s*(\w+)", line)
             for source, target in edge_matches:
                 referenced_nodes.update([source, target])
 
@@ -240,8 +243,9 @@ class ParticipantReferenceRule:
                 if match:
                     defined_participants.add(match.group(1))
 
-            # Extract participant references in messages
-            message_matches = re.findall(r"(\w+)\s*-[>-]+\s*(\w+)", line)
+            # Extract participant references in messages, starting only at the
+            # start of a word (see NodeDefinitionRule)
+            message_matches = re.findall(r"(?<!\w)(\w+)\s*-[>-]+\s*(\w+)", line)
             for source, target in message_matches:
                 referenced_participants.update([source, target])
 

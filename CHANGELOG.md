@@ -6,6 +6,11 @@ All notable changes to codeatlas are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Diagram validation no longer slows down quadratically on very long names: a 40,000-character
+  function name took seconds, and now takes under a millisecond.
+
 ## [0.1.0] - 2026-10-03
 
 The first release.
