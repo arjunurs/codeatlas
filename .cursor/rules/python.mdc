@@ -5,7 +5,7 @@ alwaysApply: false
 ---
 # Source code
 
-- Python 3.10+. Use built-in generics and `X | None`; ruff's `UP` rules enforce this.
+- Python 3.11+. Use built-in generics and `X | None`; ruff's `UP` rules enforce this.
 - Type hints on every function signature, Google-style docstrings on public functions and
   classes, 88-character lines (`ruff format`).
 - Dataclasses for data models, with validation in `__post_init__`.

@@ -1,7 +1,7 @@
 # codeatlas
 
 [![Test and Lint](https://github.com/arjunurs/codeatlas/actions/workflows/test.yml/badge.svg)](https://github.com/arjunurs/codeatlas/actions/workflows/test.yml)
-![Python 3.10 to 3.13](https://img.shields.io/badge/python-3.10%20to%203.13-blue)
+![Python 3.11 to 3.13](https://img.shields.io/badge/python-3.11%20to%203.13-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 codeatlas maps a Python codebase and generates browsable HTML documentation for it. It parses
@@ -18,7 +18,7 @@ with how it was made and how its claims were fact-checked.
 
 ## Try it without API keys
 
-Diagrams need no API keys and make no LLM calls. With Python 3.10+ and
+Diagrams need no API keys and make no LLM calls. With Python 3.11+ and
 [uv](https://docs.astral.sh/uv/):
 
 ```bash
@@ -188,7 +188,7 @@ uv run pytest
 ```
 
 There are 600+ unit and integration tests, with about 94% coverage counting branches. CI runs
-ruff and ty once and the tests on Python 3.10 to 3.13, and fails if coverage drops below a set
+ruff and ty once and the tests on Python 3.11 to 3.13, and fails if coverage drops below a set
 minimum. It also runs the tests against the oldest dependency versions the project allows.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and code style.
 
