@@ -2,7 +2,7 @@
 
 ## Setup
 
-You need Python 3.10 or newer, [uv](https://docs.astral.sh/uv/), and Git.
+You need Python 3.11 or newer, [uv](https://docs.astral.sh/uv/), and Git.
 
 ```bash
 git clone https://github.com/arjunurs/codeatlas.git
@@ -24,7 +24,7 @@ uv sync --locked
 uv run ruff check src tests                        # lint job, once per push
 uv run ruff format --check src tests
 uv run ty check                                    # type check of src and tests
-uv run pytest tests --cov-fail-under=87            # test job, on Python 3.10 to 3.13
+uv run pytest tests --cov-fail-under=87            # test job, on Python 3.11 to 3.13
 ```
 
 `pytest` prints a coverage report on every run, counting branches. CI fails the tests if total
@@ -41,7 +41,7 @@ UPDATE_GOLDEN=1 uv run pytest tests/integration/test_golden_diagrams.py
 git diff tests/golden
 ```
 
-A third job, `lowest-deps`, runs the tests on Python 3.10 with the oldest version of each
+A third job, `lowest-deps`, runs the tests on Python 3.11 with the oldest version of each
 dependency that `pyproject.toml` allows. If it fails, the change needs a newer version of some
 library: raise that library's floor in `pyproject.toml`. To reproduce it, work in a copy,
 because `uv sync --resolution lowest-direct` rewrites `uv.lock`:
@@ -49,7 +49,7 @@ because `uv sync --resolution lowest-direct` rewrites `uv.lock`:
 ```bash
 mkdir -p /tmp/codeatlas-lowest && git archive HEAD | tar -x -C /tmp/codeatlas-lowest
 cd /tmp/codeatlas-lowest
-export UV_PYTHON=3.10
+export UV_PYTHON=3.11
 uv sync --resolution lowest-direct
 uv run --no-sync pytest tests --no-cov
 ```

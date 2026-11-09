@@ -8,6 +8,8 @@ All notable changes to codeatlas are recorded here. The format follows
 
 ### Security
 
+- Python 3.10 is no longer supported; the minimum is now 3.11. The fixed releases of filelock
+  and virtualenv (13 and 8 advisories) require 3.11, so a 3.10 install could not get them.
 - A file in the analyzed project that links outside it, a `.py` file or a `requirements*.txt`,
   is skipped with a warning instead of read, so a checkout cannot send other files on the
   machine to the model providers.

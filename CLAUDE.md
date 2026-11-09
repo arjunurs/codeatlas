@@ -16,7 +16,7 @@ vector store (RAG). The package is `docgen` (`src/docgen`); the command is `code
 uv sync                                  # install, including dev tools
 uv run pre-commit install                # file checks, ruff, and ty on commit
 
-# The checks CI runs (.github/workflows/test.yml): lint once, tests on 3.10 to 3.13
+# The checks CI runs (.github/workflows/test.yml): lint once, tests on 3.11 to 3.13
 uv sync --locked
 uv run ruff check src tests
 uv run ruff format --check src tests
